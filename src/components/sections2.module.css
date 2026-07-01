@@ -1,0 +1,313 @@
+/* ============================================================
+   CSS pour Reviews, CTA, Blog
+   (Le bloc Pricing historique vivait ici — déplacé dans
+   PricingPage.module.css ; styles morts supprimés.)
+   ============================================================ */
+
+/* ---------- REVIEWS ---------- */
+.reviews {
+  padding: var(--space-md) 0 var(--section-pad-y);
+}
+/* Kicker placé SOUS le titre (cas Reviews) plutôt qu'au-dessus. */
+.kickerUnder {
+  margin-top: var(--space-3xs);
+}
+.revGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  margin-top: 20px;
+}
+.revPeople {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.revPerson {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 18px;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: 0.25s;
+  background: transparent;
+  border: none;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+}
+.revPerson.active {
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+/* Avatar = vraie photo ronde (next/image fill). */
+.revPerson .ava {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+  flex: none;
+}
+.revPerson .ava img {
+  object-fit: cover;
+}
+/* Anneau bleu de sélection sur l'avatar actif. */
+.revPerson.active .ava {
+  box-shadow: 0 0 0 3px var(--color-shield);
+}
+.revPersonInfo {
+  display: flex;
+  flex-direction: column;
+}
+.revPerson h4 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--color-navy);
+  letter-spacing: 0.02em;
+}
+.revPerson small {
+  color: var(--color-body);
+}
+
+/* Bandeau de preuve sociale : mini-avatars chevauchés + note. */
+.proofBar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin: 28px 0 8px;
+}
+.proofAvatars {
+  display: flex;
+}
+.proofAva {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+  margin-left: -14px;
+}
+.proofAva:first-child {
+  margin-left: 0;
+}
+.proofAva img {
+  object-fit: cover;
+}
+.proofText {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.proofText strong {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: var(--color-navy);
+  line-height: 1;
+}
+.proofStars {
+  display: inline-flex;
+  gap: 2px;
+  color: var(--color-primary);
+}
+.proofText small {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+/* Carte citation surélevée. */
+.revQuote {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 40px;
+}
+.qm {
+  color: var(--color-primary);
+  margin-bottom: 14px;
+  opacity: 0.85;
+}
+.revQuote p {
+  font-size: 1.18rem;
+  color: var(--color-navy);
+  line-height: 1.55;
+  min-height: 132px;
+}
+.revQuoteFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-soft);
+}
+.stars {
+  display: flex;
+  gap: 4px;
+  color: var(--color-primary);
+}
+.revAuthor {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--color-navy-soft);
+}
+
+/* ---------- CTA BANNER ---------- */
+.ctaBand {
+  padding: var(--space-sm) 0 var(--section-pad-y);
+}
+.ctaInner {
+  background: linear-gradient(120deg, #cfe2f7, #a9cdee);
+  border-radius: 30px;
+  padding: 56px 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  position: relative;
+  overflow: hidden;
+}
+.ctaInner h2 {
+  font-size: var(--title-cta);
+  font-weight: 700;
+  color: #fff;
+  max-width: 560px;
+  text-shadow: 0 2px 12px rgba(40, 90, 150, 0.18);
+}
+.ctaInner p {
+  color: var(--color-navy-soft);
+  margin-top: 12px;
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+.ctaShield {
+  width: 150px;
+  height: 178px;
+  background: var(--color-primary);
+  clip-path: path("M75 0 L150 32 V116 Q150 150 75 178 Q0 150 0 116 V32 Z");
+  display: grid;
+  place-items: center;
+  color: #fff;
+  flex: none;
+}
+
+/* ---------- BLOG ---------- */
+.blog {
+  padding: var(--space-md) 0 var(--section-pad-y);
+}
+.blogGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+.post {
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  transition: transform 0.55s var(--ease), box-shadow 0.55s var(--ease);
+}
+.post::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    rgba(58, 127, 217, 0.85),
+    rgba(121, 176, 234, 0) 55%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s var(--ease);
+}
+.post:hover::after {
+  opacity: 1;
+}
+.post:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 40px 80px rgba(31, 84, 153, 0.18);
+}
+.pimg {
+  height: 210px;
+}
+.pbody {
+  padding: 24px;
+}
+.date {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--color-primary-bright);
+  font-size: 0.85rem;
+}
+.post h3 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.18rem;
+  margin: 10px 0 16px;
+  line-height: 1.3;
+}
+.more {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--color-primary);
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* placeholder photo réutilisé */
+.photo {
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, #cfe2f7, #a9cdee);
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: #6f9fce;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 1080px) {
+  .blogGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .revGrid {
+    grid-template-columns: 1fr;
+  }
+  .priceList {
+    grid-template-columns: 1fr;
+  }
+  .priceCard {
+    padding: 30px;
+  }
+  .blogGrid {
+    grid-template-columns: 1fr;
+  }
+  .ctaInner {
+    flex-direction: column;
+    text-align: center;
+    padding: 40px 26px;
+  }
+}

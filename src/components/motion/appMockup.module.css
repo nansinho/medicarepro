@@ -1,0 +1,539 @@
+/* Écran d'app factice stylisé (placeholder animé). Tokens globaux. */
+.frame {
+  width: 100%;
+  max-width: 460px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: box-shadow 0.4s var(--ease);
+}
+.frame:hover {
+  box-shadow: 0 36px 80px rgba(31, 84, 153, 0.22);
+}
+/* Pastille « live » dans la barre de fenêtre (pulse en continu). */
+.live {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4caf72;
+  box-shadow: 0 0 0 3px rgba(76, 175, 114, 0.18);
+}
+.bar {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding: 14px 18px;
+  background: var(--color-light);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-shield);
+  opacity: 0.7;
+}
+.dot:first-child {
+  background: #f0a8a8;
+}
+.dot:nth-child(2) {
+  background: #f3d08a;
+}
+.dot:nth-child(3) {
+  background: #9fd5a8;
+}
+.screen {
+  position: relative;
+  padding: 26px 24px 30px;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chip {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-navy);
+  background: var(--color-light);
+  padding: 6px 14px;
+  border-radius: 50px;
+}
+.tag {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.amount {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: var(--color-navy);
+}
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.line {
+  height: 12px;
+  border-radius: 7px;
+  background: var(--color-light-2);
+}
+/* Faux compte-rendu IA (texte court qui s'écrit ligne par ligne). */
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 4px;
+}
+.reportLine {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--color-navy-soft);
+}
+.caret {
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--color-primary);
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.stamp {
+  align-self: flex-end;
+  margin-top: auto;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: #2f8f57;
+  border: 2px solid #2f8f57;
+  border-radius: 10px;
+  padding: 6px 14px;
+}
+.sign {
+  width: 180px;
+  height: 48px;
+  color: var(--color-primary);
+  margin-top: auto;
+}
+.graph {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 130px;
+  margin-top: auto;
+}
+.bar2 {
+  flex: 1;
+  transform-origin: bottom;
+  border-radius: 8px 8px 0 0;
+  background: var(--grad-btn);
+  height: 100%;
+}
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.time {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--color-navy-soft);
+  width: 46px;
+}
+.slotBar {
+  flex: 1;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--color-light);
+  border-left: 4px solid var(--color-primary);
+}
+
+/* ----- Facture : lignes libellé / montant ----- */
+.invList {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 4px 0;
+}
+.invRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.invRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.invRow span {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--color-navy-soft);
+}
+.invRow strong {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: var(--color-navy);
+  white-space: nowrap;
+}
+
+/* ----- Signature : label sous le texte de consentement ----- */
+.signLabel {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  margin: 14px 0 2px;
+}
+
+/* ----- Bilan : champs cliniques (libellé / valeur) ----- */
+.fieldList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0;
+}
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.fieldLabel {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: var(--color-navy-soft);
+}
+.fieldVal {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 3px 12px;
+  border-radius: 50px;
+  white-space: nowrap;
+}
+.fieldOk {
+  color: #2f8f57;
+  background: #eaf6ee;
+}
+.fieldWarn {
+  color: #c0623f;
+  background: #fbe9e0;
+}
+
+/* ----- Agenda : rendez-vous réalistes ----- */
+.appt {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
+.apptPill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: var(--color-light);
+  border-left: 4px solid var(--color-primary);
+}
+.apptPill strong {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--color-navy);
+}
+.apptPill span {
+  font-size: 0.7rem;
+  color: var(--color-navy-soft);
+}
+/* Variantes de couleur pour distinguer les types de RDV. */
+.apptPill1 {
+  background: #eaf6ee;
+  border-left-color: #4caf72;
+}
+.apptPill2 {
+  background: #fbf2e6;
+  border-left-color: #e0a13c;
+}
+
+/* ----- PWA : liste patients + scan ----- */
+.pwaList {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.pwaItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--color-light);
+}
+.pwaAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--grad-btn);
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.92rem;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.pwaInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pwaInfo strong {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--color-navy);
+}
+.pwaInfo span {
+  font-size: 0.7rem;
+  color: var(--color-navy-soft);
+}
+.scanBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px;
+  border-radius: 12px;
+  background: var(--grad-btn);
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.84rem;
+}
+.scanIcon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ----- Espace patient (portal) ----- */
+.apptCard {
+  border-radius: 14px;
+  background: var(--color-light);
+  border: 1px solid var(--color-border-soft);
+  padding: 14px 16px;
+}
+.apptLabel {
+  display: block;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 10px;
+}
+.apptRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.apptDate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: var(--grad-btn);
+  color: #fff;
+  flex: none;
+}
+.apptDate b {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.apptDate small {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+.apptInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.apptInfo strong {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.84rem;
+  color: var(--color-navy);
+}
+.apptInfo span {
+  font-size: 0.72rem;
+  color: var(--color-navy-soft);
+}
+.portalLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.portalItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+}
+.portalEmoji {
+  font-size: 0.95rem;
+  flex: none;
+}
+.portalItemLabel {
+  flex: 1;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.82rem;
+  color: var(--color-navy-soft);
+}
+.portalBadge {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.7rem;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 50px;
+  background: var(--color-primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.vitaleCard {
+  position: relative;
+  height: 96px;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #5fa0e6, #2b6fd6);
+  box-shadow: var(--shadow-sm);
+  margin-top: 4px;
+}
+.vitaleChip {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  width: 38px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f3d08a, #d9b15f);
+}
+.vitaleName {
+  position: absolute;
+  bottom: 16px;
+  left: 22px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.92);
+}
+.score {
+  margin-top: auto;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--color-light);
+  border-radius: 16px;
+  padding: 16px 22px;
+}
+.scoreLabel {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--color-navy-soft);
+}
+.scoreVal {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: var(--color-primary);
+}
+/* Jauge de risque (bilan chutes). */
+.gauge {
+  height: 14px;
+  border-radius: 50px;
+  background: var(--color-light);
+  overflow: hidden;
+  margin-top: auto;
+}
+.gaugeFill {
+  display: block;
+  height: 100%;
+  border-radius: 50px;
+  background: linear-gradient(90deg, #f3d08a, #e08a6a);
+  transform-origin: left;
+}
+.riskRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.riskTag {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: #c0623f;
+  background: #fbe9e0;
+  padding: 5px 14px;
+  border-radius: 50px;
+}
+/* Liste de tests cochés (bilan posturologie). */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.checkDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--grad-btn);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex: none;
+}

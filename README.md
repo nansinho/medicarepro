@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MediCare Pro — Site vitrine + Back office
 
-## Getting Started
+Site vitrine de **MediCare Pro** (logiciel de gestion de cabinet pour podologues) et son **back office
+d'administration** (CMS), construits en **Next.js 16** + **Supabase**.
 
-First, run the development server:
+> Ce dépôt = **site vitrine `medicarepro.fr`** uniquement (+ son admin).
+> Le logiciel SaaS lui-même vit sur `app.medicarepro.fr` (dépôt séparé). Le bouton « Je m'abonne » de la
+> vitrine redirige vers l'app.
+
+## Stack
+
+- **Next.js 16.2.9** (App Router, Turbopack) · **React 19** · **TypeScript**
+- **Tailwind CSS v4** + CSS Modules · **Framer Motion** + **Lenis** (animations / smooth scroll)
+- **Supabase** (Postgres + Auth + Storage) — back office CMS *(en cours d'intégration)*
+- Déploiement : **Coolify** sur **OVHcloud** (hébergement certifié **HDS**)
+
+## Démarrage local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # puis renseigner les variables
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Variables d'environnement
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Voir [`.env.example`](.env.example). Principales :
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_APP_URL` — URL du logiciel SaaS (`https://app.medicarepro.fr`) vers lequel la vitrine
+  redirige l'inscription / la connexion.
+- *(à venir)* `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+| Commande | Rôle |
+|---|---|
+| `npm run dev` | Serveur de développement |
+| `npm run build` | Build de production |
+| `npm run start` | Serveur de production |
+| `npm run lint` | ESLint |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/
+│   ├── (site)/        # Pages vitrine (accueil, tarifs, blog, contact…)
+│   ├── layout.tsx     # Layout racine (fonts, metadata)
+│   ├── robots.ts / sitemap.ts
+│   └── globals.css    # Design system (thème bleu MediCare Pro)
+├── components/        # Composants UI + sections
+├── data/              # Données de contenu (features, bilans)
+└── lib/               # Utilitaires (appLinks…)
+```
 
-## Deploy on Vercel
+## Roadmap
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Le suivi détaillé (phases, back office, i18n, SEO, HDS) est dans [`MIGRATION.md`](MIGRATION.md).

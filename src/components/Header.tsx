@@ -1,0 +1,234 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  ShieldPlus,
+  Search,
+  Burger,
+  Close,
+  Phone,
+  Mail,
+  MapPin,
+  Facebook,
+  LinkedIn,
+  Instagram,
+  Caret,
+} from "./icons";
+import { loginUrl } from "@/lib/appLinks";
+import styles from "./Header.module.css";
+
+type NavChild = { label: string; href: string };
+type NavLink = { label: string; href: string; children?: NavChild[] };
+
+const NAV_LINKS: NavLink[] = [
+  { label: "Accueil", href: "/" },
+  {
+    label: "Fonctionnalités",
+    href: "/fonctionnalites",
+    children: [
+      { label: "Bilans", href: "/bilans" },
+      { label: "Sécurité", href: "/securite" },
+      { label: "Avantages", href: "/avantages" },
+    ],
+  },
+  { label: "Tarifs", href: "/tarifs" },
+  { label: "Blog", href: "/blog" },
+  { label: "À propos", href: "/a-propos" },
+  { label: "Contact", href: "/contact" },
+];
+
+export default function Header() {
+  const [scrolled, setScrolled] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  // Un lien parent est actif si lui-même ou l'un de ses enfants l'est.
+  const isGroupActive = (link: NavLink) =>
+    isActive(link.href) || (link.children?.some((c) => isActive(c.href)) ?? false);
+
+  // Fond blanc au scroll
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 30);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Verrou du scroll + fermeture clavier quand le drawer est ouvert
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? "hidden" : "";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [drawerOpen]);
+
+  return (
+    <>
+      <header className={`${styles.header} ${scrolled ? styles.scrolled : ""}`}>
+        <div className={`wrap ${styles.nav}`}>
+          <Link href="/" className={styles.logo}>
+            <ShieldPlus className={styles.shield} />
+            MediCare&nbsp;Pro
+          </Link>
+          <ul className={styles.menu}>
+            {NAV_LINKS.map((link) =>
+              link.children ? (
+                <li key={link.label} className={styles.hasChildren}>
+                  <Link
+                    href={link.href}
+                    className={isGroupActive(link) ? styles.active : undefined}
+                    aria-current={isActive(link.href) ? "page" : undefined}
+                  >
+                    {link.label}
+                    <Caret className={styles.caret} />
+                  </Link>
+                  <div className={styles.dropdown}>
+                    {link.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={isActive(child.href) ? styles.active : undefined}
+                        aria-current={isActive(child.href) ? "page" : undefined}
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                </li>
+              ) : (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className={isActive(link.href) ? styles.active : undefined}
+                    aria-current={isActive(link.href) ? "page" : undefined}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              )
+            )}
+          </ul>
+          <div className={styles.navRight}>
+            <a href={loginUrl()} className={styles.loginLink}>
+              Connexion
+            </a>
+            <button className={styles.iconBtn} aria-label="Rechercher">
+              <Search width={22} height={22} />
+            </button>
+            <button
+              className={styles.iconBtn}
+              aria-label="Ouvrir le menu"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Burger width={26} height={26} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ---- Panneau latéral (drawer) ---- */}
+      <div
+        className={`${styles.overlay} ${drawerOpen ? styles.open : ""}`}
+        onClick={() => setDrawerOpen(false)}
+      />
+      <aside
+        className={`${styles.drawer} ${drawerOpen ? styles.open : ""}`}
+        aria-hidden={!drawerOpen}
+      >
+        <button
+          className={styles.drawerClose}
+          aria-label="Fermer"
+          onClick={() => setDrawerOpen(false)}
+        >
+          <Close width={20} height={20} />
+        </button>
+        <Link
+          href="/"
+          className={styles.logo}
+          onClick={() => setDrawerOpen(false)}
+        >
+          <ShieldPlus className={styles.shield} />
+          MediCare&nbsp;Pro
+        </Link>
+        <h3 className={styles.drawerTitle}>
+          Votre partenaire pour la
+          <br />
+          santé du cabinet
+        </h3>
+        <nav className={styles.drawerNav}>
+          {NAV_LINKS.map((link) => (
+            <div key={link.label}>
+              <Link
+                href={link.href}
+                onClick={() => setDrawerOpen(false)}
+                className={isActive(link.href) ? styles.active : undefined}
+                aria-current={isActive(link.href) ? "page" : undefined}
+              >
+                {link.label}
+              </Link>
+              {link.children && (
+                <div className={styles.drawerSub}>
+                  {link.children.map((child) => (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      onClick={() => setDrawerOpen(false)}
+                      className={isActive(child.href) ? styles.active : undefined}
+                      aria-current={isActive(child.href) ? "page" : undefined}
+                    >
+                      {child.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+        <div className={styles.drawerContact}>
+          <span>
+            <span className={styles.dc}>
+              <Phone width={16} height={16} />
+            </span>
+            01 23 45 67 89
+          </span>
+          <span>
+            <span className={styles.dc}>
+              <Mail width={16} height={16} />
+            </span>
+            contact@medicarepro.fr
+          </span>
+          <span>
+            <span className={styles.dc}>
+              <MapPin width={16} height={16} />
+            </span>
+            12 rue de la Santé, 75000 Paris
+          </span>
+        </div>
+        <div className={styles.drawerFollow}>
+          <b>Suivez-nous</b>
+          <div className={styles.ds}>
+            <a href="#" aria-label="Facebook">
+              <Facebook width={17} height={17} />
+            </a>
+            <a href="#" aria-label="LinkedIn">
+              <LinkedIn width={17} height={17} />
+            </a>
+            <a href="#" aria-label="Instagram">
+              <Instagram width={17} height={17} />
+            </a>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}

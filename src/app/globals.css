@@ -1,26 +1,361 @@
 @import "tailwindcss";
 
+/* ============================================================
+   DESIGN SYSTEM — MediCare Pro
+   Tokens, base styles, utilitaires & animations
+   ============================================================ */
+
+@theme {
+  --color-bg: #ffffff;
+  --color-navy: #274760;
+  --color-navy-soft: #1d3e5e;
+  --color-body: #5d6b7b;
+  --color-primary: #2b6fd6;
+  --color-primary-bright: #2e86e6;
+  --color-primary-dark: #1e457f;
+  --color-light: #eaf3fc;
+  --color-light-2: #d8e9f8;
+  --color-footer-light: #c8ddf0;
+  --color-footer-dark: #2e6db4;
+  --color-shield: #79b0ea;
+  --color-border-soft: #e6eef7;
+  --color-muted: #9aa8b6;
+  --color-section-medium: #d8e9f8;
+
+  --font-head: var(--font-head), system-ui, -apple-system, sans-serif;
+  --font-body: var(--font-body), system-ui, sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --hero-from: #e9f2fc;
+  --hero-to: #bcd8f3;
+  --shadow: 0 24px 60px rgba(31, 84, 153, 0.1);
+  --shadow-sm: 0 12px 30px rgba(31, 84, 153, 0.08);
+  --grad-btn: linear-gradient(100deg, #3a7fd9, #21487e);
+  --radius: 22px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Largeur de contenu canonique : TOUS les conteneurs de section s'alignent
+     dessus pour une largeur homogène d'une section à l'autre. */
+  --content-max: 1400px;
+
+  /* ---- Échelle d'espacement (rythme vertical unifié) ---- */
+  --space-3xs: 8px;
+  --space-2xs: 14px;
+  --space-xs: 20px;
+  --space-sm: 44px;
+  --space-md: 64px;
+  --space-lg: 96px;
+  --space-xl: 152px;
+  --section-pad-y: var(--space-xl); /* rythme standard */
+  --section-pad-y-sm: var(--space-lg); /* sections denses (savings, faq) */
+  --sec-head-mb: 72px;
+  --lead-mt: 20px;
+  --kicker-mb: 14px;
+
+  /* ---- Échelle de titres (hiérarchie h1 > h2 > bloc) ---- */
+  --title-page: clamp(2.8rem, 5.2vw, 4.4rem); /* h1 — titre de page */
+  --title-section: clamp(2rem, 3.6vw, 3rem); /* h2 — titre de section */
+  --title-cta: clamp(1.7rem, 3vw, 2.4rem); /* accroche bandeau CTA */
+  --title-block: clamp(1.4rem, 2.4vw, 1.9rem); /* titre de bloc/groupe */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 104px;
+}
+/* Lenis pilote le scroll → neutraliser le smooth natif (sinon double-smoothing).
+   En l'absence de Lenis (reduced-motion / mobile), le smooth natif reste actif. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+html.lenis {
+  scroll-behavior: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+  font-weight: 400;
+  color: var(--color-body);
+  background: var(--color-bg);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-head {
+  font-family: var(--font-head);
+  color: var(--color-navy);
+  line-height: 1.15;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+section {
+  position: relative;
+}
+
+/* ---------- LAYOUT UTILITIES ---------- */
+.wrap {
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 44px;
+}
+
+.kicker {
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-primary-bright);
+  font-size: 0.82rem;
+  margin-bottom: var(--kicker-mb);
+}
+
+.sec-title {
+  font-size: var(--title-section);
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: -0.022em;
+  line-height: 1.06;
+}
+/* Un titre de PAGE (h1) est plus grand qu'un titre de section (h2). */
+h1.sec-title {
+  font-size: var(--title-page);
+}
+
+.sec-head {
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto var(--sec-head-mb);
+}
+
+/* Description / sous-titre standard (sous un titre de section).
+   Couleur unifiée navy-soft + espace sous le titre, partout. */
+.lead {
+  font-size: 1.15rem;
+  color: var(--color-navy-soft);
+  margin-top: var(--space-xs);
+}
+
+/* ---------- TONALITÉS DE FOND (alternance blanc ↔ bleu clair) ---------- */
+/* Pilotées par page via une prop `tone` sur les composants réutilisés. */
+.tone-white {
+  background: var(--color-bg);
+}
+.tone-soft {
+  background: var(--color-light);
+}
+.tone-medium {
+  background: var(--color-section-medium);
+}
+
+/* ---------- PAGE HERO (bandeau d'en-tête des pages intérieures) ---------- */
+/* Fond dégradé bleu clair, porte le h1 unique. Dégage le header fixe. */
+.page-hero {
+  position: relative;
+  overflow: hidden;
+  /* Hauteur fixe identique sur toutes les pages → contenu centré verticalement.
+     Le padding haut dégage le header fixe (92px). */
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  padding: 116px 0 56px;
+  background: linear-gradient(125deg, #e9f2fc 0%, #d3e6f8 55%, #c6ddf4 100%);
+}
+/* Halo décoratif discret en haut à droite. */
+.page-hero::before {
+  content: "";
+  position: absolute;
+  top: -180px;
+  right: 6%;
+  width: 540px;
+  height: 540px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.45),
+    rgba(255, 255, 255, 0) 66%
+  );
+  pointer-events: none;
+}
+.page-hero .wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+/* Le hero porte déjà sa marge bas via le padding ; compacter le sec-head.
+   Conteneur élargi pour qu'un titre sur deux lignes respire. */
+.page-hero .sec-head {
+  margin-bottom: 0;
+  max-width: 880px;
+}
+/* Interligne plus aéré pour les titres hero (souvent sur deux lignes). */
+.page-hero .sec-title {
+  line-height: 1.12;
+}
+
+/* Dégage le header fixe pour une page sans hero (fallback). */
+.page-pad {
+  padding-top: 104px;
+}
+
+@media (max-width: 760px) {
+  .page-hero {
+    min-height: 340px;
+    padding: 104px 0 48px;
+  }
+}
+/* Lead du hero : centré et borné en largeur. */
+.page-hero .lead {
+  max-width: 660px;
+  margin: var(--lead-mt) auto 0;
+}
+
+/* ---------- LIENS « EN SAVOIR PLUS » / CROSS-LINKS ---------- */
+.learn-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-top: 22px;
+  transition: gap 0.2s var(--ease);
+}
+.learn-more:hover {
+  gap: 12px;
+}
+
+.cross-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 36px;
+  max-width: 880px;
+  margin: 64px auto 0;
+}
+.cross-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  color: var(--color-navy);
+  transition: color 0.2s var(--ease), gap 0.2s var(--ease);
+}
+.cross-links a:hover {
+  color: var(--color-primary);
+  gap: 12px;
+}
+
+/* ---------- BUTTONS ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: #fff;
+  background: var(--grad-btn);
+  padding: 15px 28px;
+  border-radius: 50px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(33, 72, 126, 0.28);
+  will-change: transform;
+  transition: transform 0.35s var(--ease), box-shadow 0.25s var(--ease);
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(33, 72, 126, 0.36);
+}
+.btn .ar {
+  transition: transform 0.2s;
+}
+.btn:hover .ar {
+  transform: translateX(4px);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--color-navy);
+  box-shadow: none;
+  padding: 0;
+  font-weight: 600;
+}
+
+.ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+/* ---------- SCROLL PROGRESS BAR ---------- */
+#progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  z-index: 300;
+  background: linear-gradient(90deg, #3a7fd9, #2b6fd6 60%, #79b0ea);
+  box-shadow: 0 0 14px rgba(43, 111, 214, 0.55);
+}
+
+/* ---------- REVEAL ON SCROLL ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  [data-rv] {
+    opacity: 0;
+    transform: translateY(46px);
+    transition: opacity 1s var(--ease), transform 1.05s var(--ease);
+    will-change: opacity, transform;
+  }
+  [data-rv].in {
+    opacity: 1;
+    transform: none;
+  }
+  [data-rv="scale"] {
+    transform: translateY(30px) scale(0.93);
+  }
+  [data-rv="left"] {
+    transform: translateX(-56px);
+  }
+  [data-rv="right"] {
+    transform: translateX(56px);
+  }
+}
+
+/* Les keyframes du hero (rise, fadeScale, pop, floaty, drift1/2) sont
+   définis dans Hero.module.css car CSS Modules y réécrit les noms. */
+
+/* ---------- RESPONSIVE WRAP ---------- */
+@media (max-width: 760px) {
+  .wrap {
+    padding: 0 18px;
+  }
 }

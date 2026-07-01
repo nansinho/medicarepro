@@ -1,0 +1,104 @@
+/* ============================================================
+   ONGLETS LATÉRAUX FIXES (SideTabs)
+   Texte vertical, collés aux bords de l'écran, coin extérieur arrondi.
+   Le contour pulse via un halo (box-shadow) qui irradie vers l'extérieur.
+   ============================================================ */
+
+.tab {
+  position: fixed;
+  top: 50%;
+  z-index: 110; /* sous le Header (120), au-dessus du contenu */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: padding 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+
+/* Texte vertical lisible de bas en haut (comme la capture). */
+.label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.ico {
+  flex: none;
+  transition: transform 0.3s var(--ease);
+}
+.tab:hover .ico {
+  transform: scale(1.12);
+}
+
+/* ---- Onglet gauche : « Laissez un avis » (vert) ---- */
+.left {
+  left: 0;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #6cae3d, #5a9233);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  animation: pulseGreen 1.8s ease-in-out infinite;
+}
+.left:hover {
+  padding-right: 16px;
+}
+
+/* ---- Onglet droit : « Je m'abonne » (bleu) ---- */
+.right {
+  right: 0;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #2e86e6, #1e457f);
+  border-radius: var(--radius) 0 0 var(--radius);
+  animation: pulseBlue 1.8s ease-in-out infinite;
+}
+.right:hover {
+  padding-left: 16px;
+}
+
+/* Halo qui irradie : le « contour » pulse vers l'extérieur puis s'estompe. */
+@keyframes pulseGreen {
+  0%,
+  100% {
+    box-shadow: 0 4px 14px rgba(90, 146, 51, 0.4), 0 0 0 0 rgba(108, 174, 61, 0.6);
+  }
+  50% {
+    box-shadow: 0 4px 14px rgba(90, 146, 51, 0.4), 0 0 0 12px rgba(108, 174, 61, 0);
+  }
+}
+@keyframes pulseBlue {
+  0%,
+  100% {
+    box-shadow: 0 4px 14px rgba(30, 69, 127, 0.4), 0 0 0 0 rgba(46, 134, 230, 0.6);
+  }
+  50% {
+    box-shadow: 0 4px 14px rgba(30, 69, 127, 0.4), 0 0 0 12px rgba(46, 134, 230, 0);
+  }
+}
+
+/* Accessibilité : pas d'animation si l'utilisateur préfère le mouvement réduit. */
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    animation: none;
+  }
+}
+
+/* ---- Responsive : plus compact sur mobile ---- */
+@media (max-width: 760px) {
+  .tab {
+    padding: 14px 8px;
+    font-size: 0.64rem;
+    letter-spacing: 0.14em;
+    gap: 6px;
+  }
+  .ico {
+    width: 15px;
+    height: 15px;
+  }
+}

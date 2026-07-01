@@ -1,0 +1,386 @@
+/* Styles propres à la page Sécurité.
+   Réutilise au maximum featureShowcase.module.css (showcase, .dark, statBand,
+   portalCard, ctaPanel) ; ici on ne définit QUE ce qui lui est spécifique :
+   hero immersif, cadre photo des sections, badges de confiance, bande OVH. */
+
+/* =================== HERO SÉCURITÉ =================== */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 152px 0 96px;
+  background: linear-gradient(125deg, #e9f2fc 0%, #d3e6f8 55%, #c6ddf4 100%);
+}
+/* Photo serveurs en filigrane (sous le dégradé clair, texte navy lisible). */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/images/securite/podologue-medicarepro-servers-hero.jpg");
+  background-size: cover;
+  background-position: center 35%;
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Halo lumineux décoratif. */
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -200px;
+  right: -4%;
+  width: 620px;
+  height: 620px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0) 66%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.heroInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.heroText {
+  max-width: 1180px;
+}
+.heroTitle {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: var(--title-page);
+  color: var(--color-navy);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+  text-wrap: balance;
+}
+.heroAccent {
+  color: var(--color-primary);
+}
+.heroLead {
+  font-size: 1.2rem;
+  color: var(--color-navy-soft);
+  margin-top: var(--space-xs);
+  line-height: 1.6;
+  max-width: 860px;
+  margin-left: auto;
+  margin-right: auto;
+  text-wrap: balance;
+}
+
+/* =================== PASTILLE OVH ROTATIVE =================== */
+/* Wrapper flottant, coin haut-droite du hero. Marge suffisante du bord pour
+   ne pas être rogné par overflow:hidden. Flotte verticalement (floaty). */
+.ovhBadge {
+  position: absolute;
+  top: 110px;
+  right: 3.5%;
+  width: 104px;
+  height: 104px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+}
+/* Halo bleu pulsé derrière le disque. */
+.ovhHalo {
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(121, 176, 234, 0.5),
+    rgba(121, 176, 234, 0) 68%
+  );
+  pointer-events: none;
+}
+/* Disque bleu dégradé, contient l'anneau + le logo (texte/logo blancs). */
+.ovhDisc {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--grad-btn);
+  box-shadow: 0 16px 34px rgba(33, 72, 126, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: grid;
+  place-items: center;
+}
+/* SVG de l'anneau de texte : occupe tout le disque, tourne en continu. */
+.ovhRing {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+}
+.ovhRingText {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 8.6px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  fill: #fff;
+}
+/* « OVHCLOUD » en gras dans l'anneau. */
+.ovhRingStrong {
+  font-weight: 800;
+}
+/* Logo OVH centré, statique (ne tourne pas), blanc. */
+.ovhCenter {
+  position: relative;
+  width: 36px;
+  height: auto;
+  color: #fff;
+}
+
+/* Animations infinies : seulement si l'utilisateur ne réduit pas le mouvement.
+   Le badge reste fixe (pas de flottement vertical) : seuls l'anneau de texte
+   tourne et le halo pulse. */
+@media (prefers-reduced-motion: no-preference) {
+  .ovhRing {
+    animation: ovhSpin 20s linear infinite;
+  }
+  .ovhHalo {
+    animation: ovhHaloPulse 4.5s ease-in-out infinite;
+  }
+}
+@keyframes ovhSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ovhHaloPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+/* Rangée de mini-badges de confiance sous le lead. */
+.trustRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 34px;
+}
+.trustBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-primary-dark);
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 10px 18px;
+  border-radius: 50px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+.trustBadge svg {
+  color: var(--color-primary);
+  flex: none;
+}
+
+/* =================== CADRE PHOTO (sections showcase) =================== */
+/* La colonne visuelle d'une section sécurité : une vraie photo encadrée
+   (au lieu du mockup d'app de la page Fonctionnalités). */
+.photoFrame {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--color-border-soft);
+}
+.photoFrame img {
+  object-fit: cover;
+}
+/* Léger voile dégradé en bas pour ancrer la photo. */
+.photoFrame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 55%,
+    rgba(20, 50, 95, 0.18) 100%
+  );
+  pointer-events: none;
+}
+/* Sur une section foncée, bord plus lumineux. */
+.photoFrameDark {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 30px 70px rgba(8, 24, 48, 0.45);
+}
+
+/* Alignement des colonnes VERS LE CENTRE de la grille pour éviter le grand vide
+   au milieu (texte 520px + photo 560px < 1400px de conteneur).
+   - Section normale : texte (gauche) collé à droite, photo (droite) collée à gauche.
+   - Section inversée : photo (gauche) collée à droite, texte (droite) collé à gauche.
+   Le vide se reporte sur les bords extérieurs → colonnes rapprochées. */
+
+/* Bloc TEXTE — section normale (à gauche) : poussé vers la droite (centre). */
+.secText {
+  margin-left: auto;
+}
+/* Bloc TEXTE — section inversée (à droite) : collé à gauche (centre). */
+.secTextReverse {
+  margin-right: auto;
+}
+/* Colonne PHOTO — section normale (à droite) : photo collée à gauche (centre). */
+.secVisual {
+  justify-content: flex-start;
+}
+/* Colonne PHOTO — section inversée (à gauche) : photo collée à droite (centre). */
+.secVisualReverse {
+  justify-content: flex-end;
+}
+
+/* =================== BANDE HÉBERGEUR OVH =================== */
+.host {
+  padding: var(--section-pad-y-sm) 0;
+}
+/* Même grille que les sections showcase (1fr 1fr, 1400px, gap 64) pour que
+   le contenu s'aligne verticalement d'une section à l'autre. */
+.hostInner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+/* Bloc logo : MÊME gabarit que les photos des sections (560px, ratio 3/2),
+   collé à droite de sa cellule (vers le centre) → symétrie parfaite. */
+.hostLogoCard {
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 3 / 2;
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 40px;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.hostLogo {
+  color: var(--color-primary-dark);
+  width: 168px;
+  height: auto;
+}
+.hostLogoCaption {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+/* Bloc texte de droite : même largeur que .text des showcases, collé à gauche
+   de sa cellule (vers le centre) comme les sections inversées → vide reporté
+   sur le bord extérieur, colonnes rapprochées. */
+.hostBody {
+  max-width: 520px;
+  margin-right: auto;
+}
+.hostKicker {
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-primary-bright);
+  font-size: 0.82rem;
+  margin-bottom: 14px;
+}
+.hostTitle {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: var(--title-section);
+  color: var(--color-navy);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+.hostText {
+  font-size: 1.12rem;
+  color: var(--color-navy-soft);
+  margin-top: var(--space-xs);
+  line-height: 1.6;
+}
+.hostPoints {
+  list-style: none;
+  display: grid;
+  gap: 13px;
+  margin-top: 28px;
+}
+.hostPoints li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--color-navy-soft);
+  font-size: 1rem;
+}
+.hostTick {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-light);
+  color: var(--color-primary);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+/* =================== RESPONSIVE =================== */
+/* Le titre du hero s'élargit jusqu'à 1180px : sous 1200px, le badge entrerait
+   en collision avec le texte centré → on le masque. */
+@media (max-width: 1200px) {
+  .ovhBadge {
+    display: none;
+  }
+}
+@media (max-width: 980px) {
+  .hero {
+    padding: 128px 0 72px;
+  }
+  .heroText {
+    max-width: none;
+  }
+  .photoFrame {
+    max-width: none;
+  }
+  .hostInner {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .hostBody {
+    max-width: none;
+  }
+  .hostLogoCard {
+    padding: 44px 28px;
+  }
+}
