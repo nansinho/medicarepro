@@ -16,7 +16,7 @@ const ICONS = { Server, Globe, Lock, Shield } as const;
 
 export type SecuritySection = {
   /** Clé de l'icône (résolue dans ICONS). */
-  icon: keyof typeof ICONS;
+  icon: string;
   kicker: string;
   title: string;
   text: string;
@@ -45,7 +45,7 @@ export default function SecurityShowcase({
   tone = "white",
   reverse = false,
 }: SecuritySection) {
-  const Icon = ICONS[icon];
+  const Icon = ICONS[icon as keyof typeof ICONS];
 
   const toneCls =
     tone === "soft"

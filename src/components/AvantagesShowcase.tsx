@@ -39,7 +39,7 @@ const ICONS = {
 
 export type AvantageSection = {
   /** Clé de l'icône (résolue dans ICONS). */
-  icon: keyof typeof ICONS;
+  icon: string;
   kicker: string;
   title: string;
   text: string;
@@ -71,7 +71,7 @@ export default function AvantagesShowcase({
   tone = "white",
   reverse = false,
 }: AvantageSection) {
-  const Icon = ICONS[icon];
+  const Icon = ICONS[icon as keyof typeof ICONS];
 
   const toneCls =
     tone === "soft"
@@ -129,7 +129,7 @@ export default function AvantagesShowcase({
             >
               <Image
                 src={image ?? ""}
-                alt={alt ?? ""}
+                alt={alt ?? `${title} — MediCare Pro`}
                 fill
                 sizes="(max-width: 980px) 100vw, 560px"
               />

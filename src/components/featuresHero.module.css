@@ -5,7 +5,11 @@
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 152px 0 96px;
+  /* Taille unique site-wide (partagée avec .page-hero). */
+  min-height: var(--hero-min-h);
+  display: flex;
+  align-items: center;
+  padding: var(--hero-pad);
   background: linear-gradient(125deg, #e9f2fc 0%, #d3e6f8 55%, #c6ddf4 100%);
 }
 /* Couche image en filigrane (sous le dégradé via opacité faible). */
@@ -112,7 +116,8 @@
     max-width: none;
   }
   .hero {
-    padding: 128px 0 72px;
+    min-height: var(--hero-min-h-m);
+    padding: var(--hero-pad-m);
   }
   .breakLg {
     display: none;

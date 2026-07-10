@@ -1,0 +1,228 @@
+/* ============================================================
+   Défilement cinématique « sticky » des fonctionnalités (home).
+   La section est haute (N × 100vh) ; un conteneur interne sticky
+   reste centré à l'écran pendant que la feature active change.
+   Tokens globaux (--color-*, --font-*, --ease…).
+   ============================================================ */
+
+.section {
+  position: relative;
+  /* Couleur de repli : le fond réel est piloté au scroll (JS/motion) sur le
+     conteneur .sticky, une teinte vive par feature. */
+  background: #2b6fd6;
+}
+/* Conteneur figé : occupe la hauteur du viewport, contenu centré.
+   backgroundColor est animé inline (motion) ; repli statique ici. */
+.sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: #2b6fd6;
+}
+.inner {
+  width: 100%;
+}
+.head {
+  text-align: center;
+  margin-bottom: clamp(28px, 4vh, 56px);
+}
+.kicker {
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.82rem;
+  margin-bottom: 14px;
+}
+.title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: var(--title-section);
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+/* Scène 2 colonnes : texte / mockup. */
+.stage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+  /* Largeur canonique : alignée sur les autres sections. */
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+/* La colonne texte garde une hauteur stable pendant les transitions
+   (le contenu absolu se superpose sans faire « sauter » la mise en page). */
+.textCol {
+  position: relative;
+  min-height: 360px;
+}
+.textInner {
+  max-width: 540px;
+}
+.iconRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex: none;
+  backdrop-filter: blur(4px);
+}
+.featKicker {
+  font-family: var(--font-head);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.82rem;
+}
+.featTitle {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(1.7rem, 2.6vw, 2.4rem);
+  color: #fff;
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+}
+.featText {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.88);
+  margin-top: var(--space-xs);
+  line-height: 1.6;
+}
+.points {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin-top: 26px;
+}
+.points li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+}
+.tick {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+/* Pastilles de progression. */
+.dots {
+  display: flex;
+  gap: 10px;
+  margin-top: 34px;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  transition: transform 0.4s var(--ease), background 0.4s var(--ease);
+}
+.dotOn {
+  background: #fff;
+  transform: scale(1.35);
+}
+
+/* Colonne visuelle : le mockup, empilé en absolu pour le cross-fade. */
+.visualCol {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 420px;
+}
+.visual {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Barre de progression du scroll (bas de section). */
+.rail {
+  position: relative;
+  width: min(560px, 60%);
+  height: 3px;
+  margin: clamp(28px, 4vh, 52px) auto 0;
+  border-radius: 50px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+.railFill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  border-radius: 50px;
+  background: #fff;
+}
+
+/* ---------- Repli mobile / reduced-motion : pile simple ---------- */
+.fallback {
+  padding: var(--section-pad-y) 0;
+}
+.fallbackList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.fallbackCard {
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 22px;
+  padding: 32px 28px;
+  box-shadow: var(--shadow-sm);
+}
+.fallbackCard .featTitle {
+  font-size: 1.3rem;
+  margin-bottom: 6px;
+}
+.fallbackCard .featText {
+  font-size: 1rem;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 980px) {
+  .stage {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .textCol {
+    min-height: 0;
+  }
+  .visualCol {
+    min-height: 320px;
+  }
+  .fallbackList {
+    grid-template-columns: 1fr;
+  }
+}

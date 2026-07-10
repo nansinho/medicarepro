@@ -98,7 +98,9 @@
 .heroInner {
   position: relative;
   z-index: 3;
-  max-width: 1920px;
+  /* Contenu aligné sur la largeur canonique des sections : 1400px de
+     contenu + les 44px de padding de chaque côté (pattern .wrap + grille). */
+  max-width: calc(var(--content-max) + 88px);
   margin: 0 auto;
   padding: 132px 44px 0;
   min-height: 92vh;
@@ -214,19 +216,10 @@
   border-radius: 0;
   background: transparent;
 }
-/* Femme en arrière-plan : décalée à gauche, plus petite, estompée (profondeur) */
-.photoBack {
-  z-index: 1;
-  transform: translateX(-26%) scale(0.86);
-  transform-origin: bottom center;
-  opacity: 0.92;
-  filter: saturate(0.92) brightness(1.04);
-  -webkit-mask: linear-gradient(180deg, #000 80%, transparent 99%);
-  mask: linear-gradient(180deg, #000 80%, transparent 99%);
-}
-/* Homme au premier plan : à droite, devant */
-.photoFront {
-  z-index: 2;
+/* Duo de praticiens : ancré en bas à droite, déborde avec le bleed */
+.duoImg {
+  object-fit: contain;
+  object-position: bottom right;
 }
 
 /* Cartes flottantes */
@@ -384,39 +377,15 @@
   box-shadow: 0 8px 16px rgba(43, 111, 214, 0.4);
 }
 
-.shieldBadge {
-  position: absolute;
-  right: 1.5%;
-  top: 36%;
-  width: 132px;
-  height: 156px;
-  background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.55),
-    rgba(207, 226, 247, 0.32)
-  );
-  backdrop-filter: blur(6px);
-  clip-path: path("M66 0 L132 28 V102 Q132 130 66 156 Q0 130 0 102 V28 Z");
-  display: grid;
-  place-items: center;
-  text-align: center;
-  box-shadow: var(--shadow);
+/* Placement du badge OVH sur le hero d'accueil (surcharge la position par
+   défaut définie dans security.module.css). Scopé sous .hero pour gagner en
+   spécificité, indépendamment de l'ordre des modules dans le bundle. */
+/* Badge OVH à droite, sur la zone photo (ne chevauche aucun texte). */
+.hero .ovhBadge {
+  top: 30%;
+  right: 2.5%;
+  left: auto;
   z-index: 4;
-  opacity: 0;
-  animation: pop 1s var(--ease) 1.15s forwards,
-    floaty 7.5s ease-in-out 2.8s infinite;
-}
-.shieldBadge b {
-  font-family: var(--font-head);
-  font-weight: 700;
-  color: var(--color-navy);
-  font-size: 1.6rem;
-  line-height: 1;
-}
-.shieldBadge small {
-  color: var(--color-navy-soft);
-  font-size: 0.74rem;
-  font-weight: 600;
 }
 
 /* Intro animée du texte */
@@ -547,7 +516,10 @@
   .photoBleed .photo {
     height: 100%;
   }
-  .shieldBadge {
+  .duoImg {
+    object-position: bottom center;
+  }
+  .hero .ovhBadge {
     display: none;
   }
   .heroText {

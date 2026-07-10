@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Figtree, Poppins } from "next/font/google";
+import { JSONLD_ORG, JSONLD_SOFTWARE } from "@/data/content/site";
 import "./globals.css";
 
 const figtree = Figtree({
@@ -44,6 +45,14 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+/* Données structurées schema.org : aident Google à comprendre que MediCare Pro
+   est un logiciel SaaS destiné aux podologues (rich results, panneau de marque).
+   Payloads centralisés dans le contenu du site (JSON-LD piloté par la DB plus tard). */
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [JSONLD_ORG, JSONLD_SOFTWARE],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -51,7 +60,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className={`${figtree.variable} ${poppins.variable}`}>
-      <body>{children}</body>
+      <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

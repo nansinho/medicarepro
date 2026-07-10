@@ -17,7 +17,9 @@
   grid-template-columns: 1fr 1fr;
   gap: 60px;
   align-items: center;
-  margin-top: 20px;
+  /* Largeur canonique : alignée sur les autres sections. */
+  max-width: var(--content-max);
+  margin: 20px auto 0;
 }
 .revPeople {
   display: flex;
@@ -25,10 +27,11 @@
   gap: 18px;
 }
 .revPerson {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 12px 18px;
+  padding: 12px 18px 16px;
   border-radius: 18px;
   cursor: pointer;
   transition: 0.25s;
@@ -37,6 +40,40 @@
   text-align: left;
   width: 100%;
   font-family: inherit;
+}
+
+/* Barre de progression du défilement automatique (sous le témoin actif).
+   La fin de son animation déclenche l'avis suivant (onAnimationEnd) ;
+   le survol de la grille la met en pause → lecture sans interruption. */
+.revProgress {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 7px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--color-light-2);
+  overflow: hidden;
+}
+.revProgressFill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--grad-btn);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: revFill 5.5s linear forwards;
+}
+.revGrid:hover .revProgressFill {
+  animation-play-state: paused;
+}
+@keyframes revFill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 .revPerson.active {
   background: #fff;
@@ -56,9 +93,25 @@
 .revPerson .ava img {
   object-fit: cover;
 }
-/* Anneau bleu de sélection sur l'avatar actif. */
+/* Anneau bleu de sélection sur l'avatar actif (pulsé en continu). */
 .revPerson.active .ava {
   box-shadow: 0 0 0 3px var(--color-shield);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .revPerson.active .ava {
+    animation: avaPulse 2.6s ease-in-out infinite;
+  }
+}
+@keyframes avaPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--color-shield),
+      0 0 0 3px rgba(121, 176, 234, 0.45);
+  }
+  55% {
+    box-shadow: 0 0 0 3px var(--color-shield),
+      0 0 0 12px rgba(121, 176, 234, 0);
+  }
 }
 .revPersonInfo {
   display: flex;
@@ -173,6 +226,9 @@
 .ctaInner {
   background: linear-gradient(120deg, #cfe2f7, #a9cdee);
   border-radius: 30px;
+  /* Largeur canonique : alignée sur les autres sections. */
+  max-width: var(--content-max);
+  margin: 0 auto;
   padding: 56px 60px;
   display: flex;
   align-items: center;
@@ -213,6 +269,9 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 28px;
+  /* Largeur canonique : alignée sur les autres sections. */
+  max-width: var(--content-max);
+  margin: 0 auto;
 }
 .post {
   background: #fff;

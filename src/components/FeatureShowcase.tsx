@@ -21,7 +21,7 @@ import {
   Check,
   ArrowRight,
 } from "@/components/icons";
-import type { FeatureDetail } from "@/data/features";
+import type { MockupKind } from "@/components/motion/AppMockup";
 import s from "./featureShowcase.module.css";
 
 const ICONS = {
@@ -37,6 +37,20 @@ const ICONS = {
   Monitor,
 } as const;
 
+/** Fonctionnalité affichée (forme de la collection feature_items du CMS). */
+export type ShowcaseFeature = {
+  /** Clé de l'icône (résolue dans ICONS). */
+  icon: string;
+  kicker: string;
+  title: string;
+  text: string;
+  points: string[];
+  mockup: MockupKind;
+  /** Lien optionnel « En savoir plus ». */
+  href?: string;
+  hrefLabel?: string;
+};
+
 /**
  * Section détaillée d'une fonctionnalité : texte (gauche/droite) + écran
  * factice animé. Apparitions au scroll, parallax sur le mockup.
@@ -47,13 +61,13 @@ export default function FeatureShowcase({
   tone = "white",
   bgImage,
 }: {
-  feature: FeatureDetail;
+  feature: ShowcaseFeature;
   reverse?: boolean;
   tone?: "white" | "soft" | "medium" | "dark";
   /** Image de fond (sections "dark" uniquement). Chemin sous /public. */
   bgImage?: string;
 }) {
-  const Icon = ICONS[feature.icon];
+  const Icon = ICONS[feature.icon as keyof typeof ICONS];
   const toneCls =
     tone === "soft"
       ? "tone-soft"

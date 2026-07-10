@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ShieldPlus,
+  ShieldCheck,
   MapPin,
   Phone,
   Mail,
@@ -10,24 +11,37 @@ import {
   XSocial,
   Instagram,
 } from "./icons";
+import type { MenuItem } from "@/data/content/site";
 import s from "./sections3.module.css";
 
-const PRODUCT_LINKS = [
-  { label: "Fonctionnalités", href: "/fonctionnalites" },
-  { label: "Bilans", href: "/bilans" },
-  { label: "Sécurité", href: "/securite" },
-  { label: "Avantages", href: "/avantages" },
-  { label: "Tarifs", href: "/tarifs" },
-  { label: "Contact", href: "/contact" },
-];
+/* Icônes des réseaux sociaux et badges (clés string des réglages CMS).
+   Le X est légèrement plus petit (équilibre optique). */
+const SOCIAL_ICONS = { Facebook, LinkedIn, XSocial, Instagram } as const;
+const BADGE_ICONS = { ShieldCheck } as const;
 
-const OTHER_LINKS = [
-  { label: "À propos", href: "/a-propos" },
-  { label: "Blog", href: "/blog" },
-  { label: "FAQ", href: "/tarifs" },
-  { label: "Confidentialité", href: "#" },
-  { label: "CGU", href: "#" },
-];
+/** Réglages consommés par le footer (sous-ensemble de site_settings). */
+type FooterSettings = {
+  tagline: string;
+  productHeading: string;
+  resourcesHeading: string;
+  newsletter: {
+    heading: string;
+    text: string;
+    placeholder: string;
+    inputLabel: string;
+    buttonLabel: string;
+  };
+  badges: { icon: string | null; label: string }[];
+  copyright: string;
+  followLabel: string;
+};
+type ContactSettings = {
+  phone: string;
+  phoneHref: string;
+  email: string;
+  address: string;
+};
+type SocialLink = { label: string; icon: string; href: string };
 
 /** Lien interne (route) → <Link> ; placeholder ("#") → <a>. */
 function FootLink({ href, label }: { href: string; label: string }) {
@@ -37,91 +51,129 @@ function FootLink({ href, label }: { href: string; label: string }) {
   return <a href={href}>{label}</a>;
 }
 
-export default function Footer() {
+export default function Footer({
+  product,
+  resources,
+  footer,
+  contact,
+  socials,
+}: {
+  product: MenuItem[];
+  resources: MenuItem[];
+  footer: FooterSettings;
+  contact: ContactSettings;
+  socials: SocialLink[];
+}) {
   return (
     <footer className={s.footer}>
-      <div className={s.footWave} />
-      <div className={s.footMain}>
-        <div className="wrap">
-          <div className={s.footShield}>
-            <div style={{ textAlign: "center" }}>
-              <ShieldPlus width={30} height={30} />
-              <div className={s.fsName}>MediCare Pro</div>
+      {/* Halos bleus dérivants (décor) */}
+      <div className={`${s.footHalo} ${s.footHaloA}`} aria-hidden="true" />
+      <div className={`${s.footHalo} ${s.footHaloB}`} aria-hidden="true" />
+
+      <div className="wrap">
+        <div className={s.footTop}>
+          {/* Marque + contact */}
+          <div className={s.footBrand} data-rv-footcol>
+            <Link href="/" className={s.footLogo}>
+              <span className={s.footLogoMark}>
+                <ShieldPlus width={24} height={24} />
+              </span>
+              MediCare&nbsp;Pro
+            </Link>
+            <p className={s.footTagline}>{footer.tagline}</p>
+            <div className={s.footContact}>
+              <span>
+                <span className={s.fc}>
+                  <MapPin width={16} height={16} />
+                </span>
+                {contact.address}
+              </span>
+              <a href={contact.phoneHref}>
+                <span className={s.fc}>
+                  <Phone width={16} height={16} />
+                </span>
+                {contact.phone}
+              </a>
+              <a href={`mailto:${contact.email}`}>
+                <span className={s.fc}>
+                  <Mail width={16} height={16} />
+                </span>
+                {contact.email}
+              </a>
             </div>
           </div>
-          <div className={s.footCols}>
-            <div data-rv-footcol>
-              <h4>MediCare Pro</h4>
-              <p>Logiciel de gestion de cabinet pour podologues.</p>
-              <div className={s.footContact}>
-                <span>
-                  <span className={s.fc}>
-                    <MapPin width={16} height={16} />
-                  </span>
-                  12 rue de la Santé, 75000 Paris
-                </span>
-                <span>
-                  <span className={s.fc}>
-                    <Phone width={16} height={16} />
-                  </span>
-                  01 23 45 67 89
-                </span>
-                <span>
-                  <span className={s.fc}>
-                    <Mail width={16} height={16} />
-                  </span>
-                  contact@medicarepro.fr
-                </span>
-              </div>
+
+          <div data-rv-footcol>
+            <h4>{footer.productHeading}</h4>
+            <div className={s.footLinks}>
+              {product.map((l) => (
+                <FootLink key={l.label} href={l.href} label={l.label} />
+              ))}
             </div>
-            <div data-rv-footcol>
-              <h4>Produit</h4>
-              <div className={s.footLinks}>
-                {PRODUCT_LINKS.map((l) => (
-                  <FootLink key={l.label} href={l.href} label={l.label} />
-                ))}
-              </div>
+          </div>
+
+          <div data-rv-footcol>
+            <h4>{footer.resourcesHeading}</h4>
+            <div className={s.footLinks}>
+              {resources.map((l) => (
+                <FootLink key={l.label} href={l.href} label={l.label} />
+              ))}
             </div>
-            <div data-rv-footcol>
-              <h4>Liens</h4>
-              <div className={s.footLinks}>
-                {OTHER_LINKS.map((l) => (
-                  <FootLink key={l.label} href={l.href} label={l.label} />
-                ))}
-              </div>
+          </div>
+
+          {/* Newsletter + badges de confiance */}
+          <div className={s.news} data-rv-footcol>
+            <h4>{footer.newsletter.heading}</h4>
+            <p>{footer.newsletter.text}</p>
+            {/* TODO(backend) : brancher l'inscription newsletter (Supabase). */}
+            <div className={s.nbox}>
+              <input
+                type="email"
+                placeholder={footer.newsletter.placeholder}
+                aria-label={footer.newsletter.inputLabel}
+              />
+              <button className={`btn ${s.nbtn}`} type="button">
+                {footer.newsletter.buttonLabel} <ArrowRight className="ico ar" />
+              </button>
             </div>
-            <div className={s.news} data-rv-footcol>
-              <h4>Restez informé</h4>
-              <p>Conseils et nouveautés, une fois par mois.</p>
-              <div className={s.nbox}>
-                <input type="email" placeholder="vous@email.com" />
-                <button className="btn" type="button">
-                  Envoyer <ArrowRight className="ico ar" />
-                </button>
-              </div>
+            <div className={s.footBadges}>
+              {footer.badges.map((badge) => {
+                const Icon = badge.icon
+                  ? BADGE_ICONS[badge.icon as keyof typeof BADGE_ICONS]
+                  : null;
+                return (
+                  <span className={s.footBadge} key={badge.label}>
+                    {Icon ? (
+                      <Icon width={14} height={14} />
+                    ) : (
+                      <span className={s.footDot} aria-hidden="true" />
+                    )}
+                    {badge.label}
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
+
       <div className={s.footBottom}>
         <div className="wrap">
           <div className={s.wrapInner}>
+            <small>{footer.copyright}</small>
             <div className={s.socials}>
-              Suivez-nous
-              <a href="#" aria-label="Facebook">
-                <Facebook width={17} height={17} />
-              </a>
-              <a href="#" aria-label="LinkedIn">
-                <LinkedIn width={17} height={17} />
-              </a>
-              <a href="#" aria-label="X">
-                <XSocial width={16} height={16} />
-              </a>
-              <a href="#" aria-label="Instagram">
-                <Instagram width={17} height={17} />
-              </a>
+              {footer.followLabel}
+              {socials.map((social) => {
+                const Icon =
+                  SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
+                const size = social.icon === "XSocial" ? 16 : 17;
+                return (
+                  <a href={social.href} aria-label={social.label} key={social.label}>
+                    <Icon width={size} height={size} />
+                  </a>
+                );
+              })}
             </div>
-            <small>© 2026 MediCare Pro. Tous droits réservés.</small>
           </div>
         </div>
       </div>

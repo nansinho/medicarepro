@@ -14,32 +14,40 @@ import {
   Facebook,
   LinkedIn,
   Instagram,
+  XSocial,
   Caret,
 } from "./icons";
 import { loginUrl } from "@/lib/appLinks";
+import { lines } from "@/components/cms/inline";
 import styles from "./Header.module.css";
 
 type NavChild = { label: string; href: string };
 type NavLink = { label: string; href: string; children?: NavChild[] };
 
-const NAV_LINKS: NavLink[] = [
-  { label: "Accueil", href: "/" },
-  {
-    label: "Fonctionnalités",
-    href: "/fonctionnalites",
-    children: [
-      { label: "Bilans", href: "/bilans" },
-      { label: "Sécurité", href: "/securite" },
-      { label: "Avantages", href: "/avantages" },
-    ],
-  },
-  { label: "Tarifs", href: "/tarifs" },
-  { label: "Blog", href: "/blog" },
-  { label: "À propos", href: "/a-propos" },
-  { label: "Contact", href: "/contact" },
-];
+/* Icônes des réseaux sociaux du drawer (clés string des réglages CMS). */
+const SOCIAL_ICONS = { Facebook, LinkedIn, Instagram, XSocial } as const;
 
-export default function Header() {
+/** Réglages consommés par le header (sous-ensemble de site_settings). */
+type HeaderSettings = {
+  logoLabel: string;
+  loginLabel: string;
+  drawer: {
+    title: string;
+    followLabel: string;
+    socials: { label: string; icon: string; href: string }[];
+  };
+};
+type ContactSettings = { phone: string; email: string; address: string };
+
+export default function Header({
+  nav,
+  header,
+  contact,
+}: {
+  nav: NavLink[];
+  header: HeaderSettings;
+  contact: ContactSettings;
+}) {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
@@ -78,10 +86,10 @@ export default function Header() {
         <div className={`wrap ${styles.nav}`}>
           <Link href="/" className={styles.logo}>
             <ShieldPlus className={styles.shield} />
-            MediCare&nbsp;Pro
+            {header.logoLabel}
           </Link>
           <ul className={styles.menu}>
-            {NAV_LINKS.map((link) =>
+            {nav.map((link) =>
               link.children ? (
                 <li key={link.label} className={styles.hasChildren}>
                   <Link
@@ -120,7 +128,7 @@ export default function Header() {
           </ul>
           <div className={styles.navRight}>
             <a href={loginUrl()} className={styles.loginLink}>
-              Connexion
+              {header.loginLabel}
             </a>
             <button className={styles.iconBtn} aria-label="Rechercher">
               <Search width={22} height={22} />
@@ -158,15 +166,11 @@ export default function Header() {
           onClick={() => setDrawerOpen(false)}
         >
           <ShieldPlus className={styles.shield} />
-          MediCare&nbsp;Pro
+          {header.logoLabel}
         </Link>
-        <h3 className={styles.drawerTitle}>
-          Votre partenaire pour la
-          <br />
-          santé du cabinet
-        </h3>
+        <h3 className={styles.drawerTitle}>{lines(header.drawer.title)}</h3>
         <nav className={styles.drawerNav}>
-          {NAV_LINKS.map((link) => (
+          {nav.map((link) => (
             <div key={link.label}>
               <Link
                 href={link.href}
@@ -199,33 +203,32 @@ export default function Header() {
             <span className={styles.dc}>
               <Phone width={16} height={16} />
             </span>
-            01 23 45 67 89
+            {contact.phone}
           </span>
           <span>
             <span className={styles.dc}>
               <Mail width={16} height={16} />
             </span>
-            contact@medicarepro.fr
+            {contact.email}
           </span>
           <span>
             <span className={styles.dc}>
               <MapPin width={16} height={16} />
             </span>
-            12 rue de la Santé, 75000 Paris
+            {contact.address}
           </span>
         </div>
         <div className={styles.drawerFollow}>
-          <b>Suivez-nous</b>
+          <b>{header.drawer.followLabel}</b>
           <div className={styles.ds}>
-            <a href="#" aria-label="Facebook">
-              <Facebook width={17} height={17} />
-            </a>
-            <a href="#" aria-label="LinkedIn">
-              <LinkedIn width={17} height={17} />
-            </a>
-            <a href="#" aria-label="Instagram">
-              <Instagram width={17} height={17} />
-            </a>
+            {header.drawer.socials.map((social) => {
+              const Icon = SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
+              return (
+                <a href={social.href} aria-label={social.label} key={social.label}>
+                  <Icon width={17} height={17} />
+                </a>
+              );
+            })}
           </div>
         </div>
       </aside>

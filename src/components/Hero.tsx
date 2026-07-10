@@ -4,19 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Check, Play, Phone, Headset, MapPin, ArrowRight } from "./icons";
-import { registerUrl } from "@/lib/appLinks";
+import OvhBadge from "@/components/OvhBadge";
+import { resolveHref } from "@/lib/appLinks";
+import { lines } from "@/components/cms/inline";
+import type { SectionContentOf } from "@/lib/cms/sections.schema";
 import styles from "./Hero.module.css";
 
-const AVATARS = [
-  "/images/avatars/av1.jpg",
-  "/images/avatars/av2.jpg",
-  "/images/avatars/av3.jpg",
-  "/images/avatars/av4.jpg",
-  "/images/avatars/av5.jpg",
-  "/images/avatars/av6.jpg",
-  "/images/avatars/av7.jpg",
-  "/images/avatars/av8.jpg",
-];
+/* Icônes de la barre d'infos (clés string du contenu CMS). */
+const ICONS = { Phone, Headset, MapPin } as const;
 
 /** Compteur animé "+1 000" avec ease-out, démarré après l'intro. */
 function useCountUp(target: number, durationMs: number, delayMs: number) {
@@ -51,8 +46,13 @@ function useCountUp(target: number, durationMs: number, delayMs: number) {
   return value;
 }
 
-export default function Hero() {
-  const count = useCountUp(1000, 1700, 1250);
+export default function Hero({
+  content,
+}: {
+  content: SectionContentOf<"home_hero">;
+}) {
+  const avatars = content.proof.avatars;
+  const count = useCountUp(content.proof.count, 1700, 1250);
   const photoRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
 
@@ -84,68 +84,48 @@ export default function Hero() {
   return (
     <>
       <section className={styles.hero}>
-        {/* Photos des praticiens (débordent jusqu'au bord droit) */}
+        {/* Photo du duo de praticiens (déborde jusqu'au bord droit) */}
         <div className={styles.photoBleed} ref={photoRef}>
-          {/* Femme en arrière-plan, décalée à gauche */}
-          <div className={`${styles.photo} ${styles.photoBack}`}>
+          <div className={styles.photo}>
             <Image
-              src="/images/hero-femme.png"
-              alt="Podologue"
+              src={content.photos.duo.path}
+              alt={content.photos.duo.alt}
               fill
-              priority
+              preload
               sizes="(max-width: 880px) 100vw, 50vw"
-              style={{ objectFit: "contain", objectPosition: "bottom left" }}
-            />
-          </div>
-          {/* Homme au premier plan, à droite */}
-          <div className={`${styles.photo} ${styles.photoFront}`}>
-            <Image
-              src="/images/hero-praticien.png"
-              alt="Praticien souriant utilisant MediCare Pro"
-              fill
-              priority
-              sizes="(max-width: 880px) 100vw, 50vw"
-              style={{ objectFit: "contain", objectPosition: "bottom right" }}
+              className={styles.duoImg}
             />
           </div>
         </div>
 
-        {/* Badge HDS flottant */}
-        <div className={styles.shieldBadge}>
-          <div>
-            <b>HDS</b>
-            <br />
-            <small>Hébergé en France</small>
-          </div>
-        </div>
+        {/* Badge OVH flottant (hébergement HDS) */}
+        <OvhBadge className={styles.ovhBadge} />
 
         <div className={styles.heroInner}>
           <div className={styles.heroText} ref={textRef}>
-            <h1>
-              Tout votre cabinet dans
-              <br />
-              une seule application
-            </h1>
-            <p className={styles.lead}>
-              Le logiciel complet de gestion pour podologues,
-              <br />
-              pour vous faire gagner du temps au quotidien.
-            </p>
+            <h1>{lines(content.title)}</h1>
+            <p className={styles.lead}>{lines(content.lead)}</p>
 
             <div className={styles.ctaRow}>
-              <Link href="/contact" className={styles.play}>
+              <Link href={content.demoCta.href} className={styles.play}>
                 <span className={styles.circ}>
                   <Play className={styles.playIcon} width={18} height={18} />
                 </span>
-                Voir la démo
+                {content.demoCta.label}
               </Link>
 
               {/* Prix en texte simple */}
-              <Link href="/tarifs" className={styles.priceText}>
-                <span className={styles.priceLabel}>abonnement</span>
+              <Link href={content.priceCta.href} className={styles.priceText}>
+                <span className={styles.priceLabel}>
+                  {content.priceCta.label}
+                </span>
                 <span className={styles.priceLine}>
-                  <b className={styles.priceAmount}>24,84 €</b>
-                  <span className={styles.pricePer}>/mois · tout inclus</span>
+                  <b className={styles.priceAmount}>
+                    {content.priceCta.amount}
+                  </b>
+                  <span className={styles.pricePer}>
+                    {content.priceCta.note}
+                  </span>
                 </span>
               </Link>
             </div>
@@ -155,11 +135,11 @@ export default function Hero() {
               <div className={styles.avatarsWindow}>
                 <div className={styles.avatarsTrack}>
                   {/* liste dupliquée pour une boucle sans couture */}
-                  {[...AVATARS, ...AVATARS].map((src, i) => (
+                  {[...avatars, ...avatars].map((avatar, i) => (
                     <span key={i} className={styles.avatar}>
                       <Image
-                        src={src}
-                        alt={`Podologue équipé ${(i % AVATARS.length) + 1}`}
+                        src={avatar.path}
+                        alt={avatar.alt}
                         width={44}
                         height={44}
                       />
@@ -168,8 +148,11 @@ export default function Hero() {
                 </div>
               </div>
               <div className={styles.proofText}>
-                <b>+{count.toLocaleString("fr-FR")}</b>
-                <small>podologues équipés</small>
+                <b>
+                  {content.proof.prefix}
+                  {count.toLocaleString("fr-FR")}
+                </b>
+                <small>{content.proof.label}</small>
               </div>
               <div className={styles.proofCheck}>
                 <Check width={15} height={15} />
@@ -182,35 +165,22 @@ export default function Hero() {
       {/* Barre d'infos flottante, à cheval sur le hero et la section suivante */}
       <div className="wrap">
         <div className={styles.infoBar}>
-          <div className={styles.infoItem}>
-            <div className={styles.infoCirc}>
-              <Phone className="ico" />
-            </div>
-            <div>
-              <h4>Téléphone</h4>
-              <span>01 23 45 67 89</span>
-            </div>
-          </div>
-          <div className={styles.infoItem}>
-            <div className={styles.infoCirc}>
-              <Headset className="ico" />
-            </div>
-            <div>
-              <h4>Support</h4>
-              <span>7j/7 par chat</span>
-            </div>
-          </div>
-          <div className={styles.infoItem}>
-            <div className={styles.infoCirc}>
-              <MapPin className="ico" />
-            </div>
-            <div>
-              <h4>Hébergement</h4>
-              <span>HDS · France</span>
-            </div>
-          </div>
-          <a href={registerUrl("annual")} className="btn">
-            Je m&apos;abonne <ArrowRight className="ico ar" />
+          {content.infoBar.items.map((item) => {
+            const Icon = ICONS[item.icon as keyof typeof ICONS];
+            return (
+              <div className={styles.infoItem} key={item.title}>
+                <div className={styles.infoCirc}>
+                  <Icon className="ico" />
+                </div>
+                <div>
+                  <h4>{item.title}</h4>
+                  <span>{item.value}</span>
+                </div>
+              </div>
+            );
+          })}
+          <a href={resolveHref(content.infoBar.cta.href)} className="btn">
+            {content.infoBar.cta.label} <ArrowRight className="ico ar" />
           </a>
         </div>
       </div>

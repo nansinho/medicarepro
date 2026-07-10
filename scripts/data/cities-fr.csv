@@ -1,0 +1,103 @@
+slug,name,name_locative,dept_code,dept_name,region,population,lat,lng,wave
+paris,Paris,à Paris,75,Paris,Île-de-France,2133000,48.8566,2.3522,1
+marseille,Marseille,à Marseille,13,Bouches-du-Rhône,Provence-Alpes-Côte d'Azur,873000,43.2965,5.3698,1
+lyon,Lyon,à Lyon,69,Rhône,Auvergne-Rhône-Alpes,522000,45.7640,4.8357,1
+toulouse,Toulouse,à Toulouse,31,Haute-Garonne,Occitanie,504000,43.6047,1.4442,1
+nice,Nice,à Nice,06,Alpes-Maritimes,Provence-Alpes-Côte d'Azur,342000,43.7102,7.2620,1
+nantes,Nantes,à Nantes,44,Loire-Atlantique,Pays de la Loire,323000,47.2184,-1.5536,1
+montpellier,Montpellier,à Montpellier,34,Hérault,Occitanie,302000,43.6108,3.8767,1
+strasbourg,Strasbourg,à Strasbourg,67,Bas-Rhin,Grand Est,291000,48.5734,7.7521,1
+bordeaux,Bordeaux,à Bordeaux,33,Gironde,Nouvelle-Aquitaine,261000,44.8378,-0.5792,1
+lille,Lille,à Lille,59,Nord,Hauts-de-France,236000,50.6292,3.0573,1
+rennes,Rennes,à Rennes,35,Ille-et-Vilaine,Bretagne,222000,48.1173,-1.6778,1
+reims,Reims,à Reims,51,Marne,Grand Est,181000,49.2583,4.0317,1
+toulon,Toulon,à Toulon,83,Var,Provence-Alpes-Côte d'Azur,180000,43.1242,5.9280,1
+saint-etienne,Saint-Étienne,à Saint-Étienne,42,Loire,Auvergne-Rhône-Alpes,172000,45.4397,4.3872,1
+le-havre,Le Havre,au Havre,76,Seine-Maritime,Normandie,165000,49.4944,0.1079,1
+grenoble,Grenoble,à Grenoble,38,Isère,Auvergne-Rhône-Alpes,158000,45.1885,5.7245,1
+dijon,Dijon,à Dijon,21,Côte-d'Or,Bourgogne-Franche-Comté,159000,47.3220,5.0415,1
+angers,Angers,à Angers,49,Maine-et-Loire,Pays de la Loire,155000,47.4784,-0.5632,1
+nimes,Nîmes,à Nîmes,30,Gard,Occitanie,149000,43.8367,4.3601,1
+aix-en-provence,Aix-en-Provence,à Aix-en-Provence,13,Bouches-du-Rhône,Provence-Alpes-Côte d'Azur,147000,43.5297,5.4474,1
+tours,Tours,à Tours,37,Indre-et-Loire,Centre-Val de Loire,137000,47.3941,0.6848,1
+clermont-ferrand,Clermont-Ferrand,à Clermont-Ferrand,63,Puy-de-Dôme,Auvergne-Rhône-Alpes,147000,45.7772,3.0870,1
+orleans,Orléans,à Orléans,45,Loiret,Centre-Val de Loire,116000,47.9029,1.9093,1
+metz,Metz,à Metz,57,Moselle,Grand Est,118000,49.1193,6.1757,1
+nancy,Nancy,à Nancy,54,Meurthe-et-Moselle,Grand Est,105000,48.6921,6.1844,1
+rouen,Rouen,à Rouen,76,Seine-Maritime,Normandie,114000,49.4432,1.0993,1
+caen,Caen,à Caen,14,Calvados,Normandie,106000,49.1829,-0.3707,1
+perpignan,Perpignan,à Perpignan,66,Pyrénées-Orientales,Occitanie,121000,42.6887,2.8948,1
+brest,Brest,à Brest,29,Finistère,Bretagne,140000,48.3904,-4.4861,1
+limoges,Limoges,à Limoges,87,Haute-Vienne,Nouvelle-Aquitaine,130000,45.8336,1.2611,1
+villeurbanne,Villeurbanne,à Villeurbanne,69,Rhône,Auvergne-Rhône-Alpes,156000,45.7719,4.8902,2
+le-mans,Le Mans,au Mans,72,Sarthe,Pays de la Loire,145000,48.0061,0.1996,2
+amiens,Amiens,à Amiens,80,Somme,Hauts-de-France,134000,49.8942,2.2957,2
+annecy,Annecy,à Annecy,74,Haute-Savoie,Auvergne-Rhône-Alpes,131000,45.8992,6.1294,2
+boulogne-billancourt,Boulogne-Billancourt,à Boulogne-Billancourt,92,Hauts-de-Seine,Île-de-France,121000,48.8397,2.2399,2
+besancon,Besançon,à Besançon,25,Doubs,Bourgogne-Franche-Comté,118000,47.2378,6.0241,2
+saint-denis,Saint-Denis,à Saint-Denis,93,Seine-Saint-Denis,Île-de-France,113000,48.9362,2.3574,2
+montreuil,Montreuil,à Montreuil,93,Seine-Saint-Denis,Île-de-France,111000,48.8638,2.4485,2
+argenteuil,Argenteuil,à Argenteuil,95,Val-d'Oise,Île-de-France,110000,48.9472,2.2467,2
+mulhouse,Mulhouse,à Mulhouse,68,Haut-Rhin,Grand Est,109000,47.7508,7.3359,2
+tourcoing,Tourcoing,à Tourcoing,59,Nord,Hauts-de-France,99000,50.7239,3.1612,2
+roubaix,Roubaix,à Roubaix,59,Nord,Hauts-de-France,98000,50.6942,3.1746,2
+nanterre,Nanterre,à Nanterre,92,Hauts-de-Seine,Île-de-France,96000,48.8924,2.2071,2
+vitry-sur-seine,Vitry-sur-Seine,à Vitry-sur-Seine,94,Val-de-Marne,Île-de-France,95000,48.7873,2.3928,2
+creteil,Créteil,à Créteil,94,Val-de-Marne,Île-de-France,92000,48.7904,2.4556,2
+avignon,Avignon,à Avignon,84,Vaucluse,Provence-Alpes-Côte d'Azur,91000,43.9493,4.8055,2
+poitiers,Poitiers,à Poitiers,86,Vienne,Nouvelle-Aquitaine,90000,46.5802,0.3404,2
+asnieres-sur-seine,Asnières-sur-Seine,à Asnières-sur-Seine,92,Hauts-de-Seine,Île-de-France,88000,48.9105,2.2890,2
+colombes,Colombes,à Colombes,92,Hauts-de-Seine,Île-de-France,88000,48.9227,2.2547,2
+dunkerque,Dunkerque,à Dunkerque,59,Nord,Hauts-de-France,87000,51.0343,2.3768,2
+aulnay-sous-bois,Aulnay-sous-Bois,à Aulnay-sous-Bois,93,Seine-Saint-Denis,Île-de-France,86000,48.9386,2.4948,2
+versailles,Versailles,à Versailles,78,Yvelines,Île-de-France,84000,48.8014,2.1301,2
+courbevoie,Courbevoie,à Courbevoie,92,Hauts-de-Seine,Île-de-France,82000,48.8977,2.2566,2
+beziers,Béziers,à Béziers,34,Hérault,Occitanie,80000,43.3442,3.2158,2
+la-rochelle,La Rochelle,à La Rochelle,17,Charente-Maritime,Nouvelle-Aquitaine,78000,46.1603,-1.1511,2
+rueil-malmaison,Rueil-Malmaison,à Rueil-Malmaison,92,Hauts-de-Seine,Île-de-France,78000,48.8846,2.1806,2
+pau,Pau,à Pau,64,Pyrénées-Atlantiques,Nouvelle-Aquitaine,77000,43.2951,-0.3708,2
+saint-maur-des-fosses,Saint-Maur-des-Fossés,à Saint-Maur-des-Fossés,94,Val-de-Marne,Île-de-France,75000,48.7994,2.4863,2
+cannes,Cannes,à Cannes,06,Alpes-Maritimes,Provence-Alpes-Côte d'Azur,74000,43.5528,7.0174,2
+antibes,Antibes,à Antibes,06,Alpes-Maritimes,Provence-Alpes-Côte d'Azur,73000,43.5808,7.1251,2
+calais,Calais,à Calais,62,Pas-de-Calais,Hauts-de-France,72000,50.9513,1.8587,3
+ajaccio,Ajaccio,à Ajaccio,2A,Corse-du-Sud,Corse,72000,41.9192,8.7386,3
+merignac,Mérignac,à Mérignac,33,Gironde,Nouvelle-Aquitaine,72000,44.8442,-0.6560,3
+saint-nazaire,Saint-Nazaire,à Saint-Nazaire,44,Loire-Atlantique,Pays de la Loire,72000,47.2735,-2.2137,3
+colmar,Colmar,à Colmar,68,Haut-Rhin,Grand Est,68000,48.0790,7.3585,3
+issy-les-moulineaux,Issy-les-Moulineaux,à Issy-les-Moulineaux,92,Hauts-de-Seine,Île-de-France,68000,48.8247,2.2699,3
+cergy,Cergy,à Cergy,95,Val-d'Oise,Île-de-France,67000,49.0364,2.0761,3
+venissieux,Vénissieux,à Vénissieux,69,Rhône,Auvergne-Rhône-Alpes,67000,45.6978,4.8867,3
+levallois-perret,Levallois-Perret,à Levallois-Perret,92,Hauts-de-Seine,Île-de-France,66000,48.8930,2.2873,3
+pessac,Pessac,à Pessac,33,Gironde,Nouvelle-Aquitaine,66000,44.8107,-0.6414,3
+ivry-sur-seine,Ivry-sur-Seine,à Ivry-sur-Seine,94,Val-de-Marne,Île-de-France,64000,48.8130,2.3835,3
+bourges,Bourges,à Bourges,18,Cher,Centre-Val de Loire,64000,47.0810,2.3988,3
+la-seyne-sur-mer,La Seyne-sur-Mer,à La Seyne-sur-Mer,83,Var,Provence-Alpes-Côte d'Azur,64000,43.1006,5.8785,3
+valence,Valence,à Valence,26,Drôme,Auvergne-Rhône-Alpes,64000,44.9334,4.8924,3
+quimper,Quimper,à Quimper,29,Finistère,Bretagne,63000,47.9960,-4.1024,3
+clichy,Clichy,à Clichy,92,Hauts-de-Seine,Île-de-France,63000,48.9044,2.3062,3
+montauban,Montauban,à Montauban,82,Tarn-et-Garonne,Occitanie,62000,44.0221,1.3529,3
+troyes,Troyes,à Troyes,10,Aube,Grand Est,61000,48.2973,4.0744,3
+niort,Niort,à Niort,79,Deux-Sèvres,Nouvelle-Aquitaine,60000,46.3237,-0.4588,3
+chambery,Chambéry,à Chambéry,73,Savoie,Auvergne-Rhône-Alpes,60000,45.5646,5.9178,3
+villejuif,Villejuif,à Villejuif,94,Val-de-Marne,Île-de-France,59000,48.7920,2.3596,3
+lorient,Lorient,à Lorient,56,Morbihan,Bretagne,58000,47.7482,-3.3702,3
+hyeres,Hyères,à Hyères,83,Var,Provence-Alpes-Côte d'Azur,57000,43.1206,6.1286,3
+frejus,Fréjus,à Fréjus,83,Var,Provence-Alpes-Côte d'Azur,57000,43.4330,6.7370,3
+narbonne,Narbonne,à Narbonne,11,Aude,Occitanie,56000,43.1843,3.0043,3
+beauvais,Beauvais,à Beauvais,60,Oise,Hauts-de-France,56000,49.4295,2.0807,3
+la-roche-sur-yon,La Roche-sur-Yon,à La Roche-sur-Yon,85,Vendée,Pays de la Loire,55000,46.6705,-1.4269,3
+cholet,Cholet,à Cholet,49,Maine-et-Loire,Pays de la Loire,54000,47.0587,-0.8781,3
+vannes,Vannes,à Vannes,56,Morbihan,Bretagne,54000,47.6582,-2.7608,3
+saint-quentin,Saint-Quentin,à Saint-Quentin,02,Aisne,Hauts-de-France,53000,49.8486,3.2876,3
+bayonne,Bayonne,à Bayonne,64,Pyrénées-Atlantiques,Nouvelle-Aquitaine,52000,43.4933,-1.4750,3
+laval,Laval,à Laval,53,Mayenne,Pays de la Loire,50000,48.0698,-0.7729,3
+albi,Albi,à Albi,81,Tarn,Occitanie,49000,43.9289,2.1464,3
+evreux,Évreux,à Évreux,27,Eure,Normandie,47000,49.0270,1.1508,3
+charleville-mezieres,Charleville-Mézières,à Charleville-Mézières,08,Ardennes,Grand Est,46000,49.7719,4.7161,3
+belfort,Belfort,à Belfort,90,Territoire de Belfort,Bourgogne-Franche-Comté,46000,47.6380,6.8629,3
+blois,Blois,à Blois,41,Loir-et-Cher,Centre-Val de Loire,46000,47.5861,1.3359,3
+brive-la-gaillarde,Brive-la-Gaillarde,à Brive-la-Gaillarde,19,Corrèze,Nouvelle-Aquitaine,46000,45.1583,1.5321,3
+chateauroux,Châteauroux,à Châteauroux,36,Indre,Centre-Val de Loire,43000,46.8103,1.6911,3
+tarbes,Tarbes,à Tarbes,65,Hautes-Pyrénées,Occitanie,42000,43.2328,0.0716,3
+angouleme,Angoulême,à Angoulême,16,Charente,Nouvelle-Aquitaine,42000,45.6484,0.1562,3
+chartres,Chartres,à Chartres,28,Eure-et-Loir,Centre-Val de Loire,39000,48.4439,1.4893,3

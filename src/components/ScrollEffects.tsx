@@ -69,24 +69,14 @@ export default function ScrollEffects() {
 
     reveal(".sec-head", "", 0);
     reveal("[data-rv-value]", "scale", 110);
-    reveal("[data-rv-feat]", "", 95);
-    reveal("[data-rv-cert]", "right", 90);
-    reveal("[data-rv-bilans]", "left", 0);
-    reveal("[data-rv-chip]", "scale", 60);
     reveal("[data-rv-price]", "scale", 0);
     reveal("[data-rv-savecompare]", "scale", 0);
     reveal("[data-rv-saveresult]", "", 0);
     reveal("[data-rv-savestat]", "scale", 90);
-    reveal("[data-rv-revpeople]", "left", 0);
-    reveal("[data-rv-revquote]", "right", 0);
     reveal("[data-rv-cta]", "scale", 0);
     reveal("[data-rv-post]", "", 120);
-    reveal("[data-rv-demoform]", "left", 0);
-    reveal("[data-rv-demoside]", "right", 0);
     // La FAQ gère son apparition au scroll dans son propre composant (Faq.tsx),
     // sinon les re-renders au clic écraseraient la classe de révélation.
-    reveal("[data-rv-aboutphoto]", "left", 0);
-    reveal("[data-rv-abouttext]", "right", 0);
     reveal("[data-rv-footcol]", "", 85);
     cleanups.push(() => io.disconnect());
 

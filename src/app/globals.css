@@ -38,6 +38,14 @@
      dessus pour une largeur homogène d'une section à l'autre. */
   --content-max: 1400px;
 
+  /* ---- Hero de page intérieure : taille UNIQUE site-wide ----
+     Tous les heros (page-hero générique + heros custom fonctionnalités,
+     bilans, sécurité, avantages) partagent ces mesures. */
+  --hero-min-h: 560px;
+  --hero-pad: 152px 0 64px;
+  --hero-min-h-m: 430px; /* mobile (≤980px) */
+  --hero-pad-m: 124px 0 56px;
+
   /* ---- Échelle d'espacement (rythme vertical unifié) ---- */
   --space-3xs: 8px;
   --space-2xs: 14px;
@@ -175,19 +183,29 @@ h1.sec-title {
 }
 
 /* ---------- PAGE HERO (bandeau d'en-tête des pages intérieures) ---------- */
-/* Fond dégradé bleu clair, porte le h1 unique. Dégage le header fixe. */
+/* Fond dégradé bleu clair, porte le h1 unique. Dégage le header fixe.
+   Taille alignée sur les heros custom via --hero-min-h / --hero-pad. */
 .page-hero {
   position: relative;
   overflow: hidden;
-  /* Hauteur fixe identique sur toutes les pages → contenu centré verticalement.
-     Le padding haut dégage le header fixe (92px). */
-  min-height: 420px;
+  min-height: var(--hero-min-h);
   display: flex;
   align-items: center;
-  padding: 116px 0 56px;
+  padding: var(--hero-pad);
   background: linear-gradient(125deg, #e9f2fc 0%, #d3e6f8 55%, #c6ddf4 100%);
 }
-/* Halo décoratif discret en haut à droite. */
+/* Photo en filigrane sous le dégradé (même recette que les heros custom :
+   opacité faible, texte navy lisible). Posée par PageHero via la prop image. */
+.page-hero-img {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 30%;
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Halo décoratif discret en haut à droite (au-dessus du filigrane). */
 .page-hero::before {
   content: "";
   position: absolute;
@@ -202,6 +220,7 @@ h1.sec-title {
     rgba(255, 255, 255, 0) 66%
   );
   pointer-events: none;
+  z-index: 1;
 }
 .page-hero .wrap {
   position: relative;
@@ -224,10 +243,11 @@ h1.sec-title {
   padding-top: 104px;
 }
 
-@media (max-width: 760px) {
+/* Même point de rupture que les heros custom (980px) → tailles identiques. */
+@media (max-width: 980px) {
   .page-hero {
-    min-height: 340px;
-    padding: 104px 0 48px;
+    min-height: var(--hero-min-h-m);
+    padding: var(--hero-pad-m);
   }
 }
 /* Lead du hero : centré et borné en largeur. */

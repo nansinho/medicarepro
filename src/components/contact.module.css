@@ -1,0 +1,428 @@
+/* ============================================================
+   Page CONTACT — canaux de contact + formulaire premium
+   + bande « Et ensuite ? »
+   ============================================================ */
+
+.contactSec {
+  padding: var(--space-md) 0 var(--section-pad-y);
+}
+.grid {
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 64px;
+  align-items: start;
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+/* ---------- Colonne canaux ---------- */
+.sideTitle {
+  font-size: var(--title-section);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+.sideText {
+  margin-top: var(--space-xs);
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: var(--color-navy-soft);
+  max-width: 500px;
+}
+.chans {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 36px;
+}
+.chan {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 20px;
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.45s var(--ease), box-shadow 0.45s var(--ease),
+    border-color 0.3s;
+}
+.chan:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-shield);
+  box-shadow: var(--shadow);
+}
+.chanIco {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--color-light);
+  color: var(--color-primary);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+/* Icônes vivantes : respiration décalée par carte, figée au survol. */
+@media (prefers-reduced-motion: no-preference) {
+  .chanIco {
+    animation: chanBreathe 5s ease-in-out infinite;
+  }
+  /* Chaque .chan est enveloppé dans un wrapper StaggerItem : le décalage
+     se cible donc sur les enfants directs de .chans. */
+  .chans > *:nth-child(2) .chanIco {
+    animation-delay: 0.6s;
+  }
+  .chans > *:nth-child(3) .chanIco {
+    animation-delay: 1.2s;
+  }
+  .chan:hover .chanIco {
+    animation-play-state: paused;
+  }
+}
+@keyframes chanBreathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.05);
+  }
+}
+.chanBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.chanBody b {
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--color-navy);
+  font-size: 1.05rem;
+}
+.chanBody span {
+  color: var(--color-navy-soft);
+  font-weight: 500;
+}
+.chanBody small {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+/* Carte vedette « démo en visio » : dégradé navy immersif. */
+.chanStar {
+  background-image: linear-gradient(135deg, #16304d 0%, #1e457f 60%, #2b6fd6 170%);
+  border-color: transparent;
+}
+.chanStar::after {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -50px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(121, 176, 234, 0.4), transparent 70%);
+  pointer-events: none;
+}
+.chanStar .chanIco {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--color-shield);
+}
+.chanStar .chanBody b {
+  color: #fff;
+}
+.chanStar .chanBody span {
+  color: rgba(224, 237, 250, 0.88);
+}
+.chanStar .chanBody small {
+  color: rgba(224, 237, 250, 0.6);
+}
+.chanStar:hover {
+  border-color: var(--color-shield);
+}
+
+/* Ligne HDS sous les cartes : point pulsé. */
+.hdsLine {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--color-navy-soft);
+}
+.hdsDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hdsDot {
+    animation: hdsDotPulse 2.4s ease-in-out infinite;
+  }
+}
+@keyframes hdsDotPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(43, 111, 214, 0.4);
+  }
+  60% {
+    box-shadow: 0 0 0 8px rgba(43, 111, 214, 0);
+  }
+}
+
+/* ---------- Formulaire ---------- */
+.formCard {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 26px;
+  padding: 44px;
+  box-shadow: var(--shadow);
+}
+/* Liseré dégradé en tête de carte. */
+.formCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #3a7fd9, #79b0ea, #2b6fd6);
+}
+.formTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  letter-spacing: -0.01em;
+}
+.formSub {
+  color: var(--color-navy-soft);
+  margin: 8px 0 26px;
+  font-size: 0.98rem;
+}
+.field {
+  margin-bottom: 16px;
+}
+.field label {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--color-navy-soft);
+  font-size: 0.92rem;
+  display: block;
+  margin-bottom: 7px;
+}
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--color-border-soft);
+  background: #f7fafd;
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--color-navy);
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.field textarea {
+  resize: vertical;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--color-primary);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(43, 111, 214, 0.12);
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  margin: 6px 0 20px;
+}
+.consent input {
+  margin-top: 4px;
+}
+.sendBtn {
+  width: 100%;
+  justify-content: center;
+}
+.formFoot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  font-size: 0.9rem;
+  color: var(--color-navy-soft);
+}
+.formFoot svg {
+  color: var(--color-primary);
+  flex: none;
+}
+
+/* État envoyé : confirmation à la place du formulaire. */
+.sent {
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+}
+.sentIco {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  background: var(--color-light);
+  color: var(--color-primary);
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sentIco {
+    animation: sentPop 0.6s var(--ease) both;
+  }
+}
+@keyframes sentPop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.sent h3 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-navy);
+}
+.sent p {
+  margin-top: 10px;
+  color: var(--color-navy-soft);
+  max-width: 400px;
+}
+
+/* ---------- Bande « Et ensuite ? » ---------- */
+.stepsSec {
+  padding: var(--space-md) 0 var(--section-pad-y);
+}
+.steps {
+  display: grid;
+  grid-template-columns: 1fr 56px 1fr 56px 1fr;
+  align-items: start;
+  /* Largeur canonique : alignée sur les autres sections. */
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+.step {
+  text-align: center;
+  padding: 0 16px;
+}
+.stepNum {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: var(--grad-btn);
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.35rem;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 22px;
+  box-shadow: 0 14px 30px rgba(33, 72, 126, 0.28);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stepNum {
+    animation: chanBreathe 5s ease-in-out infinite;
+  }
+  .steps > *:nth-child(3) .stepNum {
+    animation-delay: 0.7s;
+  }
+  .steps > *:nth-child(5) .stepNum {
+    animation-delay: 1.4s;
+  }
+}
+.step h3 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--color-navy);
+  margin-bottom: 8px;
+}
+.step p {
+  color: var(--color-navy-soft);
+  font-size: 0.97rem;
+  line-height: 1.6;
+  max-width: 300px;
+  margin: 0 auto;
+}
+/* Pointillé animé entre les étapes (aligné sur le centre des pastilles). */
+.stepLink {
+  height: 2px;
+  margin-top: 32px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-shield) 0 8px,
+    transparent 8px 16px
+  );
+  border-radius: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stepLink {
+    animation: dashMove 1.4s linear infinite;
+  }
+}
+@keyframes dashMove {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: 16px;
+  }
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 1080px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+  .sideText {
+    max-width: none;
+  }
+}
+@media (max-width: 760px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+  .formCard {
+    padding: 30px 24px;
+  }
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .stepLink {
+    display: none;
+  }
+}

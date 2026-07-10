@@ -37,6 +37,10 @@ yarn-error.log*
 # Mockup HTML de référence (fichier de travail, hors code source)
 medicarepro-prohealth_7.html
 
+# Photos sources avant détourage (fichiers de travail, ne jamais servir/committer)
+/public/images/hero-duo-source.*
+/public/images/hero-duo/
+
 # vercel
 .vercel
 

@@ -1,0 +1,144 @@
+/* Page de détail d'un article de blog. Tokens globaux. */
+
+/* En-tête : kicker + h1 + méta, centré sur le dégradé page-hero global. */
+.head {
+  padding: 152px 0 56px;
+  background: linear-gradient(125deg, #e9f2fc 0%, #d3e6f8 55%, #c6ddf4 100%);
+  text-align: center;
+}
+.headInner {
+  max-width: 880px;
+  margin: 0 auto;
+}
+.title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(2.1rem, 4.2vw, 3.4rem);
+  color: var(--color-navy);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+  text-wrap: balance;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+  font-family: var(--font-head);
+  font-weight: 500;
+  font-size: 0.92rem;
+  color: var(--color-navy-soft);
+}
+.metaDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-shield);
+}
+
+/* Image de couverture, chevauchant l'en-tête. */
+.coverWrap {
+  margin-top: -28px;
+  padding-bottom: var(--space-md);
+}
+.cover {
+  position: relative;
+  max-width: 980px;
+  margin: 0 auto;
+  aspect-ratio: 21 / 9;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--color-border-soft);
+}
+.cover img {
+  object-fit: cover;
+}
+
+/* Corps de l'article : largeur de lecture confortable. */
+.body {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-xs) 0 var(--space-lg);
+}
+.body h2 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  color: var(--color-navy);
+  letter-spacing: -0.015em;
+  margin: 40px 0 14px;
+}
+.body p {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: var(--color-navy-soft);
+  margin-bottom: 16px;
+}
+.body ul {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 20px;
+}
+.body ul li {
+  position: relative;
+  padding-left: 30px;
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: var(--color-navy-soft);
+}
+.body ul li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.62em;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.85;
+}
+
+/* Bloc retour + partage en fin d'article. */
+.footNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--color-border-soft);
+}
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-weight: 600;
+  color: var(--color-primary);
+  transition: gap 0.2s var(--ease);
+}
+.backLink:hover {
+  gap: 12px;
+}
+
+/* Autres articles. */
+.relatedSec {
+  padding: var(--section-pad-y-sm) 0;
+}
+
+@media (max-width: 760px) {
+  .head {
+    padding: 128px 0 44px;
+  }
+  .cover {
+    aspect-ratio: 16 / 10;
+  }
+}

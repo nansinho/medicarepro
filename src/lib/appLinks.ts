@@ -15,3 +15,23 @@ export function registerUrl(plan?: "monthly" | "annual"): string {
 export function loginUrl(): string {
   return `${APP_URL}/login`;
 }
+
+/**
+ * Résout les liens spéciaux du contenu CMS (convention `href` du registre
+ * de sections) : "app:register[:plan]" et "app:login" pointent vers l'app
+ * SaaS ; tout autre href (chemin interne, URL absolue, "#") est inchangé.
+ */
+export function resolveHref(href: string): string {
+  switch (href) {
+    case "app:login":
+      return loginUrl();
+    case "app:register":
+      return registerUrl();
+    case "app:register:monthly":
+      return registerUrl("monthly");
+    case "app:register:annual":
+      return registerUrl("annual");
+    default:
+      return href;
+  }
+}
