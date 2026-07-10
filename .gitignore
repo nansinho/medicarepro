@@ -41,6 +41,10 @@ medicarepro-prohealth_7.html
 /public/images/hero-duo-source.*
 /public/images/hero-duo/
 
+# supabase (fichiers temporaires du CLI)
+supabase/.temp/
+supabase/.branches/
+
 # vercel
 .vercel
 
