@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
@@ -6,12 +7,16 @@ import {
   contactEmailHtml,
   contactEmailText,
 } from "@/lib/emails/contact-template";
+import { serviceClient } from "@/lib/supabase/service";
+import { clientIpFrom } from "@/lib/http/client-ip";
 
 /* ============================================================
    POST /api/contact — réception du formulaire de contact.
-   Valide la demande, puis envoie un email à CONTACT_TO
+   Valide la demande, applique un rate-limit par IP (si Supabase
+   est configuré), puis envoie un email à CONTACT_TO
    (contact@medicarepro.fr) depuis SMTP_FROM (noreply@…).
    L'email du visiteur est mis en Reply-To pour répondre en un clic.
+   Après envoi, la demande est tracée en base (best-effort).
    Toujours dynamique (envoi réseau à chaque requête).
    ============================================================ */
 export const dynamic = "force-dynamic";
@@ -61,6 +66,26 @@ export async function POST(request: NextRequest) {
   const { name, email, tel, praticiens, message } = parsed.data;
   const praticiensLabel = PRATICIENS_LABEL[praticiens];
 
+  // Rate-limit par IP : 5 demandes / heure. Si la limite est dépassée, on
+  // répond « OK » factice (même réponse qu'un envoi réussi) — inutile de
+  // guider les spammeurs. Sans Supabase, comportement inchangé.
+  const sb = serviceClient();
+  const ip = clientIpFrom(request.headers);
+  if (sb) {
+    try {
+      const { data: allowed, error } = await sb.rpc("hit_rate_limit", {
+        p_bucket: `contact:${ip}`,
+        p_limit: 5,
+        p_window_seconds: 3600,
+      });
+      if (!error && allowed === false) {
+        return Response.json({ ok: true });
+      }
+    } catch {
+      // RPC indisponible : on ne bloque pas un contact légitime.
+    }
+  }
+
   const submittedAt = new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "full",
     timeStyle: "short",
@@ -83,6 +108,32 @@ export async function POST(request: NextRequest) {
       { error: "L'envoi a échoué. Réessayez ou écrivez-nous directement." },
       { status: 502 },
     );
+  }
+
+  // Trace en base, best-effort : un échec ici ne casse jamais la réponse
+  // (l'email est déjà parti). IP stockée hachée (jamais en clair).
+  if (sb) {
+    try {
+      const { error } = await sb.from("contact_requests").insert({
+        name,
+        email,
+        phone: tel,
+        practitioners: praticiens,
+        message,
+        consent: true,
+        source: "site",
+        ip_hash: createHash("sha256").update(ip).digest("hex"),
+        user_agent: request.headers.get("user-agent") ?? "",
+      });
+      if (error) {
+        console.error(
+          "[contact] insertion contact_requests échouée :",
+          error.message,
+        );
+      }
+    } catch {
+      // Ignoré : la demande a bien été transmise par email.
+    }
   }
 
   return Response.json({ ok: true });

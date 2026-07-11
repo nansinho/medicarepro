@@ -1,0 +1,94 @@
+/* ---------- Champ ImageRef + panneau de sélection ---------- */
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+.label {
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 12px;
+  padding: 10px;
+}
+.thumb {
+  width: 74px;
+  height: 56px;
+  flex: none;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-light);
+  display: grid;
+  place-items: center;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumbEmpty {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+.meta {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.meta input {
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--color-navy);
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 8px;
+  padding: 7px 10px;
+  outline: none;
+}
+.meta input:focus {
+  border-color: var(--color-primary-bright);
+}
+.meta small {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chooseBtn {
+  font-family: var(--font-head);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-light);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.chooseBtn:hover {
+  background: var(--color-light-2);
+}
+
+.pickerPanel {
+  width: min(560px, 100%);
+}
+.pickerTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  margin-bottom: 14px;
+}
+.pickerGrid {
+  margin-top: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}

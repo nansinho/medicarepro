@@ -1,0 +1,180 @@
+/* ---------- Page de connexion du back office ---------- */
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(125deg, #dcebfb 0%, #c6ddf4 52%, #aecdef 100%);
+  position: relative;
+  overflow: hidden;
+}
+/* Halo lumineux, même langage que le hero du site */
+.page::before {
+  content: "";
+  position: absolute;
+  top: -220px;
+  right: 8%;
+  width: 640px;
+  height: 640px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0) 66%
+  );
+}
+
+.card {
+  position: relative;
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 40px 38px 32px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-head);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-primary-bright);
+  background: var(--color-light);
+  padding: 6px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.card h1 {
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  letter-spacing: -0.01em;
+}
+.lead {
+  margin: 6px 0 26px;
+  font-size: 0.94rem;
+  color: var(--color-body);
+}
+
+/* ---------- Formulaire ---------- */
+
+.form {
+  display: grid;
+  gap: 18px;
+}
+.field {
+  display: grid;
+  gap: 7px;
+}
+.field span {
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+.field input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.94rem;
+  color: var(--color-navy);
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 12px;
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.field input::placeholder {
+  color: var(--color-muted);
+}
+.field input:focus {
+  border-color: var(--color-primary-bright);
+  box-shadow: 0 0 0 3px rgba(46, 134, 230, 0.14);
+}
+
+.passwordWrap {
+  position: relative;
+}
+.passwordWrap input {
+  padding-right: 46px;
+}
+.eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  border-radius: 10px;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.eye:hover {
+  color: var(--color-primary);
+  background: var(--color-light);
+}
+
+.error {
+  font-size: 0.88rem;
+  color: #b4232f;
+  background: #fdf1f2;
+  border: 1px solid #f5d4d7;
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.submit {
+  font-family: var(--font-head);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(150deg, #3d88ea, #1e457f);
+  border: none;
+  border-radius: 14px;
+  padding: 13px 18px;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(43, 111, 214, 0.32);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease),
+    opacity 0.2s var(--ease);
+}
+.submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(43, 111, 214, 0.4);
+}
+.submit:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 24px;
+  font-family: var(--font-head);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  transition: gap 0.2s var(--ease);
+}
+.backLink:hover {
+  gap: 10px;
+}

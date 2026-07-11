@@ -1,0 +1,190 @@
+/* ---------- Réglages du site (panneaux dépliables) ---------- */
+
+.stack {
+  display: grid;
+  gap: 12px;
+  max-width: 860px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.panelHead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+.panelHead b {
+  display: block;
+  font-family: var(--font-head);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--color-navy);
+}
+.panelHead small {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-body);
+  margin-top: 2px;
+}
+.caret,
+.caretOpen {
+  flex: none;
+  color: var(--color-muted);
+  transition: transform 0.2s var(--ease);
+}
+.caretOpen {
+  transform: rotate(180deg);
+}
+
+.panelBody {
+  display: grid;
+  gap: 16px;
+  padding: 4px 20px 20px;
+  border-top: 1px solid var(--color-border-soft);
+  padding-top: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+.field > span {
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+.field input,
+.field textarea,
+.field select,
+.arrayRow input,
+.arrayRow select {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-navy);
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+  width: 100%;
+}
+.field input:focus,
+.field textarea:focus,
+.arrayRow input:focus {
+  border-color: var(--color-primary-bright);
+}
+.field small {
+  font-size: 0.74rem;
+  color: var(--color-muted);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-navy);
+  cursor: pointer;
+}
+.toggleRow input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-primary);
+}
+.toggleRow small {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.arrayField {
+  display: grid;
+  gap: 8px;
+}
+.arrayLabel {
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+.arrayRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.rowRemove {
+  flex: none;
+  width: 34px;
+  height: 38px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.rowRemove:hover {
+  color: #b4232f;
+  border-color: #f5d4d7;
+  background: #fdf1f2;
+}
+.rowAdd {
+  justify-self: start;
+  font-family: var(--font-head);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-light);
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.panelFoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-top: 6px;
+}
+.error {
+  flex: 1;
+  font-size: 0.84rem;
+  color: #b4232f;
+  background: #fdf1f2;
+  border: 1px solid #f5d4d7;
+  border-radius: 10px;
+  padding: 9px 12px;
+}
+.saveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(150deg, #3d88ea, #1e457f);
+  border: none;
+  border-radius: 12px;
+  padding: 11px 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(43, 111, 214, 0.28);
+}
+.saveBtn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}

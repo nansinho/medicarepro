@@ -48,6 +48,7 @@ export const MENUS = {
     { label: "FAQ", href: "/tarifs" },
     { label: "Confidentialité", href: "/confidentialite" },
     { label: "CGU", href: "/cgu" },
+    { label: "CGV", href: "/cgv" },
     { label: "Mentions légales", href: "/mentions-legales" },
   ],
 } satisfies Record<string, MenuItem[]>;
@@ -123,6 +124,15 @@ export const SETTINGS = {
   rating: {
     value: "4,9/5",
     label: "note moyenne · podologues abonnés",
+  },
+
+  /** Bandeau promotionnel fixé au-dessus du header (géré depuis le
+   *  back office — désactivé par défaut). */
+  promoBanner: {
+    enabled: false,
+    text: "",
+    href: "",
+    linkLabel: "",
   },
 };
 
@@ -227,6 +237,14 @@ export const SEO_DEFAULTS = {
     description:
       "Conditions générales d'utilisation du site medicarepro.fr : accès au site, propriété intellectuelle, responsabilité et données personnelles.",
     canonical: "/cgu",
+    sitemapPriority: 0.2,
+    sitemapChangefreq: "yearly",
+  },
+  "/cgv": {
+    title: "Conditions générales de vente",
+    description:
+      "Conditions générales de vente de l'abonnement MediCare Pro : tarifs, souscription en ligne, paiement par carte (Monetico), prélèvement SEPA et résiliation.",
+    canonical: "/cgv",
     sitemapPriority: 0.2,
     sitemapChangefreq: "yearly",
   },

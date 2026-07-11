@@ -39,6 +39,48 @@ const EnvSchema = z.object({
   SMTP_FROM: z.string().default("noreply@medicarepro.fr"),
   /* Destinataire des demandes du formulaire de contact. */
   CONTACT_TO: z.string().default("contact@medicarepro.fr"),
+
+  /* --- Billing (tunnel d'inscription payante) ---------------------------
+     Optionnels au boot du site vitrine ; billingEnv() les EXIGE tous —
+     le tunnel /inscription refuse de s'ouvrir tant qu'ils manquent. */
+
+  /* Monetico classique (paiement carte one-shot) */
+  MONETICO_TPE: z.string().min(1).optional(),
+  MONETICO_KEY: z
+    .string()
+    .regex(/^[0-9A-Za-z]{40}$/, "clé Monetico : 40 caractères attendus")
+    .optional(),
+  MONETICO_SOCIETE: z.string().min(1).optional(),
+  MONETICO_MODE: z.enum(["test", "production"]).default("test"),
+
+  /* API de provisioning de l'app (contrat dev B) */
+  PROVISIONING_API_URL: z.url().optional(),
+  PROVISIONING_API_KEY: z.string().min(1).optional(),
+
+  /* Chiffrement des secrets au repos (cf. src/lib/crypto.ts) */
+  ENCRYPTION_KEYS: z.string().min(1).optional(),
+  ENCRYPTION_ACTIVE_KEY_ID: z.string().default("v1"),
+
+  /* SEPA (mandats Core + prélèvements CIC) */
+  SEPA_ICS: z.string().min(1).optional(), // Identifiant Créancier SEPA — à demander au CIC
+  SEPA_PRENOTIFY_DAYS: z.coerce
+    .number()
+    .min(14, "pré-notification SEPA : 14 jours calendaires minimum (légal)")
+    .default(14),
+
+  /* Alertes internes billing (incidents, synchro, remises) */
+  BILLING_ALERTS_TO: z.string().default("contact@medicarepro.fr"),
+
+  /* Cloudflare Turnstile (anti-bot du checkout) */
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
+  TURNSTILE_SECRET_KEY: z.string().optional(),
+
+  /* Nombre de proxys de confiance devant l'app (Traefik/Coolify = 1) */
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
+
+  /* Plans vendables : 'annual' tant que le cycle SEPA (BILLING-2)
+     n'est pas livré — une échéance MONTHLY arrive à J+30. */
+  CHECKOUT_PLANS: z.enum(["annual", "all"]).default("annual"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -90,4 +132,76 @@ export function hasSmtp(): boolean {
   return Boolean(
     process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
   );
+}
+
+/* ============================================================
+   Billing — sous-ensemble STRICT exigé par le tunnel /inscription.
+   On n'encaisse JAMAIS un client à qui on ne peut pas créer de
+   mandat (SEPA_ICS) ni chiffrer les secrets (ENCRYPTION_KEYS) ni
+   provisionner le compte (PROVISIONING_*) — arbitrage A30.
+   ============================================================ */
+
+const BILLING_REQUIRED = [
+  "MONETICO_TPE",
+  "MONETICO_KEY",
+  "MONETICO_SOCIETE",
+  "PROVISIONING_API_URL",
+  "PROVISIONING_API_KEY",
+  "ENCRYPTION_KEYS",
+  "SEPA_ICS",
+  "TURNSTILE_SECRET_KEY",
+] as const;
+
+/** Variables billing manquantes ([] si tout est prêt). */
+export function missingBillingEnv(): string[] {
+  const e = env();
+  return BILLING_REQUIRED.filter(
+    (key) => !e[key as keyof Env],
+  ) as unknown as string[];
+}
+
+/** Le tunnel d'inscription peut-il s'ouvrir ? */
+export function hasBilling(): boolean {
+  return missingBillingEnv().length === 0;
+}
+
+export type BillingEnv = {
+  moneticoTpe: string;
+  moneticoKey: string;
+  moneticoSociete: string;
+  moneticoMode: "test" | "production";
+  provisioningApiUrl: string;
+  provisioningApiKey: string;
+  sepaIcs: string;
+  sepaPrenotifyDays: number;
+  billingAlertsTo: string;
+  turnstileSecretKey: string;
+  checkoutPlans: "annual" | "all";
+};
+
+/**
+ * Env billing STRICTE — jette avec la liste des manquants si incomplète.
+ * À n'appeler que depuis les routes/pages du tunnel et les crons billing.
+ */
+export function billingEnv(): BillingEnv {
+  const missing = missingBillingEnv();
+  if (missing.length > 0) {
+    throw new Error(
+      `Configuration billing incomplète : ${missing.join(", ")} manquant(s).`,
+    );
+  }
+  const e = env();
+  return {
+    moneticoTpe: e.MONETICO_TPE!,
+    moneticoKey: e.MONETICO_KEY!,
+    moneticoSociete: e.MONETICO_SOCIETE!,
+    moneticoMode: e.MONETICO_MODE,
+    provisioningApiUrl: e.PROVISIONING_API_URL!,
+    provisioningApiKey: e.PROVISIONING_API_KEY!,
+    sepaIcs: e.SEPA_ICS!,
+    sepaPrenotifyDays: e.SEPA_PRENOTIFY_DAYS,
+    billingAlertsTo: e.BILLING_ALERTS_TO,
+    turnstileSecretKey: e.TURNSTILE_SECRET_KEY!,
+    checkoutPlans: e.CHECKOUT_PLANS,
+  };
 }

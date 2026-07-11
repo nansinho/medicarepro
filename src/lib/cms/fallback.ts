@@ -9,6 +9,7 @@ import { PAGE_CONTACT } from "@/data/content/contact";
 import { PAGE_A_PROPOS } from "@/data/content/a-propos";
 import {
   PAGE_CGU,
+  PAGE_CGV,
   PAGE_MENTIONS,
   PAGE_CONFIDENTIALITE,
 } from "@/data/content/legal";
@@ -33,6 +34,7 @@ export const FALLBACK_PAGES: Record<string, ManagedPageContent> = Object.fromEnt
     PAGE_CONTACT,
     PAGE_A_PROPOS,
     PAGE_CGU,
+    PAGE_CGV,
     PAGE_MENTIONS,
     PAGE_CONFIDENTIALITE,
   ].map((page) => [page.slug, page as ManagedPageContent]),
