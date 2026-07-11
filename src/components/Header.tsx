@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ShieldPlus,
   Search,
   Burger,
   Close,
@@ -18,6 +17,7 @@ import {
 } from "./icons";
 import { loginUrl } from "@/lib/appLinks";
 import { lines } from "@/components/cms/inline";
+import SearchOverlay, { prefetchSearchIndex } from "./SearchOverlay";
 import styles from "./Header.module.css";
 
 type NavChild = { label: string; href: string };
@@ -49,6 +49,7 @@ export default function Header({
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   // Groupes (accordéon) dépliés dans le drawer, indexés par label.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
@@ -84,13 +85,32 @@ export default function Header({
     };
   }, [drawerOpen]);
 
+  // Raccourci Ctrl+K / Cmd+K : ouvre la recherche
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setDrawerOpen(false);
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <>
       <header className={`${styles.header} ${scrolled ? styles.scrolled : ""}`}>
         <div className={`wrap ${styles.nav}`}>
           <Link href="/" className={styles.logo}>
-            <ShieldPlus className={styles.shield} />
-            {header.logoLabel}
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
+            <img
+              src="/logo.svg?v=3"
+              alt={header.logoLabel}
+              width={164}
+              height={32}
+              className={styles.logoImg}
+            />
           </Link>
           <ul className={styles.menu}>
             {nav.map((link) =>
@@ -134,7 +154,13 @@ export default function Header({
             <a href={loginUrl()} className={styles.loginLink}>
               {header.loginLabel}
             </a>
-            <button className={styles.iconBtn} aria-label="Rechercher">
+            <button
+              className={styles.iconBtn}
+              aria-label="Rechercher"
+              onClick={() => setSearchOpen(true)}
+              onMouseEnter={prefetchSearchIndex}
+              onFocus={prefetchSearchIndex}
+            >
               <Search width={22} height={22} />
             </button>
             <button
@@ -169,8 +195,14 @@ export default function Header({
           className={styles.logo}
           onClick={() => setDrawerOpen(false)}
         >
-          <ShieldPlus className={styles.shield} />
-          {header.logoLabel}
+          {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
+          <img
+            src="/logo.svg?v=3"
+            alt={header.logoLabel}
+            width={164}
+            height={32}
+            className={styles.logoImg}
+          />
         </Link>
         <h3 className={styles.drawerTitle}>{lines(header.drawer.title)}</h3>
         <nav className={styles.drawerNav}>
@@ -275,6 +307,9 @@ export default function Header({
           </div>
         </div>
       </aside>
+
+      {/* ---- Recherche plein site ---- */}
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }

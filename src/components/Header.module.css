@@ -29,10 +29,10 @@
   font-size: 1.32rem;
   color: var(--color-navy);
 }
-.logo .shield {
-  width: 34px;
-  height: 34px;
-  color: var(--color-primary);
+.logoImg {
+  display: block;
+  height: 32px;
+  width: auto;
 }
 
 .menu {
@@ -152,20 +152,19 @@
 
 .loginLink {
   font-family: var(--font-body);
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.95rem;
-  color: var(--color-navy);
-  padding: 9px 18px;
+  color: #fff;
+  padding: 10px 22px;
   border-radius: 999px;
-  border: 1px solid var(--color-border-soft);
-  transition: color 0.2s var(--ease), border-color 0.2s var(--ease),
-    background 0.2s var(--ease);
+  background: var(--grad-btn);
+  box-shadow: 0 8px 20px rgba(33, 72, 126, 0.22);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
   white-space: nowrap;
 }
 .loginLink:hover {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  background: rgba(43, 111, 214, 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(33, 72, 126, 0.32);
 }
 @media (max-width: 880px) {
   .loginLink {
@@ -227,9 +226,6 @@
 .drawerClose:hover {
   transform: rotate(90deg);
   color: var(--color-primary);
-}
-.drawer .logo {
-  font-size: 1.3rem;
 }
 .drawerTitle {
   font-family: var(--font-head);
