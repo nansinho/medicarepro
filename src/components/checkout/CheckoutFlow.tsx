@@ -72,7 +72,7 @@ function stepForErrorKey(key: string): number {
   if (key.startsWith("user.")) return 2;
   if (key.startsWith("sepa.") || key === "mandateAccepted") return 3;
   if (key === "plan" || key === "extraCollaborators") return 0;
-  return 4; // cgvAccepted, turnstileToken, website…
+  return 4; // termsAccepted, turnstileToken, website…
 }
 
 /** JSON d'une réponse d'erreur, sans jeter si le corps n'est pas du JSON. */
@@ -235,7 +235,7 @@ export default function CheckoutFlow({
   const [sepa, setSepa] = useState({ iban: "", bic: "", accountHolder: "" });
   const [ibanTouched, setIbanTouched] = useState(false);
   const [mandateAccepted, setMandateAccepted] = useState(false);
-  const [cgvAccepted, setCgvAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot — reste vide chez un humain
 
   /* ---- État technique ---- */
@@ -427,8 +427,8 @@ export default function CheckoutFlow({
   /* ---- Soumission finale → POST /api/checkout ---- */
   async function submit() {
     const errs: Record<string, string> = {};
-    if (!cgvAccepted) {
-      errs["cgvAccepted"] = "Vous devez accepter les CGV";
+    if (!termsAccepted) {
+      errs["termsAccepted"] = "Vous devez accepter les conditions contractuelles";
     }
     if (!turnstileToken) {
       errs["turnstileToken"] = "Merci de valider la vérification anti-robot";
@@ -444,7 +444,7 @@ export default function CheckoutFlow({
       cabinet,
       user,
       sepa,
-      cgvAccepted,
+      termsAccepted,
       mandateAccepted,
       turnstileToken,
       website,
@@ -1179,28 +1179,55 @@ export default function CheckoutFlow({
                 </div>
               </div>
 
+              {/* Case contractuelle UNIQUE (art. 5 CGV v2.1) : obligatoire,
+                  non pré-cochée, libellé exact du client (cf. TERMS_LABEL
+                  archivé en preuve) rendu avec les liens vers chaque document. */}
               <div className={s.field}>
                 <label className={s.checkRow}>
                   <input
                     type="checkbox"
-                    checked={cgvAccepted}
-                    onChange={(e) => setCgvAccepted(e.target.checked)}
-                    aria-invalid={errors["cgvAccepted"] ? true : undefined}
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    aria-invalid={errors["termsAccepted"] ? true : undefined}
                     aria-describedby={
-                      errors["cgvAccepted"] ? "cgv-err" : undefined
+                      errors["termsAccepted"] ? "terms-err" : undefined
                     }
                   />
                   <span>
                     J&apos;ai lu et j&apos;accepte les{" "}
                     <a href="/cgv" target="_blank" rel="noopener noreferrer">
-                      conditions générales de vente
+                      Conditions Générales de Vente
+                    </a>
+                    , les{" "}
+                    <a href="/cgu" target="_blank" rel="noopener noreferrer">
+                      Conditions Générales d&apos;Utilisation
+                    </a>
+                    , l&apos;
+                    <a href="/dpa" target="_blank" rel="noopener noreferrer">
+                      Accord de Traitement des Données (DPA)
+                    </a>{" "}
+                    et la{" "}
+                    <a href="/tarifs" target="_blank" rel="noopener noreferrer">
+                      grille tarifaire en vigueur
+                    </a>
+                    , et je reconnais avoir pris connaissance de la{" "}
+                    <a
+                      href="/confidentialite"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Politique de Confidentialité
+                    </a>{" "}
+                    et de la{" "}
+                    <a href="/cookies" target="_blank" rel="noopener noreferrer">
+                      Politique de Cookies
                     </a>
                     .
                   </span>
                 </label>
-                {errors["cgvAccepted"] && (
-                  <p className={s.fieldError} id="cgv-err">
-                    <IconAlert /> {errors["cgvAccepted"]}
+                {errors["termsAccepted"] && (
+                  <p className={s.fieldError} id="terms-err">
+                    <IconAlert /> {errors["termsAccepted"]}
                   </p>
                 )}
               </div>

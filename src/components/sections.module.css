@@ -93,3 +93,11 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+/* Très petits écrans : une seule colonne pour les 5 engagements
+   (2 colonnes deviennent illisibles à 320px). */
+@media (max-width: 480px) {
+  .valuesGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}

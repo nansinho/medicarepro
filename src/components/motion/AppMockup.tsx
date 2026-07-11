@@ -486,7 +486,7 @@ function renderBody(kind: MockupKind) {
             viewport={{ once: true }}
             transition={{ duration: 0.4, ease: EASE, delay: 0.5 }}
           >
-            <span className={s.fieldLabel}>Chiffre d&apos;affaires · juin</span>
+            <span className={s.fieldLabel}>CA semelles · juin</span>
             <span className={`${s.fieldVal} ${s.fieldOk}`}>+12 %</span>
           </motion.div>
         </>
@@ -507,8 +507,8 @@ function renderBody(kind: MockupKind) {
           </div>
           <div className={s.pwaList}>
             {[
-              { n: "Camille Besson", d: "Dossier · 12 docs" },
-              { n: "Antoine Rivière", d: "Dossier · 8 docs" },
+              { n: "Camille Besson", d: "Bilan diabétique · 4 docs" },
+              { n: "Antoine Rivière", d: "Suivi semelles · 2 docs" },
               { n: "Sarah Lemoine", d: "Dossier · 5 docs" },
             ].map((p, i) => (
               <motion.div

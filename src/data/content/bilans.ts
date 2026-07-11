@@ -107,7 +107,7 @@ export const PAGE_BILANS = {
                 text: "Pouls, IPS (index de pression systolique), signes d'insuffisance veineuse/artérielle.",
               },
               {
-                icon: "User",
+                icon: "Foot",
                 title: "Examen morphologique du pied",
                 text: "Forme du pied, hallux valgus, orteils en griffe, voûte plantaire.",
               },
@@ -137,7 +137,7 @@ export const PAGE_BILANS = {
                 text: "Romberg, test unipodal, TUG, Fukuda, convergence oculaire, ATM, capteurs posturaux.",
               },
               {
-                icon: "Clock",
+                icon: "Insole",
                 title: "Bilan sport",
                 text: "Profil athlète, analyse biomécanique, proprioception, instabilité cheville, pression plantaire.",
               },

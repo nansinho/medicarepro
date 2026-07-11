@@ -49,6 +49,8 @@ export const MENUS = {
     { label: "Confidentialité", href: "/confidentialite" },
     { label: "CGU", href: "/cgu" },
     { label: "CGV", href: "/cgv" },
+    { label: "DPA", href: "/dpa" },
+    { label: "Cookies", href: "/cookies" },
     { label: "Mentions légales", href: "/mentions-legales" },
   ],
 } satisfies Record<string, MenuItem[]>;
@@ -253,6 +255,22 @@ export const SEO_DEFAULTS = {
     description:
       "Politique de confidentialité de medicarepro.fr : données collectées, finalités, durées de conservation, hébergement HDS et droits RGPD.",
     canonical: "/confidentialite",
+    sitemapPriority: 0.2,
+    sitemapChangefreq: "yearly",
+  },
+  "/dpa": {
+    title: "Accord de Traitement des Données (DPA)",
+    description:
+      "Accord de traitement des données (DPA) de MediCare Pro, annexe 1 des CGV : sous-traitance des données de santé conformément à l'article 28 du RGPD.",
+    canonical: "/dpa",
+    sitemapPriority: 0.2,
+    sitemapChangefreq: "yearly",
+  },
+  "/cookies": {
+    title: "Politique de Cookies",
+    description:
+      "Politique de cookies de MediCare Pro : cookies techniques uniquement, sans traceur publicitaire ni analytique, conformément à la directive ePrivacy et à la CNIL.",
+    canonical: "/cookies",
     sitemapPriority: 0.2,
     sitemapChangefreq: "yearly",
   },

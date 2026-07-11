@@ -1,0 +1,198 @@
+/* ---------- Formulaires de sections (éditeur de pages) ---------- */
+
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+.field > span {
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+.field > span em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+}
+.field input,
+.field textarea,
+.field select,
+.linkRow input {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-navy);
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  padding: 9px 12px;
+  outline: none;
+  width: 100%;
+}
+.field input:focus,
+.field textarea:focus,
+.linkRow input:focus {
+  border-color: var(--color-primary-bright);
+}
+.field small {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-head);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--color-navy);
+  cursor: pointer;
+}
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+
+.groupLabel {
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+.groupLabel small {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.group {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 12px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.group legend {
+  font-family: var(--font-head);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-navy-soft);
+  padding: 0 6px;
+}
+
+.linkRef {
+  display: grid;
+  gap: 6px;
+}
+.linkRow {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8px;
+}
+
+.rich {
+  display: grid;
+  gap: 6px;
+}
+
+/* ---------- Tableaux d'éléments ---------- */
+
+.array {
+  display: grid;
+  gap: 8px;
+}
+.arrayItem {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  background: #fbfdff;
+}
+.arrayItemHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+}
+.arrayToggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--color-navy-soft);
+  background: none;
+  border: none;
+  padding: 6px 6px;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.arrayToggle b {
+  font-family: var(--font-head);
+  color: var(--color-muted);
+}
+.caretOpen {
+  transform: rotate(180deg);
+}
+.arrayItemActions {
+  display: flex;
+  gap: 2px;
+}
+.arrayItemActions button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.arrayItemActions button:hover:not(:disabled) {
+  background: var(--color-light);
+  color: var(--color-primary);
+}
+.arrayItemActions button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.arrayRemove:hover {
+  background: #fdf1f2 !important;
+  color: #b4232f !important;
+}
+.arrayItemBody {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--color-border-soft);
+}
+.arrayAdd {
+  justify-self: start;
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-light);
+  border: none;
+  border-radius: 10px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.jsonInvalid {
+  border-color: #e5484d !important;
+}
+.jsonError {
+  color: #b4232f;
+}

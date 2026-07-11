@@ -65,6 +65,8 @@ export const IconKeySchema = z.enum([
   "TrendingUp",
   "Wallet",
   "Layers",
+  "Foot",
+  "Insole",
 ]);
 export type IconKey = z.infer<typeof IconKeySchema>;
 
@@ -181,10 +183,12 @@ export const HomeHeroSchema = z.object({
     note: z.string(),
     href: z.string(),
   }),
-  /** Carte preuve sociale : compteur animé + avatars défilants. */
+  /** Carte preuve sociale : avatars défilants + compteur animé (`count`)
+   *  ou accroche texte (`headline`) quand aucun chiffre n'est affiché. */
   proof: z.object({
-    count: z.number(),
+    count: z.number().optional(),
     prefix: z.string().optional(),
+    headline: z.string().optional(),
     label: z.string(),
     avatars: z.array(ImageRefSchema),
   }),

@@ -15,8 +15,8 @@ export const PAGE_SECURITE = {
       content: {
         type: "page_hero",
         kicker: "Sécurité & conformité",
-        title: "Vos données de santé, **protégées au plus haut niveau.**",
-        lead: "Hébergement HDS chez OVHcloud en France, chiffrement de bout en bout et conformité RGPD : la confidentialité de vos patients, notre priorité absolue.",
+        title: "Vos dossiers patients et vos bilans, **protégés au plus haut niveau.**",
+        lead: "Bilans podologiques, ordonnances, documents signés : tout ce que contient un dossier patient est hébergé en HDS chez OVHcloud en France, chiffré de bout en bout et conforme RGPD.",
         trust: [
           { icon: "BadgeCheck", label: "Certifié HDS" },
           { icon: "Shield", label: "Conforme RGPD" },
@@ -33,7 +33,7 @@ export const PAGE_SECURITE = {
         icon: "Server",
         kicker: "Infrastructure",
         title: "Hébergement HDS en France",
-        text: "Vos données de santé sont hébergées chez un prestataire certifié Hébergeur de Données de Santé (HDS), exclusivement sur le territoire français. Aucune donnée patient ne quitte la France.",
+        text: "Les dossiers et bilans de vos patients sont hébergés chez un prestataire certifié Hébergeur de Données de Santé (HDS), exclusivement sur le territoire français. Aucune donnée patient ne quitte la France.",
         points: [
           "Certification HDS conforme à l'article L.1111-8 du Code de la santé publique",
           "Datacenters situés sur le sol français",
@@ -57,7 +57,7 @@ export const PAGE_SECURITE = {
         icon: "Globe",
         kicker: "Hébergeur",
         title: "Hébergé chez OVHcloud, datacenters en France",
-        text: "Nous nous appuyons sur OVHcloud, leader européen du cloud et hébergeur certifié HDS. Vos données patients sont stockées dans ses datacenters français, sous souveraineté européenne — à l'abri des législations extra-européennes.",
+        text: "Nous nous appuyons sur OVHcloud, leader européen du cloud et hébergeur certifié HDS. Les données de votre patientèle sont stockées dans ses datacenters français, sous souveraineté européenne — à l'abri des législations extra-européennes.",
         points: [
           "OVHcloud : hébergeur certifié HDS et souveraineté européenne",
           "Datacenters Tier III+ en France, sécurisés 24h/24",
@@ -81,7 +81,7 @@ export const PAGE_SECURITE = {
         icon: "Lock",
         kicker: "Chiffrement",
         title: "Chiffrement de bout en bout",
-        text: "Vos données sont chiffrées en transit et au repos. Les communications passent par des canaux TLS et le stockage est protégé par un chiffrement AES robuste : même en cas d'accès physique, les données restent illisibles.",
+        text: "Du bilan diabétique à la facture, vos données sont chiffrées en transit et au repos. Les communications passent par des canaux TLS et le stockage est protégé par un chiffrement AES robuste : même en cas d'accès physique, les données restent illisibles.",
         points: [
           "Chiffrement AES-256 des données au repos",
           "Connexions chiffrées TLS 1.3 de bout en bout",
@@ -105,7 +105,7 @@ export const PAGE_SECURITE = {
         icon: "Shield",
         kicker: "Conformité",
         title: "Conformité RGPD & droits des patients",
-        text: "Le traitement de vos données respecte le Règlement Général sur la Protection des Données : finalités déclarées, minimisation, consentement et respect intégral des droits des patients. Vous restez maître de vos données.",
+        text: "Le traitement des données de votre cabinet respecte le Règlement Général sur la Protection des Données : finalités déclarées, minimisation, consentement et respect intégral des droits de vos patients. Vous restez maître de vos données.",
         points: [
           "Finalités de traitement déclarées et limitées",
           "Droit d'accès, de rectification et d'effacement garantis",

@@ -1,0 +1,50 @@
+/* ---------- Bandeau promo (fixé au-dessus du header) ---------- */
+
+.promo {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--promo-offset, 42px);
+  z-index: 121; /* juste au-dessus du header (120) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  background: linear-gradient(120deg, #1e457f, #2b6fd6 55%, #2e86e6);
+  color: #fff;
+}
+.text {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-head);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: gap 0.2s var(--ease);
+}
+.link:hover {
+  gap: 10px;
+}
+
+@media (max-width: 760px) {
+  .text {
+    font-size: 0.78rem;
+    gap: 10px;
+  }
+}

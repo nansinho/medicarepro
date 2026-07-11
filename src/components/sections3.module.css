@@ -63,11 +63,13 @@
   place-items: center;
   flex: none;
   transition: 0.25s;
+  /* L'icône est un chevron HAUT : fermé = pointe vers le bas (déplier). */
+  transform: rotate(180deg);
 }
 .faqItem.open .toggle {
   background: var(--color-primary);
   color: #fff;
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
 .faqA {
   max-height: 0;
@@ -409,5 +411,94 @@
     flex-direction: column;
     gap: 14px;
     padding: 22px 0;
+  }
+}
+
+/* ---------- MOBILE ≤760 (appendé en fin de fichier : la cascade gagne) ---------- */
+@media (max-width: 760px) {
+  /* FAQ : les réponses longues ne sont plus clippées (240px desktop conservé),
+     et la question devient plus compacte avec l'accordéon aligné. */
+  .faqQ {
+    padding: 18px;
+    font-size: 1rem;
+    gap: 12px;
+  }
+  .faqA {
+    padding: 0 18px;
+  }
+  .faqItem.open .faqA {
+    max-height: 560px;
+    padding: 0 18px 22px;
+  }
+
+  /* Footer : les 2 colonnes de liens côte à côte, marque/contact et
+     newsletter en pleine largeur. (.footBrand / .news existent dans le TSX ;
+     les définir ici les fait enfin résoudre dans le module.) */
+  .footTop {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px 20px;
+    padding: 52px 0 40px;
+  }
+  .footBrand,
+  .news {
+    grid-column: 1 / -1;
+  }
+  .footTop h4 {
+    margin-bottom: 14px;
+  }
+
+  /* Halos décoratifs réduits, offsets ramenés à l'échelle (même proportion
+     visible que sur desktop). */
+  .footHaloA {
+    top: -130px;
+    right: -80px;
+    width: 340px;
+    height: 340px;
+  }
+  .footHaloB {
+    bottom: -140px;
+    left: -80px;
+    width: 340px;
+    height: 340px;
+  }
+
+  /* Cibles tactiles ≥44px. */
+  .socials a {
+    width: 44px;
+    height: 44px;
+  }
+  .nbtn {
+    min-height: 44px;
+  }
+
+  /* « Suivez-nous » ne casse pas en deux lignes à côté des icônes. */
+  .socials {
+    white-space: nowrap;
+  }
+}
+
+/* La pastille flottante « Je m'abonne » (active ≤1080) ne doit pas
+   masquer la ligne légale. */
+@media (max-width: 1080px) {
+  .footBottom {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Newsletter : à 320-480px le champ devient trop étroit à côté du bouton —
+   on empile champ puis bouton dans la même carte arrondie. */
+@media (max-width: 480px) {
+  .nbox {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    border-radius: 26px;
+    padding: 12px;
+  }
+  .nbox input {
+    padding: 8px 10px;
+  }
+  .nbtn {
+    justify-content: center;
   }
 }

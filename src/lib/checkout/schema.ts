@@ -68,8 +68,10 @@ export const CheckoutSchema = z.object({
   cabinet: CabinetSchema,
   user: UserSchema,
   sepa: SepaSchema,
-  /** Case CGV — obligatoire. */
-  cgvAccepted: z.literal(true, { error: "Vous devez accepter les CGV" }),
+  /** Case contractuelle unique (CGV + CGU + DPA + grille tarifaire) — obligatoire, non pré-cochée. */
+  termsAccepted: z.literal(true, {
+    error: "Vous devez accepter les conditions contractuelles",
+  }),
   /** Case mandat SEPA — obligatoire et distincte des CGV. */
   mandateAccepted: z.literal(true, {
     error: "Vous devez accepter le mandat de prélèvement",

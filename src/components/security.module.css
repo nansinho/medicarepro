@@ -387,5 +387,9 @@
   }
   .hostLogoCard {
     padding: 44px 28px;
+    /* En 1 colonne, le margin-left:auto (alignement colonne droite du layout
+       desktop) décentrerait la carte : recentrage. */
+    margin-left: auto;
+    margin-right: auto;
   }
 }

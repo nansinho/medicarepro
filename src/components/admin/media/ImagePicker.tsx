@@ -77,7 +77,8 @@ export default function ImagePicker({
   );
 }
 
-function PickerPanel({
+/** Panneau de sélection seul (utilisé aussi par l'éditeur riche). */
+export function PickerPanel({
   onClose,
   onPick,
 }: {

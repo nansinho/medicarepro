@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { browserClient } from "@/lib/supabase/browser";
 import {
   BadgeCheck,
+  FileText,
   Globe,
   Grid,
   Image as ImageIcon,
@@ -14,10 +15,14 @@ import {
   Layers,
   Lock,
   Mail,
+  Monitor,
   Refresh,
   Shield,
   ShieldPlus,
   Signature,
+  Star,
+  TrendingUp,
+  Users,
 } from "@/components/icons";
 import s from "./Admin.module.css";
 
@@ -38,12 +43,17 @@ type NavLink = {
 
 const NAV_CONTENU: NavLink[] = [
   { href: "/admin/contenu", label: "Contenu du site", icon: Layers },
+  { href: "/admin/pages", label: "Pages", icon: Monitor },
+  { href: "/admin/blog", label: "Actualités", icon: FileText },
+  { href: "/admin/collections", label: "Collections", icon: Star },
   { href: "/admin/medias", label: "Médias", icon: ImageIcon },
   { href: "/admin/contacts", label: "Demandes de contact", icon: Mail },
 ];
 
-/* SEO : /admin/seo et /admin/villes s'ajouteront avec leurs lots. */
-const NAV_SEO: NavLink[] = [];
+/* SEO : /admin/villes s'ajoutera avec son lot. */
+const NAV_SEO: NavLink[] = [
+  { href: "/admin/seo", label: "Référencement", icon: TrendingUp },
+];
 
 const NAV_FACTURATION: NavLink[] = [
   { href: "/admin", label: "Tableau de bord", icon: Grid, exact: true },
@@ -57,6 +67,7 @@ const NAV_FACTURATION: NavLink[] = [
 /* Administration : /admin/utilisateurs et /admin/audit s'ajouteront
    avec leurs lots. */
 const NAV_ADMINISTRATION: NavLink[] = [
+  { href: "/admin/utilisateurs", label: "Utilisateurs", icon: Users },
   { href: "/admin/reglages", label: "Réglages du site", icon: Key },
 ];
 

@@ -30,9 +30,14 @@ export default function AdminLoginPage() {
 
         <LoginForm />
 
-        <Link href="/" className={styles.backLink}>
-          Retour au site <ArrowRight width={14} height={14} />
-        </Link>
+        <div className={styles.linksRow}>
+          <Link href="/admin/auth/mot-de-passe-oublie" className={styles.backLink}>
+            Mot de passe oublié ?
+          </Link>
+          <Link href="/" className={styles.backLink}>
+            Retour au site <ArrowRight width={14} height={14} />
+          </Link>
+        </div>
       </div>
     </main>
   );

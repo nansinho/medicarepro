@@ -22,6 +22,8 @@ import {
   CheckCircle,
   Calculator,
   TrendingUp,
+  Foot,
+  Insole,
 } from "@/components/icons";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { getFeatureItems } from "@/lib/cms/collections";
@@ -48,6 +50,8 @@ const ICONS = {
   CheckCircle,
   Calculator,
   TrendingUp,
+  Foot,
+  Insole,
 } as const;
 
 /** Une grille de bilans : cartes claires animées (icône + titre + texte). */

@@ -574,3 +574,116 @@
     margin-bottom: 44px;
   }
 }
+
+/* ===================== MOBILE (≤760) ===================== */
+@media (max-width: 760px) {
+  /* --- Showcases : rythme resserré (texte-d'abord déjà géré par le bloc 980). --- */
+  .grid {
+    gap: 28px;
+  }
+  .icon {
+    width: 46px;
+    height: 46px;
+  }
+  .points li {
+    font-size: 0.95rem;
+  }
+
+  /* --- StatsBand : 2×2 conservé (design assumé), chiffres fluides.
+     white-space: nowrap du .stat b de base conservé (anti-saut CountUp). --- */
+  .statGrid {
+    gap: 28px 8px;
+  }
+  .stat b {
+    font-size: clamp(1.9rem, 7.6vw, 2.4rem);
+  }
+  .statIco {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 12px;
+  }
+  .statLabel {
+    font-size: 0.84rem;
+  }
+  .statHead {
+    margin-bottom: 32px;
+  }
+  /* Halos décoratifs réduits (offsets resserrés pour rester visibles). */
+  .statDark::before {
+    top: -100px;
+    left: -60px;
+    width: 300px;
+    height: 300px;
+  }
+  .statDark::after {
+    bottom: -120px;
+    right: -40px;
+    width: 300px;
+    height: 300px;
+  }
+
+  /* --- PortalCards : cartes compactes, :active = retour tactile du hover
+     desktop (voile ::after + textes en blanc, sinon illisibles sur le voile). --- */
+  .portalLink {
+    min-height: 0;
+    padding: 28px 24px;
+  }
+  .portalIco {
+    width: 54px;
+    height: 54px;
+  }
+  .portalCard:active .portalLink {
+    transform: scale(0.985);
+  }
+  .portalCard:active .portalLink::after {
+    opacity: 1;
+  }
+  .portalCard:active .portalTitle,
+  .portalCard:active .portalText,
+  .portalCard:active .portalMore {
+    color: #fff;
+  }
+  .portalCard:active .portalStat {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+  .portalCard:active .portalIco {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  /* --- CtaPanel : panneau resserré, boutons empilés pleine largeur. --- */
+  .ctaPanel {
+    padding: 44px 22px;
+    border-radius: 26px;
+  }
+  .ctaGlow {
+    width: 420px;
+    height: 420px;
+  }
+  .ctaActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ctaBtnPrimary,
+  .ctaBtnGhost {
+    justify-content: center;
+    min-height: 48px;
+  }
+  .ctaTrust {
+    gap: 10px 16px;
+  }
+  /* .ctaTrustItem porte son propre font-size : c'est lui qu'il faut réduire. */
+  .ctaTrustItem {
+    font-size: 0.82rem;
+  }
+}
+
+/* ===================== TRÈS PETITS ÉCRANS (≤380) =====================
+   Filet anti-débordement : à 320px une cellule 2-col fait ~134px alors que
+   « 256 bits » en nowrap réclame ~135px → une seule colonne. */
+@media (max-width: 380px) {
+  .statGrid {
+    grid-template-columns: 1fr;
+    gap: 30px 0;
+  }
+}

@@ -1,0 +1,104 @@
+/* ---------- Gestion des utilisateurs ---------- */
+
+.wrap {
+  display: grid;
+  gap: 18px;
+}
+
+.newUser {
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 16px;
+  padding: 18px 20px;
+}
+.newUser h2 {
+  font-family: var(--font-head);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  margin-bottom: 12px;
+}
+.newForm {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.newForm input,
+.newForm select {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-navy);
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  outline: none;
+}
+.newForm input {
+  flex: 1;
+  min-width: 220px;
+}
+.newForm input:focus {
+  border-color: var(--color-primary-bright);
+}
+.newForm button {
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(150deg, #3d88ea, #1e457f);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 22px;
+  cursor: pointer;
+}
+.newForm button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.newHelp {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.noticeOk,
+.noticeErr {
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+}
+.noticeOk {
+  background: #eefaf2;
+  border: 1px solid #c9ecd7;
+  color: #1c7a3f;
+}
+.noticeErr {
+  background: #fdf1f2;
+  border: 1px solid #f5d4d7;
+  color: #b4232f;
+}
+.password {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.95rem;
+  background: #fff;
+  border: 1px dashed #c9ecd7;
+  border-radius: 8px;
+  padding: 6px 12px;
+  user-select: all;
+}
+
+.roleSelect {
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--color-navy);
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.rowBanned td {
+  opacity: 0.55;
+}

@@ -34,6 +34,7 @@ function isAuthorized(request: Request): boolean {
 type PurgeResult = {
   abandoned: number;
   deleted: number;
+  consentsDeleted?: number;
   anonymized_paid: number;
   anonymized_provisioned: number;
   ipn_deleted: number;
@@ -92,15 +93,39 @@ async function handle(request: Request): Promise<Response> {
     result.abandoned = a1?.length ?? 0;
 
     // 2. Abandonnés jamais payés : suppression pure à 30 j.
+    //    On récupère root_id pour purger aussi les preuves de consentement
+    //    des chaînes où AUCUN contrat ne s'est formé (aucun paiement).
     const { data: a2, error: e2 } = await supabase
       .from("pending_signups")
       .delete()
       .eq("status", "abandoned")
       .is("paid_at", null)
       .lt("created_at", d30)
-      .select("id");
+      .select("id, root_id");
     if (e2) throw new Error(`delete abandoned : ${e2.message}`);
     result.deleted = a2?.length ?? 0;
+
+    // 2b. Preuves de consentement orphelines de ces chaînes : supprimées
+    //     UNIQUEMENT si plus aucun dossier de la chaîne n'existe (un retry
+    //     payé garde la chaîne vivante) et si aucun contrat n'y est lié.
+    const rootIds = [...new Set((a2 ?? []).map((r) => r.root_id as string))];
+    let consentsDeleted = 0;
+    for (const rootId of rootIds) {
+      const { count } = await supabase
+        .from("pending_signups")
+        .select("id", { count: "exact", head: true })
+        .eq("root_id", rootId);
+      if ((count ?? 0) > 0) continue; // chaîne encore vivante
+      const { data: dc, error: ec } = await supabase
+        .from("consent_records")
+        .delete()
+        .eq("pending_root_id", rootId)
+        .is("subscription_id", null)
+        .select("id");
+      if (ec) throw new Error(`delete consent_records : ${ec.message}`);
+      consentsDeleted += dc?.length ?? 0;
+    }
+    result.consentsDeleted = consentsDeleted;
 
     // 3. Abandonnés PAYÉS (remboursés) : anonymisation à 90 j.
     const { data: a3, error: e3 } = await supabase

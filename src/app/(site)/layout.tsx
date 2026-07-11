@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import PromoBanner from "@/components/PromoBanner";
 import SideTabs from "@/components/SideTabs";
 import ScrollEffects from "@/components/ScrollEffects";
 import SmoothScroll from "@/components/motion/SmoothScroll";
@@ -20,6 +21,7 @@ export default async function SiteLayout({
 
   return (
     <>
+      <PromoBanner promo={settings.promoBanner} />
       <Header nav={nav} header={settings.header} contact={settings.contact} />
       <SideTabs tabs={settings.sideTabs} />
       <main>{children}</main>

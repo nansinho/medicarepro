@@ -24,6 +24,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* No-op en desktop (la ligne tient) ; à 320px, date + temps de lecture
+     passent à la ligne au lieu de déborder. */
+  flex-wrap: wrap;
   gap: 14px;
   margin-top: 18px;
   font-family: var(--font-head);
@@ -102,6 +105,51 @@
   border-radius: 50%;
   background: var(--color-primary);
   opacity: 0.85;
+}
+/* Blocs supplémentaires du corps riche (articles du back office). */
+.body h3 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(1.12rem, 1.8vw, 1.3rem);
+  color: var(--color-navy-soft);
+  letter-spacing: -0.01em;
+  margin: 28px 0 10px;
+}
+.body ol {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 20px;
+  padding-left: 26px;
+}
+.body ol li {
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  line-height: 1.65;
+  color: var(--color-navy-soft);
+  padding-left: 6px;
+}
+.body ol li::marker {
+  font-family: var(--font-head);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.body blockquote {
+  border-left: 3px solid var(--color-primary-bright);
+  background: var(--color-light);
+  border-radius: 0 14px 14px 0;
+  padding: 14px 22px;
+  margin: 20px 0;
+}
+.body blockquote p {
+  margin-bottom: 0;
+  color: var(--color-navy);
+  font-style: italic;
+}
+.body img {
+  max-width: 100%;
+  border-radius: 16px;
+  margin: 22px 0;
+  box-shadow: var(--shadow-sm);
 }
 
 /* Bloc retour + partage en fin d'article. */

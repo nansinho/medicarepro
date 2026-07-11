@@ -102,7 +102,7 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
       iban: "FR76 3000 6000 0112 3456 7890 189",
       accountHolder: "Cabinet Dupont",
     },
-    cgvAccepted: true,
+    termsAccepted: true,
     mandateAccepted: true,
     turnstileToken: "tok",
   };
@@ -151,7 +151,7 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
 
   it("exige les deux consentements distincts", () => {
     expect(
-      CheckoutSchema.safeParse({ ...valid, cgvAccepted: false }).success,
+      CheckoutSchema.safeParse({ ...valid, termsAccepted: false }).success,
     ).toBe(false);
     expect(
       CheckoutSchema.safeParse({ ...valid, mandateAccepted: false }).success,

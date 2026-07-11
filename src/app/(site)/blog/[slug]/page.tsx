@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { after } from "next/server";
+import { isPermanent, resolveRedirect } from "@/lib/cms/redirects";
+import { recordRedirectHit } from "@/lib/cms/seo-log";
 import { CtaBand } from "@/components/Sections2";
 import { ChevronLeft, ArrowRight } from "@/components/icons";
+import RichTextRenderer, {
+  type RichTextBody,
+} from "@/components/cms/RichTextRenderer";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { getPostBySlug, getPosts } from "@/lib/cms/posts";
 import a from "@/components/article.module.css";
@@ -50,7 +56,17 @@ export default async function BlogPostPage({
     /* Bande CTA transversale : contenu géré sur la page À propos. */
     getPageSections("/a-propos"),
   ]);
-  if (!post) notFound();
+  if (!post) {
+    /* Slug renommé ? Les redirections gérées s'appliquent aussi ici
+       (le catch-all ne voit jamais les routes dynamiques). */
+    const managed = await resolveRedirect(`/blog/${slug}`);
+    if (managed) {
+      after(() => recordRedirectHit(managed.id));
+      if (isPermanent(managed)) permanentRedirect(managed.to_path);
+      redirect(managed.to_path);
+    }
+    notFound();
+  }
 
   const related = posts.filter((p) => p.slug !== post.slug).slice(0, 2);
   const ctaBand = pick(aProposSections, "cta_band", "cta_band");
@@ -98,7 +114,7 @@ export default async function BlogPostPage({
             src={post.image}
             alt={post.imageAlt}
             fill
-            priority
+            preload
             sizes="(max-width: 980px) 100vw, 980px"
           />
         </div>
@@ -107,21 +123,26 @@ export default async function BlogPostPage({
       {/* Corps de l'article */}
       <article className="wrap">
         <div className={a.body}>
-          {post.sections.map((section, i) => (
-            <section key={section.heading ?? `intro-${i}`}>
-              {section.heading && <h2>{section.heading}</h2>}
-              {section.paragraphs.map((p) => (
-                <p key={p.slice(0, 40)}>{p}</p>
-              ))}
-              {section.list && (
-                <ul>
-                  {section.list.map((item) => (
-                    <li key={item.slice(0, 40)}>{item}</li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          ))}
+          {post.body ? (
+            /* Corps riche (articles du back office) — allowlist blog. */
+            <RichTextRenderer body={post.body as RichTextBody} variant="blog" />
+          ) : (
+            post.sections.map((section, i) => (
+              <section key={section.heading ?? `intro-${i}`}>
+                {section.heading && <h2>{section.heading}</h2>}
+                {section.paragraphs.map((p) => (
+                  <p key={p.slice(0, 40)}>{p}</p>
+                ))}
+                {section.list && (
+                  <ul>
+                    {section.list.map((item) => (
+                      <li key={item.slice(0, 40)}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            ))
+          )}
         </div>
         <nav className={a.footNav} aria-label="Navigation article">
           <Link href="/blog" className={a.backLink}>

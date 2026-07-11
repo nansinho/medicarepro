@@ -1,13 +1,25 @@
 /**
- * Contenu des 4 pages légales (/cgu, /cgv, /mentions-legales, /confidentialite),
- * en documents Tiptap JSON (headings niveau 2, paragraphes, listes à puces,
- * liens, gras). Identité de l'éditeur : MEDICARE PRO, SAS au capital de
- * 1 000 €, 340 chemin du plan marseillais, 13320 Bouc-Bel-Air, SIRET
+ * Contenu des 6 pages légales (/cgu, /cgv, /mentions-legales,
+ * /confidentialite, /dpa, /cookies), en documents Tiptap JSON (headings
+ * niveau 2, paragraphes, listes à puces, liens, gras).
+ *
+ * LES PDF OFFICIELS FONT FOI : les documents contractuels sont les PDF
+ * versionnés de public/legal/, référencés par src/lib/legal/registry.ts
+ * (CGV v2.1, CGU v1.0, DPA v2.1, Confidentialité v2.1, Cookies v2.1 —
+ * tous datés de juillet 2026). Les pages ci-dessous ne retranscrivent PAS
+ * leur contenu : elles le présentent brièvement (sans valeur contractuelle)
+ * et pointent vers le PDF à télécharger. Toute nouvelle version d'un
+ * document passe par le registre (nouveau fichier versionné + sha256),
+ * puis par la mise à jour des versions mentionnées ici.
+ *
+ * Identité de l'éditeur : MEDICARE PRO, SAS au capital de 1 000 €,
+ * 340 chemin du plan marseillais, 13320 Bouc-Bel-Air, SIRET
  * 102 034 121 00016, RCS Aix-en-Provence 102 034 121. Les marqueurs
- * [À COMPLÉTER : …] restants sont conservés en texte brut (sources : onglet
- * Réglages > Légal du back-office, plus tard).
+ * [À COMPLÉTER : …] restants (mentions légales) sont conservés en texte
+ * brut (sources : onglet Réglages > Légal du back-office, plus tard).
  */
 import type { ManagedPageContent } from "@/lib/cms/sections.schema";
+import { LEGAL_DOCUMENTS } from "@/lib/legal/registry";
 
 /* ---------------- Helpers de construction Tiptap ---------------- */
 
@@ -79,7 +91,7 @@ export const PAGE_CGU = {
         type: "page_hero",
         kicker: "Informations légales",
         title: "Conditions générales d'utilisation",
-        lead: "Les présentes conditions régissent l'utilisation du site vitrine medicarepro.fr.",
+        lead: "Les règles d'utilisation du logiciel MediCare Pro — version 1.0 (juillet 2026). Le document officiel PDF fait foi.",
         image: {
           mediaId: null,
           path: "/images/fonctionnalites/podologue-medicarepro-section-2.jpg",
@@ -93,45 +105,62 @@ export const PAGE_CGU = {
       content: {
         type: "rich_text",
         body: doc(
-          h2("1. Objet"),
           p(
-            "Les présentes conditions générales d'utilisation (CGU) encadrent l'accès et l'utilisation du site medicarepro.fr (le « Site »), édité par MEDICARE PRO, SAS au capital de 1 000 € (voir les ",
+            "Les conditions générales d'utilisation (CGU) définissent les règles d'utilisation du logiciel SaaS MediCare Pro, édité par ",
+            bold("MEDICARE PRO"),
+            ", SAS au capital de 1 000 € (voir les ",
             link("mentions légales", "/mentions-legales"),
-            "). En naviguant sur le Site, l'utilisateur accepte les présentes CGU sans réserve.",
-          ),
-          h2("2. Description du service"),
-          p(
-            "Le Site est un site vitrine présentant MediCare Pro, logiciel de gestion de cabinet destiné aux pédicures-podologues : dossiers patients, facturation, comptabilité, agenda, bilans podologiques et signature électronique. La souscription à l'abonnement s'effectue en ligne sur le Site et est régie par les ",
+            "). Annexe B du contrat SaaS, elles complètent les ",
             link("conditions générales de vente", "/cgv"),
-            ". L'utilisation du logiciel s'effectue sur l'application dédiée (app.medicarepro.fr), régie par ses conditions contractuelles propres.",
+            " et s'imposent au praticien titulaire comme à tout utilisateur auquel il donne accès (collaborateur, secrétariat).",
           ),
-          h2("3. Accès au Site"),
           p(
-            "Le Site est accessible gratuitement, 24 h/24 et 7 j/7, sous réserve des opérations de maintenance et des aléas techniques. L'éditeur ne saurait être tenu responsable d'une indisponibilité temporaire du Site.",
-          ),
-          h2("4. Propriété intellectuelle"),
-          p(
-            "Tous les éléments du Site (textes, visuels, logos, marque « MediCare Pro », interfaces) sont protégés par le droit de la propriété intellectuelle et demeurent la propriété exclusive de l'éditeur. Toute reproduction non autorisée constitue une contrefaçon.",
-          ),
-          h2("5. Responsabilité"),
-          p(
-            "Les informations publiées sur le Site (dont les contenus du blog à destination des professionnels) sont fournies à titre informatif et ne constituent ni un avis médical, ni un engagement contractuel. L'éditeur s'efforce d'assurer l'exactitude des informations mais ne peut la garantir de manière absolue.",
-          ),
-          h2("6. Liens externes"),
-          p(
-            "Le Site peut contenir des liens vers des sites tiers. L'éditeur n'exerce aucun contrôle sur ces sites et décline toute responsabilité quant à leur contenu.",
-          ),
-          h2("7. Données personnelles"),
-          p(
-            "Les traitements de données personnelles liés au Site sont décrits dans la ",
-            link("politique de confidentialité", "/confidentialite"),
+            "Version officielle en vigueur : ",
+            bold(`Version ${LEGAL_DOCUMENTS.cgu.version} — Juillet 2026`),
             ".",
           ),
-          h2("8. Droit applicable"),
           p(
-            "Les présentes CGU sont soumises au droit français. Tout litige relatif à leur interprétation ou leur exécution relève, à défaut de résolution amiable, de la compétence des tribunaux français.",
+            bold("Le document officiel ci-dessous fait foi"),
+            " — cette page n'en est qu'une présentation, sans valeur contractuelle : ",
+            link(
+              `télécharger les CGU (PDF, version ${LEGAL_DOCUMENTS.cgu.version})`,
+              LEGAL_DOCUMENTS.cgu.pdfHref,
+            ),
+            ".",
           ),
-          p("Dernière mise à jour : [À COMPLÉTER : date]."),
+          h2("Ce que couvre ce document"),
+          ul(
+            [
+              text(
+                "L'accès au logiciel : prérequis techniques et objectif de disponibilité de 99,5 %.",
+              ),
+            ],
+            [
+              text(
+                "Les comptes et la sécurité : identifiants personnels, authentification à deux facteurs (2FA) obligatoire.",
+              ),
+            ],
+            [
+              text(
+                "Les règles d'utilisation du logiciel et les usages interdits, dont les fonctionnalités d'intelligence artificielle.",
+              ),
+            ],
+            [
+              text(
+                "Les données et contenus du client, et la propriété intellectuelle du logiciel.",
+              ),
+            ],
+            [
+              text(
+                "La suspension d'accès, la responsabilité, l'évolution des CGU et le droit applicable.",
+              ),
+            ],
+          ),
+          p(
+            "Pour toute question sur ce document, écrivez-nous à ",
+            link("contact@medicarepro.fr", "mailto:contact@medicarepro.fr"),
+            ".",
+          ),
         ),
       },
     },
@@ -222,7 +251,7 @@ export const PAGE_CONFIDENTIALITE = {
         type: "page_hero",
         kicker: "Informations légales",
         title: "Politique de confidentialité",
-        lead: "Comment nous collectons, utilisons et protégeons vos données personnelles, conformément au RGPD.",
+        lead: "Comment nous protégeons vos données personnelles et de santé, conformément au RGPD — version 2.1 (juillet 2026). Le document officiel PDF fait foi.",
         image: {
           mediaId: null,
           path: "/images/securite/podologue-medicarepro-servers-section1.jpg",
@@ -236,93 +265,68 @@ export const PAGE_CONFIDENTIALITE = {
       content: {
         type: "rich_text",
         body: doc(
-          h2("1. Responsable du traitement"),
           p(
-            "Le responsable du traitement des données collectées via le site medicarepro.fr est MEDICARE PRO, SAS au capital de 1 000 €, 340 chemin du plan marseillais, 13320 Bouc-Bel-Air (SIRET 102 034 121 00016, RCS Aix-en-Provence 102 034 121). Contact : ",
-            link("contact@medicarepro.fr", "mailto:contact@medicarepro.fr"),
-            ".",
-          ),
-          h2("2. Données collectées sur ce site"),
-          p(
-            "Via le formulaire de contact / demande de démonstration, nous collectons les données que vous nous transmettez volontairement : nom, adresse email, numéro de téléphone, taille du cabinet et contenu de votre message.",
+            "La politique de confidentialité décrit comment ",
+            bold("MEDICARE PRO"),
+            " collecte, traite, conserve et protège les données personnelles — y compris les données de santé — dans le cadre du site medicarepro.fr et du logiciel MediCare Pro, conformément au RGPD et à la loi Informatique et Libertés.",
           ),
           p(
-            "Lors de la souscription en ligne à l'abonnement (tunnel d'inscription), nous collectons en outre : l'identité du praticien (nom, prénom, email), les coordonnées du cabinet (nom, adresse, téléphone, email), les numéros RPPS et SIRET, ainsi que les coordonnées bancaires (IBAN) nécessaires au mandat de prélèvement SEPA — l'IBAN est conservé chiffré. Les données de carte bancaire sont traitées exclusivement par Monetico (CIC) : ",
-            bold("la carte ne transite jamais par notre site"),
+            "Version officielle en vigueur : ",
+            bold(`Version ${LEGAL_DOCUMENTS.confidentialite.version} — Juillet 2026`),
             ".",
           ),
           p(
-            "Le site vitrine ne collecte ",
-            bold("aucune donnée de santé"),
-            ". Les données de santé traitées par le logiciel MediCare Pro (application app.medicarepro.fr) font l'objet d'un traitement distinct, hébergé en France chez un hébergeur certifié HDS, et décrit dans les conditions propres à l'application.",
+            bold("Le document officiel ci-dessous fait foi"),
+            " — cette page n'en est qu'une présentation, sans valeur contractuelle : ",
+            link(
+              `télécharger la politique de confidentialité (PDF, version ${LEGAL_DOCUMENTS.confidentialite.version})`,
+              LEGAL_DOCUMENTS.confidentialite.pdfHref,
+            ),
+            ".",
           ),
-          h2("3. Finalités et bases légales"),
+          h2("Ce que couvre ce document"),
           ul(
             [
               text(
-                "Répondre à vos demandes de contact et de démonstration — base légale : mesures précontractuelles (art. 6.1.b RGPD).",
+                "L'identité du responsable et du sous-traitant : MediCare Pro agit en sous-traitant (art. 28 RGPD) pour le compte des praticiens, responsables du traitement des données de leurs patients.",
               ),
             ],
             [
               text(
-                "Gestion de la relation commerciale et prospection auprès de professionnels — base légale : intérêt légitime (art. 6.1.f RGPD).",
+                "Les données personnelles collectées, les finalités et les bases légales de chaque traitement.",
               ),
             ],
             [
               text(
-                "Gestion des abonnements et de la facturation (souscription, paiement, mandat SEPA, factures) — bases légales : exécution du contrat (art. 6.1.b RGPD) et respect de nos obligations comptables et fiscales (art. 6.1.c RGPD).",
+                "Les destinataires des données et les durées de conservation appliquées.",
+              ),
+            ],
+            [
+              text(
+                "Les mesures de sécurité et l'hébergement des données de santé en France chez un hébergeur certifié HDS.",
+              ),
+            ],
+            [
+              text(
+                "Vos droits (accès, rectification, effacement, limitation, opposition, portabilité) et leurs modalités d'exercice.",
+              ),
+            ],
+            [
+              text(
+                "Les cookies, l'absence de transfert hors Union européenne et le contact du délégué à la protection des données (DPO).",
               ),
             ],
           ),
-          h2("4. Durées de conservation"),
-          ul(
-            [
-              text(
-                "Formulaire de contact : au maximum 3 ans à compter du dernier échange, puis suppression ou anonymisation.",
-              ),
-            ],
-            [
-              text(
-                "Dossiers de souscription abandonnés (inscription non finalisée) : 30 jours.",
-              ),
-            ],
-            [
-              text(
-                "Données de mandat SEPA : 15 mois après le dernier prélèvement (délai de contestation SEPA) ; l'IBAN chiffré est supprimé à la purge du mandat.",
-              ),
-            ],
-            [
-              text(
-                "Pièces comptables (factures, journal des opérations) : 10 ans (obligation légale).",
-              ),
-            ],
-          ),
+          h2("Exercer vos droits"),
           p(
-            "La suppression du compte applicatif entraîne l'anonymisation des données de facturation non soumises à une obligation de conservation légale.",
-          ),
-          h2("5. Destinataires et sous-traitants"),
-          p(
-            "Les données sont destinées à l'équipe MediCare Pro et, pour les traitements liés à l'abonnement, aux destinataires suivants : Monetico / CIC (paiement par carte bancaire et prélèvements SEPA), l'éditeur de l'application app.medicarepro.fr (création et gestion du compte, hébergée en France chez OVHcloud, certifié HDS) et notre prestataire d'envoi d'emails (emails transactionnels). Les données du site sont hébergées en France par OVHcloud (OVH SAS, 2 rue Kellermann, 59100 Roubaix). Aucune donnée n'est vendue ni transférée hors de l'Union européenne.",
-          ),
-          h2("6. Vos droits"),
-          p(
-            "Conformément au RGPD et à la loi Informatique et Libertés, vous disposez des droits d'accès, de rectification, d'effacement, de limitation, d'opposition et de portabilité sur vos données. Pour les exercer, écrivez-nous à ",
+            "Pour exercer vos droits sur vos données, écrivez-nous à ",
             link("contact@medicarepro.fr", "mailto:contact@medicarepro.fr"),
             ". Vous pouvez également introduire une réclamation auprès de la CNIL (",
             link("www.cnil.fr", "https://www.cnil.fr", true),
-            ").",
-          ),
-          h2("7. Cookies"),
-          p(
-            "Le site n'utilise pas de cookies publicitaires ni de traceurs tiers. Seuls des cookies techniques strictement nécessaires au fonctionnement du site peuvent être déposés ; ils ne requièrent pas de consentement. Si des outils de mesure d'audience venaient à être ajoutés, cette politique serait mise à jour et votre consentement recueilli le cas échéant.",
-          ),
-          h2("8. Sécurité"),
-          p(
-            "Nous mettons en œuvre des mesures techniques et organisationnelles adaptées : chiffrement des échanges (TLS), hébergement en France, contrôle des accès et sauvegardes régulières. Pour en savoir plus, consultez notre page ",
+            "). Pour en savoir plus sur nos mesures techniques, consultez la page ",
             link("Sécurité", "/securite"),
             ".",
           ),
-          p("Dernière mise à jour : 11 juillet 2026."),
         ),
       },
     },
@@ -342,7 +346,7 @@ export const PAGE_CGV = {
         type: "page_hero",
         kicker: "Informations légales",
         title: "Conditions générales de vente",
-        lead: "Conditions applicables à la souscription en ligne de l'abonnement MediCare Pro par les professionnels.",
+        lead: "Conditions applicables à la souscription de l'abonnement MediCare Pro par les professionnels — version 2.1 (juillet 2026). Le document officiel PDF fait foi.",
         image: {
           mediaId: null,
           path: "/images/fonctionnalites/podologue-medicarepro-section-2.jpg",
@@ -356,85 +360,233 @@ export const PAGE_CGV = {
       content: {
         type: "rich_text",
         body: doc(
-          h2("1. Objet et champ d'application"),
           p(
-            "Les présentes conditions générales de vente (CGV) régissent la souscription en ligne, sur le site medicarepro.fr, de l'abonnement au logiciel MediCare Pro, service en ligne (SaaS) de gestion de cabinet destiné aux pédicures-podologues, édité par ",
+            "Les conditions générales de vente (CGV) régissent la souscription à l'abonnement au logiciel SaaS MediCare Pro, édité par ",
             bold("MEDICARE PRO"),
-            ", SAS au capital de 1 000 €, dont le siège social est situé 340 chemin du plan marseillais, 13320 Bouc-Bel-Air, immatriculée au RCS d'Aix-en-Provence sous le numéro 102 034 121 (SIRET 102 034 121 00016) — ci-après « l'Éditeur ». Elles s'appliquent exclusivement aux clients professionnels (ci-après le « Client »). Toute souscription en ligne emporte acceptation pleine et entière des présentes CGV.",
+            ", SAS au capital de 1 000 €, RCS Aix-en-Provence 102 034 121 (voir les ",
+            link("mentions légales", "/mentions-legales"),
+            "). Elles s'appliquent exclusivement aux professionnels de santé agissant dans le cadre de leur activité ; toute souscription emporte leur acceptation sans réserve.",
           ),
-          h2("2. Tarifs"),
+          p(
+            "Version officielle en vigueur : ",
+            bold(`Version ${LEGAL_DOCUMENTS.cgv.version} — Juillet 2026`),
+            ".",
+          ),
+          p(
+            bold("Le document officiel ci-dessous fait foi"),
+            " — cette page n'en est qu'une présentation, sans valeur contractuelle : ",
+            link(
+              `télécharger les CGV (PDF, version ${LEGAL_DOCUMENTS.cgv.version})`,
+              LEGAL_DOCUMENTS.cgv.pdfHref,
+            ),
+            ".",
+          ),
+          h2("Ce que couvre ce document"),
           ul(
             [
-              bold("Formule mensuelle"),
-              text(" : 29,88 € TTC par mois, sans engagement de durée."),
-            ],
-            [
-              bold("Formule annuelle"),
               text(
-                " : 298,08 € TTC par an (soit 24,84 € TTC par mois), avec un engagement de 12 mois.",
+                "La souscription en ligne à l'abonnement et la description du service.",
               ),
             ],
             [
-              bold("Collaborateur supplémentaire"),
-              text(" : 15,00 € TTC par mois et par collaborateur."),
+              text(
+                "Les offres et tarifs en vigueur, la facturation et le paiement (carte bancaire via Monetico).",
+              ),
+            ],
+            [
+              text(
+                "Le renouvellement de l'abonnement par prélèvement SEPA et la gestion du mandat.",
+              ),
+            ],
+            [
+              text(
+                "La résiliation selon la formule choisie (sans engagement ou engagement 12 mois).",
+              ),
+            ],
+            [
+              text(
+                "L'hébergement des données, les garanties et responsabilités, le droit applicable et la médiation.",
+              ),
             ],
           ),
           p(
-            "Les prix s'entendent toutes taxes comprises (TVA au taux de 20 %). Le prix applicable est celui en vigueur au jour de la souscription ; il est figé pour la période d'abonnement en cours. Toute évolution tarifaire ne s'applique qu'à compter du renouvellement suivant, après information préalable du Client.",
+            "L'",
+            link("accord de traitement des données (DPA)", "/dpa"),
+            " constitue l'annexe 1 des CGV. Pour toute question, écrivez-nous à ",
+            link("contact@medicarepro.fr", "mailto:contact@medicarepro.fr"),
+            ".",
           ),
-          h2("3. Souscription en ligne et paiement initial"),
+        ),
+      },
+    },
+  ],
+} satisfies ManagedPageContent;
+
+/* ---------------- /dpa ---------------- */
+
+export const PAGE_DPA = {
+  slug: "/dpa",
+  title: "Accord de Traitement des Données (DPA)",
+  sections: [
+    {
+      key: "hero",
+      type: "page_hero",
+      content: {
+        type: "page_hero",
+        kicker: "Informations légales",
+        title: "Accord de Traitement des Données (DPA)",
+        lead: "L'accord de sous-traitance des données prévu par l'article 28 du RGPD — version 2.1 (juillet 2026). Le document officiel PDF fait foi.",
+        image: {
+          mediaId: null,
+          path: "/images/fonctionnalites/podologue-medicarepro-section-2.jpg",
+          alt: "",
+        },
+      },
+    },
+    {
+      key: "body",
+      type: "rich_text",
+      content: {
+        type: "rich_text",
+        body: doc(
           p(
-            "La souscription s'effectue en ligne, via le ",
-            link("tunnel d'inscription", "/inscription"),
-            " du site. Le premier paiement est réglé par carte bancaire via la plateforme sécurisée Monetico Paiement (Crédit Industriel et Commercial — CIC / Euro-Information) ; les données de carte bancaire sont saisies exclusivement sur les pages de paiement de Monetico et ne transitent jamais par le site medicarepro.fr. Le compte du Client sur l'application app.medicarepro.fr est créé après confirmation du paiement par carte ; les informations de connexion lui sont communiquées par email.",
+            "L'accord de traitement des données (Data Processing Agreement, DPA) constitue l'annexe 1 des ",
+            link("conditions générales de vente", "/cgv"),
+            ". Conclu en application de l'article 28 du RGPD, il encadre la relation entre le praticien, responsable du traitement des données de ses patients, et ",
+            bold("MEDICARE PRO"),
+            ", qui agit en qualité de sous-traitant.",
           ),
-          h2("4. Renouvellement et prélèvement SEPA"),
           p(
-            "Les échéances suivantes (renouvellement mensuel ou annuel selon la formule) sont réglées par prélèvement SEPA, au titre du mandat de prélèvement SEPA Core signé par le Client lors de la souscription. Chaque échéance fait l'objet d'une pré-notification adressée au Client au moins 14 jours avant la date du prélèvement.",
+            "Version officielle en vigueur : ",
+            bold(`Version ${LEGAL_DOCUMENTS.dpa.version} — Juillet 2026`),
+            ".",
           ),
-          h2("5. Défaut de paiement"),
           p(
-            "En cas de rejet d'un prélèvement SEPA non régularisé dans un délai de 14 jours, l'accès du Client à l'application est suspendu jusqu'à régularisation complète. Les frais de rejet éventuellement supportés par l'Éditeur peuvent être refacturés au Client à leur coût réel.",
+            bold("Le document officiel ci-dessous fait foi"),
+            " — cette page n'en est qu'une présentation, sans valeur contractuelle : ",
+            link(
+              `télécharger le DPA (PDF, version ${LEGAL_DOCUMENTS.dpa.version})`,
+              LEGAL_DOCUMENTS.dpa.pdfHref,
+            ),
+            ".",
           ),
-          h2("6. Résiliation"),
+          h2("Ce que couvre ce document"),
           ul(
             [
-              bold("Formule mensuelle"),
               text(
-                " : résiliable à tout moment, moyennant un préavis de 15 jours ; l'abonnement prend fin au terme de la période mensuelle en cours.",
+                "L'objet et la description du traitement : catégories de données (dont données de santé) et de personnes concernées.",
               ),
             ],
             [
-              bold("Formule annuelle"),
               text(
-                " : engagement de 12 mois ; la résiliation prend effet au terme de la période de 12 mois en cours.",
+                "Les obligations du sous-traitant : instructions, confidentialité, sécurité et sous-traitants ultérieurs.",
+              ),
+            ],
+            [
+              text(
+                "La notification des violations de données et l'assistance au responsable de traitement.",
+              ),
+            ],
+            [
+              text(
+                "Les transferts de données, le délégué à la protection des données (DPO) et le registre des traitements.",
+              ),
+            ],
+            [
+              text(
+                "Le sort des données en fin de contrat, l'audit, la responsabilité et le droit applicable.",
               ),
             ],
           ),
           p(
-            "Toute demande de résiliation s'effectue par email à ",
+            "Pour toute question sur ce document, écrivez-nous à ",
             link("contact@medicarepro.fr", "mailto:contact@medicarepro.fr"),
-            ". Les périodes déjà payées restent acquises à l'Éditeur.",
+            ".",
           ),
-          h2("7. Révocation du mandat SEPA"),
+        ),
+      },
+    },
+  ],
+} satisfies ManagedPageContent;
+
+/* ---------------- /cookies ---------------- */
+
+export const PAGE_COOKIES = {
+  slug: "/cookies",
+  title: "Politique de Cookies",
+  sections: [
+    {
+      key: "hero",
+      type: "page_hero",
+      content: {
+        type: "page_hero",
+        kicker: "Informations légales",
+        title: "Politique de Cookies",
+        lead: "Des cookies techniques uniquement, conformément à la directive ePrivacy et aux recommandations de la CNIL — version 2.1 (juillet 2026). Le document officiel PDF fait foi.",
+        image: {
+          mediaId: null,
+          path: "/images/fonctionnalites/podologue-medicarepro-section-2.jpg",
+          alt: "",
+        },
+      },
+    },
+    {
+      key: "body",
+      type: "rich_text",
+      content: {
+        type: "rich_text",
+        body: doc(
           p(
-            "Le Client peut révoquer son mandat de prélèvement SEPA à tout moment, sur demande adressée à ",
+            "La politique de cookies décrit les cookies et le stockage local utilisés par le site medicarepro.fr et le logiciel MediCare Pro, conformément à la directive ePrivacy, à l'article 82 de la loi Informatique et Libertés et aux recommandations de la CNIL. ",
+            bold(
+              "MediCare Pro utilise exclusivement des cookies techniques",
+            ),
+            " : aucun cookie publicitaire, analytique ou de traçage n'est déposé.",
+          ),
+          p(
+            "Version officielle en vigueur : ",
+            bold(`Version ${LEGAL_DOCUMENTS.cookies.version} — Juillet 2026`),
+            ".",
+          ),
+          p(
+            bold("Le document officiel ci-dessous fait foi"),
+            " — cette page n'en est qu'une présentation, sans valeur contractuelle : ",
+            link(
+              `télécharger la politique de cookies (PDF, version ${LEGAL_DOCUMENTS.cookies.version})`,
+              LEGAL_DOCUMENTS.cookies.pdfHref,
+            ),
+            ".",
+          ),
+          h2("Ce que couvre ce document"),
+          ul(
+            [
+              text(
+                "La définition des cookies et du stockage local, et leur rôle dans le fonctionnement du service.",
+              ),
+            ],
+            [
+              text(
+                "La liste des cookies techniques utilisés (session, authentification, sécurité, préférences) et leurs finalités.",
+              ),
+            ],
+            [
+              text(
+                "La base légale : des cookies strictement nécessaires, exemptés de consentement préalable.",
+              ),
+            ],
+            [
+              text(
+                "La gestion des cookies depuis le navigateur et les mesures de sécurité appliquées.",
+              ),
+            ],
+          ),
+          p(
+            "Le traitement des données personnelles est détaillé dans la ",
+            link("politique de confidentialité", "/confidentialite"),
+            ". Pour toute question, écrivez-nous à ",
             link("contact@medicarepro.fr", "mailto:contact@medicarepro.fr"),
-            ". La révocation du mandat sans mise en place d'un autre moyen de paiement vaut résiliation de l'abonnement au terme de la période déjà payée.",
+            ".",
           ),
-          h2("8. Absence de droit de rétractation"),
-          p(
-            "Le contrat étant conclu entre professionnels, pour les besoins de l'activité du Client, le client professionnel ne bénéficie pas du droit de rétractation prévu par le Code de la consommation (les articles L221-3 et suivants n'étant pas applicables aux services souscrits entre professionnels et pleinement exécutés).",
-          ),
-          h2("9. Responsabilité"),
-          p(
-            "L'Éditeur est tenu à une obligation de moyens dans la fourniture du service, accessible 24 h/24 et 7 j/7 sous réserve des opérations de maintenance et des aléas techniques. La responsabilité de l'Éditeur est limitée aux dommages directs et prévisibles, et plafonnée au montant des sommes effectivement payées par le Client au titre des 12 derniers mois. Le Client demeure seul responsable des données qu'il traite dans l'application et du respect de ses obligations professionnelles.",
-          ),
-          h2("10. Droit applicable et juridiction"),
-          p(
-            "Les présentes CGV sont soumises au droit français. Tout litige relatif à leur formation, leur interprétation ou leur exécution relève, à défaut de résolution amiable, de la compétence exclusive du tribunal de commerce d'Aix-en-Provence.",
-          ),
-          p("Dernière mise à jour : 11 juillet 2026."),
         ),
       },
     },

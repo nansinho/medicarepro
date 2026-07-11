@@ -316,15 +316,73 @@
   }
 }
 @media (max-width: 640px) {
+  /* Vrai bento 2 colonnes : vedette et HDS en pleine largeur,
+     compteurs deux par deux. */
   .bentoGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     grid-auto-rows: auto;
+    gap: 14px;
+  }
+  /* Sans min-width:0, le min-content d'une cellule (mockup, chiffre nowrap)
+     élargit la grille au-delà du viewport sur les très petits écrans. */
+  .bentoGrid > * {
+    min-width: 0;
   }
   .spanLarge {
-    grid-column: span 1;
+    grid-column: span 2;
     grid-row: span 1;
   }
+  /* Bande HDS pleine largeur (classe posée dans HomeBento). */
+  .spanHds {
+    grid-column: span 2;
+  }
+  /* Nombre impair de cellules : le compteur final s'étire
+     pour ne pas laisser de demi-rangée vide. */
+  .bentoGrid > :last-child:nth-child(odd) {
+    grid-column: span 2;
+  }
   .cell {
-    min-height: 170px;
+    min-height: 0;
+    padding: 22px 18px;
+  }
+  /* Pas de tilt au tactile : léger enfoncement à l'appui. */
+  .cell:active {
+    transform: scale(0.985);
+  }
+  .cellLarge {
+    padding: 24px 20px 26px;
+  }
+  .num {
+    font-size: clamp(1.7rem, 7vw, 2.1rem);
+  }
+  .numIco {
+    width: 40px;
+    height: 40px;
+  }
+  .numLabel {
+    font-size: 0.85rem;
+  }
+}
+
+/* Manifesto mobile : titre et texte resserrés, halos réduits
+   (offsets ajustés pour garder la même part visible à l'écran). */
+@media (max-width: 760px) {
+  .manifestoTitle {
+    font-size: clamp(1.8rem, 7vw, 2.2rem);
+  }
+  .manifestoText {
+    font-size: 1.02rem;
+  }
+  .manifesto::before {
+    top: -110px;
+    left: -60px;
+    width: 320px;
+    height: 320px;
+  }
+  .manifesto::after {
+    bottom: -125px;
+    right: -45px;
+    width: 320px;
+    height: 320px;
   }
 }

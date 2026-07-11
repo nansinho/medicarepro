@@ -12,6 +12,13 @@ export const DUR = {
   slow: 1.05,
 } as const;
 
+/** Durées resserrées sur mobile (s) — miroir du bloc [data-rv] ≤760 de globals.css. */
+export const DUR_MOBILE = {
+  fast: 0.4,
+  base: 0.65,
+  slow: 0.7,
+} as const;
+
 /** Décalage entre enfants d'un groupe échelonné (s). */
 export const STAGGER = 0.09;
 
@@ -53,16 +60,33 @@ export function useIsMobile(maxWidth = 760) {
 /** Variants de Reveal selon la direction. */
 export type RevealVariant = "up" | "scale" | "left" | "right";
 
-export function revealOffset(variant: RevealVariant) {
+/**
+ * Partie transform du décalage d'apparition, resserrée sur mobile
+ * (miroir du bloc [data-rv] ≤760 de globals.css).
+ *
+ * Exposée séparément pour être passée au prop `style` des composants
+ * framer-motion : contrairement à `initial` (résolu une seule fois au
+ * montage, où useIsMobile vaut encore false — SSR compris), les transforms
+ * du style sont relus à chaque rendu tant que la valeur n'a pas été animée.
+ * Le resserrage mobile prend donc effet juste après l'hydratation, avant
+ * l'entrée en vue, sans mismatch d'hydratation ; et une fois le reveal
+ * joué, les changements de style sont ignorés (pas de saut au resize).
+ */
+export function revealTransform(variant: RevealVariant, mobile = false) {
   switch (variant) {
     case "scale":
-      return { opacity: 0, y: 30, scale: 0.93 };
+      return mobile ? { y: 18, scale: 0.96 } : { y: 30, scale: 0.93 };
     case "left":
-      return { opacity: 0, x: -56 };
+      return { x: mobile ? -28 : -56 };
     case "right":
-      return { opacity: 0, x: 56 };
+      return { x: mobile ? 28 : 56 };
     case "up":
     default:
-      return { opacity: 0, y: 46 };
+      return { y: mobile ? 24 : 46 };
   }
+}
+
+/** Décalage d'apparition complet (opacité + transform). */
+export function revealOffset(variant: RevealVariant, mobile = false) {
+  return { opacity: 0, ...revealTransform(variant, mobile) };
 }

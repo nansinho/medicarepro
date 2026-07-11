@@ -77,6 +77,18 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 104px;
 }
+
+/* Garde anti-débordement horizontal (backstop racine).
+   `clip` ne crée PAS de scroll container → position:sticky (HomeFeatureScroll)
+   et Lenis restent intacts. La 1re déclaration = repli Safari < 16.
+   Ne JAMAIS poser d'overflow-x sur main/section : cela créerait un scroll
+   container entre le sticky et le viewport et casserait l'épinglage. */
+html,
+body {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 /* Lenis pilote le scroll → neutraliser le smooth natif (sinon double-smoothing).
    En l'absence de Lenis (reduced-motion / mobile), le smooth natif reste actif. */
 html.lenis,
@@ -100,6 +112,8 @@ body {
   background: var(--color-bg);
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  /* Décalage du bandeau promo (PromoBanner fixe la variable quand actif). */
+  padding-top: var(--promo-offset, 0px);
 }
 
 h1,
@@ -115,6 +129,13 @@ h4,
 a {
   text-decoration: none;
   color: inherit;
+}
+
+/* Le flash gris de tap WebKit casse l'effet « app » sur mobile ;
+   les états :active définis plus bas le remplacent. */
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 img {
@@ -373,9 +394,72 @@ h1.sec-title {
 /* Les keyframes du hero (rise, fadeScale, pop, floaty, drift1/2) sont
    définis dans Hero.module.css car CSS Modules y réécrit les noms. */
 
-/* ---------- RESPONSIVE WRAP ---------- */
-@media (max-width: 760px) {
+/* ---------- RESPONSIVE : TABLETTE & MOBILE ---------- */
+/* Tablette : respiration latérale intermédiaire entre 44px et 22px. */
+@media (max-width: 980px) {
   .wrap {
-    padding: 0 18px;
+    padding: 0 32px;
+  }
+}
+
+/* Mobile : le rythme desktop (sections 152px, têtes 72px) écrase les petits
+   écrans ; on resserre TOUT via la couche de tokens — un seul point de vérité,
+   toutes les pages suivent. Les minima des clamps de titres sont abaissés
+   (2.8rem = 44.8px dominait à 360-430px). */
+@media (max-width: 760px) {
+  :root {
+    --space-sm: 32px;
+    --space-md: 48px;
+    --space-lg: 68px;
+    --space-xl: 92px; /* --section-pad-y suit (152 → 92) */
+    --sec-head-mb: 40px;
+    --lead-mt: 14px;
+    --kicker-mb: 10px;
+    --title-page: clamp(2.1rem, 8vw, 2.6rem);
+    --title-section: clamp(1.65rem, 6.6vw, 2rem);
+    --title-cta: clamp(1.45rem, 5.8vw, 1.7rem);
+    --title-block: clamp(1.25rem, 5vw, 1.45rem);
+    --hero-min-h-m: 380px;
+    --hero-pad-m: 112px 0 44px;
+  }
+  html {
+    scroll-padding-top: 88px;
+  }
+  .wrap {
+    padding: 0 22px;
+  }
+  .lead {
+    font-size: 1.02rem;
+  }
+  .kicker {
+    font-size: 0.76rem;
+    letter-spacing: 0.14em;
+  }
+  /* État tactile : le hover n'existe pas, :active donne le retour. */
+  .btn:active {
+    transform: scale(0.97);
+    box-shadow: 0 8px 18px rgba(33, 72, 126, 0.24);
+  }
+  /* Reveals resserrés : 46px / 1.05s parait « lourd » sur petit écran.
+     Imbriqué sous no-preference : sans lui, un utilisateur reduced-motion
+     garderait un translateY permanent (les règles de base sont gatées). */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-rv] {
+      transform: translateY(24px);
+      transition: opacity 0.65s var(--ease), transform 0.7s var(--ease);
+    }
+    [data-rv="scale"] {
+      transform: translateY(18px) scale(0.96);
+    }
+    [data-rv="left"] {
+      transform: translateX(-24px);
+    }
+    [data-rv="right"] {
+      transform: translateX(24px);
+    }
+    [data-rv].in {
+      opacity: 1;
+      transform: none;
+    }
   }
 }

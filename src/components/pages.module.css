@@ -496,6 +496,10 @@
   .savingsHighlights {
     grid-template-columns: 1fr 1fr;
   }
+  /* 3 cartes en 2 colonnes : la dernière s'étire au lieu de rester orpheline. */
+  .savingsStat:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
   .detailGrid {
     grid-template-columns: 1fr;
   }
@@ -518,5 +522,25 @@
   /* Flèche horizontale → verticale en pile mobile */
   .savingsArrow {
     transform: rotate(90deg);
+  }
+}
+/* Très petits écrans : timeline compactée (node 48px au lieu de 64px).
+   Rail à 23px = centre du node (24) − demi-trait (1px), comme 31px en desktop. */
+@media (max-width: 480px) {
+  .timelineStep {
+    grid-template-columns: 48px 1fr;
+    gap: 14px;
+  }
+  .timelineNode {
+    width: 48px;
+    height: 48px;
+    font-size: 1.05rem;
+  }
+  .timelineRail,
+  .timelineProgress {
+    left: 23px;
+  }
+  .timelineBody {
+    padding: 20px 18px;
   }
 }

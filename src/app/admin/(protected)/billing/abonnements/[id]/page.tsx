@@ -78,6 +78,16 @@ type SyncTaskRow = {
   done_at: string | null;
 };
 
+type ConsentRow = {
+  id: string;
+  label_text: string;
+  documents: { document: string; version: string; sha256?: string }[];
+  accepted_at: string;
+  full_name: string;
+  email: string;
+  client_ip: string | null;
+};
+
 const PLAN_LABEL: Record<string, string> = {
   MONTHLY: "Mensuel",
   ANNUAL: "Annuel",
@@ -164,7 +174,7 @@ export default async function AbonnementDetailPage({
   if (!subData) notFound();
   const sub = subData as SubscriptionRow;
 
-  const [mandates, invoices, ipns, tasks] = await Promise.all([
+  const [mandates, invoices, ipns, tasks, consents] = await Promise.all([
     service
       .from("sepa_mandates")
       .select(
@@ -187,12 +197,18 @@ export default async function AbonnementDetailPage({
       .select("id, kind, status, payload, created_at, done_at")
       .eq("subscription_id", sub.id)
       .order("created_at", { ascending: false }),
+    service
+      .from("consent_records")
+      .select("id, label_text, documents, accepted_at, full_name, email, client_ip")
+      .eq("subscription_id", sub.id)
+      .order("accepted_at", { ascending: false }),
   ]);
 
   const mandateRows = (mandates.data ?? []) as MandateRow[];
   const invoiceRows = (invoices.data ?? []) as InvoiceRow[];
   const ipnRows = (ipns.data ?? []) as IpnRow[];
   const taskRows = (tasks.data ?? []) as SyncTaskRow[];
+  const consentRows = (consents.data ?? []) as ConsentRow[];
 
   return (
     <>
@@ -292,6 +308,33 @@ export default async function AbonnementDetailPage({
                 <dd>{fmtDateTime(mandate.signed_at)}</dd>
                 <dt>Dernière présentation</dt>
                 <dd>{fmtDate(mandate.last_presented_at)}</dd>
+              </dl>
+            ))
+          )}
+        </section>
+
+        <section className={s.detailCard}>
+          <h2>Consentement contractuel</h2>
+          {consentRows.length === 0 ? (
+            <p className={s.empty}>Aucune preuve de consentement liée.</p>
+          ) : (
+            consentRows.map((consent) => (
+              <dl className={s.detailList} key={consent.id}>
+                <dt>Accepté le</dt>
+                <dd>{fmtDateTime(consent.accepted_at)}</dd>
+                <dt>Par</dt>
+                <dd>
+                  {consent.full_name} ({consent.email})
+                  {consent.client_ip ? ` — IP ${consent.client_ip}` : ""}
+                </dd>
+                <dt>Documents</dt>
+                <dd>
+                  {consent.documents
+                    .map((d) => `${d.document} v${d.version}`)
+                    .join(" · ")}
+                </dd>
+                <dt>Libellé affiché</dt>
+                <dd>{consent.label_text}</dd>
               </dl>
             ))
           )}

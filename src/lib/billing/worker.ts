@@ -422,6 +422,15 @@ async function finalizeSuccess(
     });
     if (e4) throw new Error(`insert billing_ledger : ${e4.message}`);
 
+    // 5. Rattache la preuve de consentement contractuel au contrat durable
+    //    (consent_records est lié à la chaîne de checkout par root_id).
+    const { error: e5 } = await supabase
+      .from("consent_records")
+      .update({ subscription_id: subscriptionId })
+      .eq("pending_root_id", row.root_id)
+      .is("subscription_id", null);
+    if (e5) throw new Error(`lien consent_records : ${e5.message}`);
+
     criticalOk = true;
   } catch (err) {
     const message = errMessage(err);

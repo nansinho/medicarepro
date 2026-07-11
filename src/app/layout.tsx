@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Figtree, Poppins } from "next/font/google";
 import { JSONLD_ORG, JSONLD_SOFTWARE } from "@/data/content/site";
 import "./globals.css";
@@ -17,10 +17,18 @@ const poppins = Poppins({
   display: "swap",
 });
 
+/* viewport-fit=cover : nécessaire pour que env(safe-area-inset-*) se résolve
+   sur les iPhone à encoche (pastille « Je m'abonne » + footer mobile). */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://medicarepro.fr"),
   title: {
-    default: "MediCare Pro — Tout votre cabinet dans une seule application",
+    default: "MediCare Pro — Le logiciel tout-en-un des pédicures-podologues",
     template: "%s — MediCare Pro",
   },
   description:
@@ -35,7 +43,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "MediCare Pro" }],
   openGraph: {
-    title: "MediCare Pro — Tout votre cabinet dans une seule application",
+    title: "MediCare Pro — Le logiciel tout-en-un des pédicures-podologues",
     description:
       "Le logiciel complet de gestion pour podologues : dossiers patients, bilans, facturation automatisée, comptabilité et conformité RGPD. Hébergement HDS en France.",
     locale: "fr_FR",

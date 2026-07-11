@@ -34,6 +34,10 @@ export function lines(
   return text.split("\n").map((line, i) => (
     <Fragment key={i}>
       {i > 0 && renderBr(i)}
+      {/* Espace de repli : invisible quand le <br> est rendu (espace en début
+          de ligne, ignorée), mais évite « mot.Mot » quand un CSS responsive
+          masque le <br> (ex. .breakLg des heros). */}
+      {i > 0 && " "}
       {accent ? emphasize(line, accent) : line}
     </Fragment>
   ));

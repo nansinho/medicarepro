@@ -18,6 +18,7 @@ import { logAudit } from "@/lib/audit";
 import { MANDATE_TEXT_VERSION, mandateText } from "@/lib/sepa/mandate-text";
 import { mandateTextSha256 } from "@/lib/sepa/mandate-hash";
 import { maskIban } from "@/lib/sepa/iban";
+import { consentDocumentsSnapshot, TERMS_LABEL } from "@/lib/legal/registry";
 
 /* ============================================================
    POST /api/checkout — ouverture d'un dossier d'inscription payante.
@@ -346,6 +347,30 @@ export async function POST(request: NextRequest) {
   if (!invoicePrefix) {
     // Tous les candidats de préfixe sont pris — cas limite improbable.
     return Response.json({ error: GENERIC_CONFLICT }, { status: 409 });
+  }
+
+  /* --- Preuve de consentement contractuel (art. 5 CGV v2.1) : libellé
+     exact + versions/empreintes des documents + identité + horodatage
+     serveur. Table durable, indépendante des purges de pending_signups. */
+  const { error: consentError } = await supabase.from("consent_records").insert({
+    kind: "contract_terms",
+    pending_root_id: id,
+    label_text: TERMS_LABEL,
+    documents: consentDocumentsSnapshot(),
+    accepted_at: nowIso,
+    full_name: `${user.firstName} ${user.lastName}`,
+    email: user.email,
+    client_ip: ip,
+    user_agent: userAgent,
+  });
+  if (consentError) {
+    // La preuve est obligatoire : sans elle on n'encaisse pas.
+    console.error("[checkout] insert consent_records :", consentError.message);
+    await supabase
+      .from("pending_signups")
+      .update({ status: "abandoned", password_enc: null, sepa_payload_enc: null })
+      .eq("id", id);
+    return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
   }
 
   // Formulaire Monetico scellé (auto-submit côté client).

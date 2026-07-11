@@ -14,8 +14,8 @@ export const PAGE_HOME = {
       type: "home_hero",
       content: {
         type: "home_hero",
-        title: "Tout votre cabinet dans\nune seule application",
-        lead: "Le logiciel complet de gestion pour podologues,\npour vous faire gagner du temps au quotidien.",
+        title: "La podologie a trouvé\nson logiciel",
+        lead: "Bilans podologiques, semelles orthopédiques :\ntout votre cabinet dans une seule application.",
         demoCta: { label: "Voir la démo", href: "/contact" },
         priceCta: {
           label: "abonnement",
@@ -24,9 +24,8 @@ export const PAGE_HOME = {
           href: "/tarifs",
         },
         proof: {
-          count: 1000,
-          prefix: "+",
-          label: "podologues équipés",
+          headline: "Plusieurs podologues",
+          label: "déjà équipés",
           avatars: [
             { mediaId: null, path: "/images/avatars/av1.jpg", alt: "Podologue équipé 1" },
             { mediaId: null, path: "/images/avatars/av2.jpg", alt: "Podologue équipé 2" },
@@ -62,11 +61,11 @@ export const PAGE_HOME = {
         type: "bento",
         kicker: "Pourquoi MediCare Pro",
         title: "L'essentiel, en un coup d'œil",
-        lead: "Un seul outil remplace votre agenda, votre facturation, vos bilans et votre comptabilité.",
+        lead: "Un seul outil remplace votre agenda, votre facturation, vos bilans podologiques et votre comptabilité.",
         mockup: {
-          kicker: "Agenda & RDV en ligne",
-          title: "Vos patients réservent seuls, l'agenda se remplit",
-          kind: "agenda",
+          kicker: "Bilans podologiques",
+          title: "Vous menez l'examen, les scores se calculent seuls",
+          kind: "bilan",
         },
         counters: [
           {
@@ -136,8 +135,8 @@ export const PAGE_HOME = {
       content: {
         type: "cta_panel",
         kicker: "Prêt à simplifier votre cabinet ?",
-        title: "Tout votre cabinet réuni, pour 24,84 €/mois",
-        lead: "Tout-en-un, sans option cachée — et plus de 3 000 € économisés par an en moyenne face aux outils séparés.",
+        title: "Tout votre cabinet réuni, pour 24,84 €/mois",
+        lead: "Tout-en-un, sans option cachée — et plus de 3 000 € économisés par an en moyenne face aux outils séparés.",
         primary: { label: "Je m'abonne", href: "app:register:annual" },
         secondary: { label: "Demander une démo", href: "/contact" },
         trust: [

@@ -12,6 +12,8 @@ import {
   PAGE_CGV,
   PAGE_MENTIONS,
   PAGE_CONFIDENTIALITE,
+  PAGE_DPA,
+  PAGE_COOKIES,
 } from "@/data/content/legal";
 
 /* ============================================================
@@ -37,6 +39,8 @@ export const FALLBACK_PAGES: Record<string, ManagedPageContent> = Object.fromEnt
     PAGE_CGV,
     PAGE_MENTIONS,
     PAGE_CONFIDENTIALITE,
+    PAGE_DPA,
+    PAGE_COOKIES,
   ].map((page) => [page.slug, page as ManagedPageContent]),
 );
 

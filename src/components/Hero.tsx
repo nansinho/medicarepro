@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Check, Play, Phone, Headset, MapPin, ArrowRight } from "./icons";
 import OvhBadge from "@/components/OvhBadge";
+import { useIsMobile } from "@/components/motion/motion";
 import { resolveHref } from "@/lib/appLinks";
 import { lines } from "@/components/cms/inline";
 import type { SectionContentOf } from "@/lib/cms/sections.schema";
@@ -52,12 +53,18 @@ export default function Hero({
   content: SectionContentOf<"home_hero">;
 }) {
   const avatars = content.proof.avatars;
-  const count = useCountUp(content.proof.count, 1700, 1250);
+  const count = useCountUp(content.proof.count ?? 0, 1700, 1250);
   const photoRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  /* 880 : aligné sur la composition mobile/tablette du CSS (texte d'abord,
+     photo dans le flux, badge OVH en chip sur la photo). */
+  const mobile = useIsMobile(880);
 
-  // Parallax léger sur la photo + le texte du hero
+  // Parallax léger sur la photo + le texte du hero. Desktop uniquement :
+  // sur mobile/tablette la photo est dans le flux, sous le texte — on
+  // n'attache pas le listener de scroll (jank inutile).
   useEffect(() => {
+    if (mobile) return;
     const reduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
@@ -78,8 +85,15 @@ export default function Hero({
       }
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const photoEl = photoRef.current;
+    const textEl = textRef.current;
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      // Purge les translations posées en inline (ex. bascule desktop → mobile)
+      if (photoEl) photoEl.style.translate = "";
+      if (textEl) textEl.style.translate = "";
+    };
+  }, [mobile]);
 
   return (
     <>
@@ -96,6 +110,11 @@ export default function Hero({
               className={styles.duoImg}
             />
           </div>
+          {/* Badge OVH version mobile : chip compact épinglé sur la photo.
+              Instance séparée (l'instance desktop, hors du bleed, ignore le
+              parallaxe et le fondu de la photo), montée seulement ≤760 pour
+              éviter un id SVG dupliqué (#ovhRingPath) sur desktop. */}
+          {mobile && <OvhBadge className={styles.ovhBadgeMobile} />}
         </div>
 
         {/* Badge OVH flottant (hébergement HDS) */}
@@ -149,8 +168,14 @@ export default function Hero({
               </div>
               <div className={styles.proofText}>
                 <b>
-                  {content.proof.prefix}
-                  {count.toLocaleString("fr-FR")}
+                  {content.proof.count != null ? (
+                    <>
+                      {content.proof.prefix}
+                      {count.toLocaleString("fr-FR")}
+                    </>
+                  ) : (
+                    content.proof.headline
+                  )}
                 </b>
                 <small>{content.proof.label}</small>
               </div>

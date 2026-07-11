@@ -18,6 +18,7 @@ import {
   Star,
   Users,
   Monitor,
+  Foot,
   Check,
   ArrowRight,
 } from "@/components/icons";
@@ -35,6 +36,7 @@ const ICONS = {
   Star,
   Users,
   Monitor,
+  Foot,
 } as const;
 
 /** Fonctionnalité affichée (forme de la collection feature_items du CMS). */

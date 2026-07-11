@@ -102,3 +102,55 @@
     height: 15px;
   }
 }
+
+/* ============================================================
+   MOBILE & TABLETTE (≤1080px, aligné sur le passage au burger) —
+   décision client : les onglets collés aux bords mangent l'écran
+   et chevauchent les titres dès 768px. « Laissez un avis » disparaît
+   et « Je m'abonne » devient une pastille flottante en bas à droite.
+   ============================================================ */
+@media (max-width: 1080px) {
+  /* Onglet gauche (avis) : masqué sur mobile. */
+  .left {
+    display: none;
+  }
+
+  /* Onglet droit : pill horizontale flottante, calée au-dessus du safe-area iOS. */
+  .right {
+    top: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    right: 16px;
+    transform: none;
+    flex-direction: row;
+    gap: 8px;
+    padding: 13px 20px;
+    min-height: 48px;
+    border-radius: 50px;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    /* Le padding ne bouge plus au toucher : on anime la pression (transform). */
+    transition: transform 0.2s var(--ease), box-shadow 0.3s var(--ease);
+  }
+
+  /* Le label vertical repasse à l'horizontale. */
+  .right .label {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  /* Icône proportionnée à la pill (le 15px compact était pensé pour l'onglet vertical). */
+  .right .ico {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Neutralise le décalage de padding au hover (aucun sens en pill tactile). */
+  .right:hover {
+    padding-left: 20px;
+  }
+
+  /* Retour tactile : légère pression à la place du hover. */
+  .right:active {
+    transform: scale(0.96);
+  }
+}

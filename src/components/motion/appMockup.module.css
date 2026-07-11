@@ -79,6 +79,8 @@
   font-weight: 700;
   font-size: 1.4rem;
   color: var(--color-navy);
+  /* « 248,00 € » ne doit jamais casser avant son unité (vu à 320px). */
+  white-space: nowrap;
 }
 .lines {
   display: flex;
@@ -536,4 +538,31 @@
   display: grid;
   place-items: center;
   flex: none;
+}
+
+/* ----- Mobile ≤760 : écrans compactés (cellules étroites, ~300px) ----- */
+@media (max-width: 760px) {
+  .screen {
+    padding: 18px 16px 22px;
+    min-height: 190px;
+    gap: 12px;
+  }
+  .bar {
+    padding: 10px 14px;
+  }
+  .chip {
+    font-size: 0.8rem;
+  }
+  .amount {
+    font-size: 1.2rem;
+  }
+  .reportLine {
+    font-size: 0.74rem;
+  }
+  /* Largeurs fixes internes : .time (46px) et .apptDate (50px) tiennent
+     largement dans l'écran réduit (~240px utiles au plus étroit) ; seule
+     la signature (180px) est bornée par sécurité. */
+  .sign {
+    max-width: 100%;
+  }
 }

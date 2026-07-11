@@ -20,6 +20,14 @@
 /** Plans du contrat de provisioning dev B (casse exacte de l'API). */
 export type BillingPlan = "MONTHLY" | "ANNUAL";
 
+/**
+ * Version de la grille tarifaire en vigueur — archivée dans la preuve
+ * de consentement (consent_records). À incrémenter à CHAQUE changement
+ * de barème (les montants exacts consentis sont par ailleurs figés
+ * dans pending_signups.amount_cents / subscriptions.renewal_amount_cents).
+ */
+export const PRICING_VERSION = "tarifs-2026-07";
+
 /** planKey CMS (pricing_plans / appLinks) → plan API dev B. */
 export function planFromPlanKey(planKey: string): BillingPlan {
   return planKey === "monthly" ? "MONTHLY" : "ANNUAL";

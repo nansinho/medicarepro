@@ -226,3 +226,78 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Repli : tête de section lisible sur fond blanc ----------
+   Non gaté par media query (volontaire) : le repli s'affiche aussi sur
+   desktop en reduced-motion, où il était tout autant blanc-sur-blanc. */
+.fallback .kicker {
+  color: var(--color-primary-bright);
+}
+.fallback .title {
+  color: var(--color-navy);
+}
+
+/* Cartes du repli désormais colorées (fond BG_COLORS posé inline côté TSX) :
+   le texte blanc des règles de base redevient lisible, et le liseré gris
+   pensé pour des cartes blanches n'a plus lieu d'être. */
+.fallbackCard {
+  border: none;
+}
+/* Mockup sous le texte de la carte (le cadre gère lui-même width:100%). */
+.fallbackVisual {
+  margin-top: var(--space-xs);
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+}
+/* Pastilles indicatrices du rail : masquées hors rail (grille desktop). */
+.fallbackDots {
+  display: none;
+}
+
+/* ---------- Repli ≤980px : rail horizontal scroll-snap ----------
+   La carte suivante reste visible sur ~18% : affordance de scroll. */
+@media (max-width: 980px) {
+  .fallbackList {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 16px;
+    margin: 0 -22px;
+    padding: 4px 22px 18px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .fallbackList::-webkit-scrollbar {
+    display: none;
+  }
+  .fallbackCard {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 82%;
+    scroll-snap-align: center;
+    border: none;
+    border-radius: 24px;
+    padding: 26px 22px;
+    color: #fff;
+  }
+  /* Le mockup se cale en bas : cartes d'égale hauteur dans le rail. */
+  .fallbackVisual {
+    margin-top: auto;
+    padding-top: var(--space-xs);
+  }
+  .fallbackDots {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: var(--space-3xs);
+  }
+  /* Recolore les pastilles pour le fond blanc de la section (les .dot de
+     base sont blanches, pensées pour le fond coloré du mode cinématique). */
+  .fallbackDots .dot {
+    background: var(--color-light-2);
+  }
+  .fallbackDots .dotOn {
+    background: var(--color-primary-bright);
+  }
+}

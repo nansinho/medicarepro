@@ -28,6 +28,9 @@ export type BlogPost = {
   /** Temps de lecture estimé. */
   readingTime: string;
   sections: BlogSection[];
+  /** Corps riche Tiptap (articles créés via le back office) —
+   *  prioritaire sur `sections` au rendu quand il est non vide. */
+  body?: { type: "doc"; content: unknown[] };
 };
 
 export const BLOG_POSTS: BlogPost[] = [

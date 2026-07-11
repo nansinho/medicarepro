@@ -19,9 +19,21 @@ type PostRow = {
   cover_alt: string;
   published_at: string;
   reading_time_min: number;
+  body: unknown;
   body_legacy: unknown;
   cover_media_id: string | null;
 };
+
+/** Document Tiptap non vide ? (corps des articles créés en back office) */
+function isRichBody(value: unknown): value is { type: "doc"; content: unknown[] } {
+  return (
+    value != null &&
+    typeof value === "object" &&
+    (value as { type?: unknown }).type === "doc" &&
+    Array.isArray((value as { content?: unknown }).content) &&
+    ((value as { content: unknown[] }).content.length > 0)
+  );
+}
 
 const DATE_FR = new Intl.DateTimeFormat("fr-FR", {
   day: "numeric",
@@ -48,7 +60,7 @@ async function fetchPublishedPosts(): Promise<BlogPost[] | null> {
   const { data, error } = await sb
     .from("posts")
     .select(
-      "slug, title, excerpt, cover_alt, published_at, reading_time_min, body_legacy, cover_media_id",
+      "slug, title, excerpt, cover_alt, published_at, reading_time_min, body, body_legacy, cover_media_id",
     )
     .eq("status", "published")
     .lte("published_at", new Date().toISOString())
@@ -71,7 +83,10 @@ async function fetchPublishedPosts(): Promise<BlogPost[] | null> {
 
   const posts: BlogPost[] = [];
   for (const raw of data as PostRow[]) {
-    if (!isSectionArray(raw.body_legacy)) continue; // rendu Tiptap : Phase 4
+    const richBody = isRichBody(raw.body) ? raw.body : undefined;
+    const legacy = isSectionArray(raw.body_legacy) ? raw.body_legacy : undefined;
+    /* Un article doit avoir AU MOINS un corps exploitable. */
+    if (!richBody && !legacy) continue;
     const published = new Date(raw.published_at);
     posts.push({
       slug: raw.slug,
@@ -82,7 +97,9 @@ async function fetchPublishedPosts(): Promise<BlogPost[] | null> {
       imageAlt: raw.cover_alt,
       excerpt: raw.excerpt,
       readingTime: `${raw.reading_time_min} min`,
-      sections: raw.body_legacy,
+      sections: legacy ?? [],
+      /* Priorité au corps riche : c'est lui qui est édité en back office. */
+      body: richBody,
     });
   }
   return posts.length > 0 ? posts : null;

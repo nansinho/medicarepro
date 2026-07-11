@@ -97,8 +97,13 @@ export default function PricingPage({
               {examples.map((row) => (
                 <tr key={row.config}>
                   <td>{row.config}</td>
-                  <td>{`${formatPrice(row.monthly)} €`}</td>
-                  <td className={s.colYear}>{`${formatPrice(row.yearly)} €`}</td>
+                  <td data-label={content.tableHead.monthly}>{`${formatPrice(
+                    row.monthly,
+                  )} €`}</td>
+                  <td
+                    className={s.colYear}
+                    data-label={content.tableHead.yearly}
+                  >{`${formatPrice(row.yearly)} €`}</td>
                 </tr>
               ))}
             </tbody>

@@ -17,8 +17,8 @@ export const PAGE_CONTACT = {
       content: {
         type: "page_hero",
         kicker: "Contact",
-        title: "Parlons de votre cabinet",
-        lead: "Une question, une démo, un abonnement ? Notre équipe vous répond. Hébergement HDS en France, données conformes RGPD.",
+        title: "Parlons de votre cabinet de podologie",
+        lead: "Une question, une démo, un abonnement ? Notre équipe vous répond sous 24 h ouvrées. Hébergement HDS en France, données conformes RGPD.",
         image: {
           mediaId: null,
           path: "/images/fonctionnalites/podologue-medicarepro-section-1.jpg",

@@ -1,6 +1,7 @@
 .header {
   position: fixed;
-  top: 0;
+  /* Décalé par le bandeau promo quand il est actif (PromoBanner). */
+  top: var(--promo-offset, 0px);
   left: 0;
   right: 0;
   z-index: 120;

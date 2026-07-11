@@ -310,3 +310,83 @@
     padding: 44px 24px;
   }
 }
+
+/* ---------- MOBILE : tableau en mini-cartes + cartes plans ---------- */
+@media (max-width: 760px) {
+  /* Cartes plans : padding réduit, plan recommandé en premier */
+  .card {
+    padding: 30px 22px;
+  }
+  .priceBig {
+    font-size: 2.6rem;
+  }
+  .card.featured {
+    order: -1;
+  }
+  .ctaBand {
+    padding: 40px 22px;
+    border-radius: 24px;
+  }
+
+  /* En-têtes du tableau masqués visuellement (mais lus par les lecteurs d'écran) */
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* Chaque ligne devient une mini-carte en grille 2 colonnes */
+  .table,
+  .table tbody {
+    display: block;
+  }
+  .table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+    padding: 16px 18px;
+  }
+  .table tbody tr + tr {
+    border-top: 1px solid var(--color-border-soft);
+  }
+
+  /* Neutralise largeurs 50/25/25 et alignements du mode tableau
+     (sélecteurs alignés sur la spécificité des règles de base) */
+  .table td,
+  .table td:first-child,
+  .table td:not(:first-child) {
+    display: block;
+    width: auto;
+    padding: 0;
+    border: none;
+    text-align: left;
+  }
+  .table td:first-child {
+    grid-column: 1 / -1;
+    font-family: var(--font-head);
+  }
+  .table tbody tr:hover td {
+    background: transparent;
+  }
+
+  /* Libellé de colonne reporté au-dessus de chaque prix */
+  .table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted);
+  }
+}
+
+/* Filet de sécurité très petits écrans */
+@media (max-width: 480px) {
+  .examples {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

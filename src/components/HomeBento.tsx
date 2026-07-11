@@ -74,8 +74,8 @@ export default function HomeBento({
             <CounterCell key={counter.label} counter={counter} />
           ))}
 
-          {/* HDS / confiance */}
-          <StaggerItem variant="scale">
+          {/* HDS / confiance (pleine largeur sur mobile via .spanHds) */}
+          <StaggerItem className={h.spanHds} variant="scale">
             <TiltCard className={h.cell}>
               <span className={h.hdsRing}>
                 <HdsIcon width={28} height={28} />

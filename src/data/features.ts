@@ -10,7 +10,9 @@ export type FeatureIcon =
   | "ShieldPlus"
   | "Star"
   | "Users"
-  | "Monitor";
+  | "Monitor"
+  | "Foot"
+  | "Insole";
 
 export type FeatureDetail = {
   /** Nom de l'icône dans icons.tsx. */
@@ -34,9 +36,9 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "Invoice",
     kicker: "Facturation",
     title: "Facturation 100 % automatique",
-    text: "Vos factures sont générées automatiquement à chaque acte. Numérotation légale, TVA, mentions obligatoires et envoi au patient. Zéro ressaisie, zéro oubli.",
+    text: "Soins, bilans, orthèses plantaires : chaque acte génère sa facture automatiquement. Numérotation légale, TVA, mentions obligatoires et envoi au patient. Zéro ressaisie, zéro oubli.",
     points: [
-      "Génération auto à la consultation",
+      "Génération auto à chaque soin",
       "Numérotation séquentielle conforme",
       "Relances et suivi des impayés",
       "Export comptable en un clic",
@@ -73,7 +75,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "Calendar",
     kicker: "Agenda",
     title: "Agenda intégré : fini Doctolib à 150 €/mois",
-    text: "Un agenda complet inclus : prise de rendez-vous en ligne, rappels email et SMS automatiques (J-7, J-2), synchronisation et gestion multi-praticien.",
+    text: "Un agenda pensé pour vos journées de soins et de bilans : prise de rendez-vous en ligne, rappels email et SMS automatiques (J-7, J-2), synchronisation et gestion multi-praticien.",
     points: [
       "Prise de RDV en ligne",
       "Rappels email / SMS (J-7, J-2)",
@@ -83,7 +85,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     mockup: "agenda",
   },
   {
-    icon: "FileText",
+    icon: "Foot",
     kicker: "Bilans",
     title: "13 bilans podologiques normés",
     text: "Des bilans cliniques complets avec scores calculés automatiquement, grilles validées et recommandations : diabétique, chutes, posturologie, pédiatrie, sport…",
@@ -101,12 +103,12 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "Smartphone",
     kicker: "Mobilité",
     title: "App mobile (PWA) + scan de documents",
-    text: "Installez MediCare Pro sur mobile et tablette (PWA) et travaillez partout. Auto-sauvegarde en temps réel et scan de documents directement à la caméra.",
+    text: "Installez MediCare Pro sur mobile et tablette (PWA) et travaillez partout, au cabinet comme en soins à domicile. Auto-sauvegarde en temps réel, scan des ordonnances et documents à la caméra.",
     points: [
       "Installable (PWA)",
       "Auto-sauvegarde temps réel",
       "Scan caméra / webcam",
-      "Accessible partout",
+      "Idéal en soins à domicile",
     ],
     mockup: "pwa",
   },
@@ -114,7 +116,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "ShieldPlus",
     kicker: "SESAM-Vitale",
     title: "Carte Vitale & télétransmission",
-    text: "Lisez la carte Vitale et l'ApCV, sécurisez l'identité du patient et préparez la télétransmission. Solution agréée CNDA, intégrée à votre flux de soins.",
+    text: "Lisez la carte Vitale et l'ApCV, sécurisez l'identité du patient et préparez la télétransmission de vos actes. Solution agréée CNDA, intégrée au flux de soins de votre cabinet.",
     points: [
       "Lecture carte Vitale & ApCV",
       "Agrément CNDA",
@@ -126,10 +128,10 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
   {
     icon: "Star",
     kicker: "Intelligence artificielle",
-    title: "Comptes-rendus assistés par IA",
-    text: "Dictez ou saisissez vos observations, l'IA rédige un compte-rendu clair et structuré en quelques secondes. Vous gardez la main, vous gagnez du temps.",
+    title: "Comptes-rendus cliniques assistés par IA",
+    text: "Dictez ou saisissez vos observations — hyperkératose, appui pronateur — et l'IA rédige un compte-rendu clinique clair et structuré en quelques secondes. Vous gardez la main, vous gagnez du temps.",
     points: [
-      "Rédaction automatique structurée",
+      "Rédaction clinique structurée",
       "Gain de temps à chaque consultation",
       "Vous validez et ajustez",
       "Données de santé protégées",
@@ -140,7 +142,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "Users",
     kicker: "Portail patient",
     title: "Un espace dédié à vos patients",
-    text: "Vos patients prennent rendez-vous en ligne, accèdent à leurs documents et échangent avec vous en toute sécurité, depuis leur propre espace.",
+    text: "Vos patients prennent rendez-vous en ligne, retrouvent leurs documents et le suivi de leurs semelles orthopédiques, et échangent avec vous en toute sécurité, depuis leur propre espace.",
     points: [
       "Prise de rendez-vous en ligne",
       "Accès aux documents",
@@ -153,7 +155,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "Monitor",
     kicker: "Pilotage",
     title: "Statistiques, traçabilité & multi-cabinet",
-    text: "Pilotez votre activité avec des statistiques claires, assurez la traçabilité (matériovigilance) et gérez plusieurs cabinets et collaborateurs depuis un seul compte.",
+    text: "Pilotez votre activité — consultations, semelles, chiffre d'affaires — avec des statistiques claires, assurez la traçabilité de vos appareillages (matériovigilance) et gérez plusieurs cabinets et collaborateurs depuis un seul compte.",
     points: [
       "Tableau de bord statistiques",
       "Traçabilité & matériovigilance",

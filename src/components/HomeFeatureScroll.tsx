@@ -21,6 +21,7 @@ import {
   Star,
   Users,
   Monitor,
+  Foot,
   Check,
 } from "@/components/icons";
 import type { FeatureItem, SectionContentOf } from "@/lib/cms/sections.schema";
@@ -37,6 +38,7 @@ const ICONS = {
   Star,
   Users,
   Monitor,
+  Foot,
 } as const;
 
 type Head = Pick<SectionContentOf<"feature_scroll">, "kicker" | "title">;
@@ -71,7 +73,10 @@ export default function HomeFeatureScroll({
   items: FeatureItem[];
 }) {
   const reduced = useIsReduced();
-  const mobile = useIsMobile();
+  /* 980 (pas 760) : sur tablette, la section épinglée au scroll rend un long
+     vide en capture et se pilote mal au doigt — le rail scroll-snap prend
+     le relais jusqu'à 980px (le CSS du rail couvre déjà ≤980). */
+  const mobile = useIsMobile(980);
   const features = items.slice(0, content.limit);
 
   if (reduced || mobile) return <FeatureFallback head={content} features={features} />;
@@ -213,6 +218,20 @@ function FeatureFallback({
   head: Head;
   features: FeatureItem[];
 }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+
+  /* Index de la carte visible dans le rail mobile : position de scroll
+     rapportée à la largeur d'un pas (carte + gap). Ne fait rien en grille
+     desktop (pas de débordement horizontal, onScroll ne se déclenche pas). */
+  const onListScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    const step = el.scrollWidth / features.length;
+    const next = Math.min(features.length - 1, Math.round(el.scrollLeft / step));
+    setActive((prev) => (prev === next ? prev : next));
+  };
+
   return (
     <section className={`${s.fallback} tone-white`} aria-label="Fonctionnalités clés">
       <div className={`wrap ${s.inner}`}>
@@ -220,11 +239,16 @@ function FeatureFallback({
           <div className={s.kicker}>{head.kicker}</div>
           <h2 className={s.title}>{head.title}</h2>
         </div>
-        <div className={s.fallbackList}>
-          {features.map((feature) => {
+        <div className={s.fallbackList} ref={listRef} onScroll={onListScroll}>
+          {features.map((feature, i) => {
             const Icon = ICONS[feature.icon as keyof typeof ICONS];
             return (
-              <article key={feature.title} className={s.fallbackCard}>
+              <article
+                key={feature.title}
+                className={s.fallbackCard}
+                /* Même teinte franche que le mode cinématique : texte blanc lisible. */
+                style={{ background: BG_COLORS[i % BG_COLORS.length] }}
+              >
                 <div className={s.iconRow}>
                   <span className={s.icon}>
                     <Icon width={24} height={24} />
@@ -233,9 +257,31 @@ function FeatureFallback({
                 </div>
                 <h3 className={s.featTitle}>{feature.title}</h3>
                 <p className={s.featText}>{feature.text}</p>
+                <ul className={s.points}>
+                  {feature.points.slice(0, 3).map((pt) => (
+                    <li key={pt}>
+                      <span className={s.tick}>
+                        <Check width={13} height={13} />
+                      </span>
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+                <div className={s.fallbackVisual}>
+                  <AppMockup kind={feature.mockup} />
+                </div>
               </article>
             );
           })}
+        </div>
+        {/* Pastilles indicatrices du rail (masquées en grille desktop). */}
+        <div className={s.fallbackDots} aria-hidden>
+          {features.map((f, i) => (
+            <span
+              key={f.title}
+              className={`${s.dot} ${i === active ? s.dotOn : ""}`}
+            />
+          ))}
         </div>
       </div>
     </section>
