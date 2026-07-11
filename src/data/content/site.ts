@@ -83,8 +83,6 @@ export const SETTINGS = {
       title: "Votre partenaire pour la\nsanté du cabinet",
       followLabel: "Suivez-nous",
       socials: [
-        { label: "Facebook", icon: "Facebook", href: "#" },
-        { label: "LinkedIn", icon: "LinkedIn", href: "#" },
         { label: "Instagram", icon: "Instagram", href: "#" },
       ] satisfies SocialLink[],
     },

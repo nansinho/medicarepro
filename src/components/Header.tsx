@@ -10,7 +10,6 @@ import {
   Close,
   Phone,
   Mail,
-  MapPin,
   Facebook,
   LinkedIn,
   Instagram,
@@ -246,37 +245,33 @@ export default function Header({
             );
           })}
         </nav>
-        <div className={styles.drawerContact}>
-          <span>
-            <span className={styles.dc}>
-              <Phone width={16} height={16} />
+        <div className={styles.drawerFooter}>
+          <div className={styles.drawerContact}>
+            <span>
+              <span className={styles.dc}>
+                <Phone width={16} height={16} />
+              </span>
+              {contact.phone}
             </span>
-            {contact.phone}
-          </span>
-          <span>
-            <span className={styles.dc}>
-              <Mail width={16} height={16} />
+            <span>
+              <span className={styles.dc}>
+                <Mail width={16} height={16} />
+              </span>
+              {contact.email}
             </span>
-            {contact.email}
-          </span>
-          <span>
-            <span className={styles.dc}>
-              <MapPin width={16} height={16} />
-            </span>
-            {contact.address}
-          </span>
-        </div>
-        <div className={styles.drawerFollow}>
-          <b>{header.drawer.followLabel}</b>
-          <div className={styles.ds}>
-            {header.drawer.socials.map((social) => {
-              const Icon = SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
-              return (
-                <a href={social.href} aria-label={social.label} key={social.label}>
-                  <Icon width={17} height={17} />
-                </a>
-              );
-            })}
+          </div>
+          <div className={styles.drawerFollow}>
+            <b>{header.drawer.followLabel}</b>
+            <div className={styles.ds}>
+              {header.drawer.socials.map((social) => {
+                const Icon = SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
+                return (
+                  <a href={social.href} aria-label={social.label} key={social.label}>
+                    <Icon width={17} height={17} />
+                  </a>
+                );
+              })}
+            </div>
           </div>
         </div>
       </aside>

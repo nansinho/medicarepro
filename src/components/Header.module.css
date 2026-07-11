@@ -380,12 +380,17 @@
 }
 
 /* ---- Bloc contact (carte) ---- */
-/* Contact épuré : pas de carte, 3 lignes alignées avec puce d'icône */
+/* Bloc bas du drawer : poussé en bas, détaché du menu */
+.drawerFooter {
+  margin-top: auto;
+  padding-top: 28px;
+}
+
+/* Contact épuré : pas de carte, lignes alignées avec puce d'icône */
 .drawerContact {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-top: 22px;
   padding-top: 20px;
   border-top: 1px solid var(--color-border-soft);
 }
