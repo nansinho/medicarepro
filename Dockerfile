@@ -11,7 +11,10 @@ WORKDIR /app
 # libc6-compat : requis par certaines deps natives sur Alpine
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json ./
-RUN npm ci
+# npm install (et non ci) : résout les dépendances optionnelles propres à
+# la plateforme Linux/musl (ex. @emnapi/*, binaires natifs) que le lockfile
+# généré sous Windows n'inclut pas. --no-audit/--no-fund : build plus rapide.
+RUN npm install --no-audit --no-fund
 
 # ---------- 2. Build ----------
 FROM node:22-alpine AS builder
