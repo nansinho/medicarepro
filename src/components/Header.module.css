@@ -126,16 +126,7 @@
   color: var(--color-primary);
 }
 
-/* ---------- SOUS-MENU DRAWER (mobile) ---------- */
-.drawerSub {
-  display: flex;
-  flex-direction: column;
-}
-.drawerSub a {
-  padding-left: 18px;
-  font-size: 0.96rem;
-  opacity: 0.85;
-}
+/* ---------- SOUS-MENU DRAWER (mobile) — voir bloc DRAWER plus bas ---------- */
 
 .navRight {
   display: flex;
@@ -202,16 +193,15 @@
   top: 0;
   right: 0;
   height: 100%;
-  width: 390px;
-  max-width: 88vw;
-  background: linear-gradient(180deg, #eef5fd, #ffffff);
+  width: 380px;
+  max-width: 90vw;
+  background: linear-gradient(185deg, #f0f6fd 0%, #ffffff 42%);
   z-index: 150;
   transform: translateX(105%);
   transition: transform 0.5s var(--ease);
-  padding: 38px 36px;
+  padding: 26px 26px 30px;
   display: flex;
   flex-direction: column;
-  gap: 26px;
   box-shadow: -24px 0 70px rgba(31, 84, 153, 0.2);
   overflow-y: auto;
 }
@@ -232,91 +222,248 @@
   place-items: center;
   color: var(--color-navy);
   box-shadow: var(--shadow-sm);
-  transition: transform 0.3s var(--ease);
+  transition: transform 0.3s var(--ease), color 0.2s;
 }
 .drawerClose:hover {
   transform: rotate(90deg);
   color: var(--color-primary);
 }
 .drawer .logo {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
 }
 .drawerTitle {
   font-family: var(--font-head);
   font-weight: 700;
-  font-size: 1.35rem;
+  font-size: 1.28rem;
   color: var(--color-navy);
-  line-height: 1.25;
+  line-height: 1.3;
+  margin-top: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--color-border-soft);
 }
 
+/* ---- Liens de navigation ---- */
 .drawerNav {
   display: flex;
   flex-direction: column;
+  margin-top: 8px;
 }
-.drawerNav a {
-  font-family: var(--font-body);
-  font-weight: 400;
-  font-size: 1.12rem;
+.drawerNav > div + div {
+  border-top: 1px solid rgba(31, 84, 153, 0.08);
+}
+.drawerNav > div > a {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-head);
+  font-weight: 500;
+  font-size: 1.05rem;
   color: var(--color-navy);
-  padding: 14px 0;
-  border-bottom: 1px solid var(--color-border-soft);
-  transition: color 0.2s, padding-left 0.25s var(--ease);
+  padding: 13px 12px;
+  border-radius: 12px;
+  transition: background 0.2s, color 0.2s;
 }
-.drawerNav a:hover {
+.drawerNav > div > a:hover {
+  background: rgba(43, 111, 214, 0.07);
   color: var(--color-primary);
-  padding-left: 8px;
+}
+/* État actif : pastille + fond léger, pleine largeur */
+.drawerNav > div > a.active {
+  color: var(--color-primary);
+  font-weight: 600;
+  background: rgba(43, 111, 214, 0.1);
+}
+.drawerNav > div > a.active::before {
+  content: "";
+  width: 4px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--color-primary);
+  margin-right: 10px;
+  margin-left: -6px;
 }
 
+/* Ligne de groupe : label (Link vers la page) + bouton chevron distinct.
+   Même look que .drawerNav > div > a, mais le tap est scindé en 2 zones. */
+.groupRow {
+  display: flex;
+  align-items: center;
+  border-radius: 12px;
+  transition: background 0.2s, color 0.2s;
+}
+.groupRow:hover {
+  background: rgba(43, 111, 214, 0.07);
+}
+.groupRow.active {
+  background: rgba(43, 111, 214, 0.1);
+}
+.groupLink {
+  flex: 1;
+  font-family: var(--font-head);
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: var(--color-navy);
+  padding: 13px 12px;
+  transition: color 0.2s;
+}
+.groupRow:hover .groupLink,
+.groupRow.active .groupLink {
+  color: var(--color-primary);
+}
+.groupRow.active .groupLink {
+  font-weight: 600;
+}
+/* Bouton chevron : zone de tap dédiée au dépliage */
+.groupToggle {
+  flex: none;
+  width: 46px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-navy);
+  border-radius: 0 12px 12px 0;
+  transition: background 0.2s, color 0.2s;
+}
+.groupToggle:hover {
+  background: rgba(43, 111, 214, 0.12);
+  color: var(--color-primary);
+}
+.groupCaret {
+  width: 16px;
+  height: 16px;
+  opacity: 0.65;
+  transition: transform 0.28s var(--ease), opacity 0.2s;
+}
+.groupCaretOpen {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+/* Sous-liens : dépliage animé via grid-template-rows (0fr → 1fr).
+   .drawerSub = piste de grille ; .drawerSubInner = seul enfant, clippé. */
+.drawerSub {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s var(--ease);
+}
+.drawerSubOpen {
+  grid-template-rows: 1fr;
+}
+.drawerSubInner {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-left: 12px;
+}
+.drawerSub a {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--color-navy-soft);
+  padding: 9px 12px;
+  margin-left: 8px;
+  border-left: 2px solid var(--color-border-soft);
+  border-radius: 0 8px 8px 0;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.drawerSub a:hover {
+  background: rgba(43, 111, 214, 0.06);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.drawerSub a.active {
+  color: var(--color-primary);
+  font-weight: 600;
+  border-color: var(--color-primary);
+}
+
+/* ---- Bloc contact (carte) ---- */
+/* Contact épuré : pas de carte, 3 lignes alignées avec puce d'icône */
 .drawerContact {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 4px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-soft);
 }
 .drawerContact span {
   display: flex;
-  gap: 13px;
+  gap: 14px;
   align-items: center;
-  color: var(--color-navy-soft);
-  font-size: 0.97rem;
+  color: var(--color-navy);
+  font-size: 0.94rem;
+  font-weight: 500;
+  padding: 7px 4px;
+  border-radius: 10px;
+  transition: background 0.2s;
 }
+.drawerContact span:hover {
+  background: rgba(43, 111, 214, 0.05);
+}
+/* Puce d'icône : bleu doux, icône PARFAITEMENT centrée */
 .dc {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: #fff;
-  display: grid;
-  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(43, 111, 214, 0.1);
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
+  line-height: 0;
+}
+/* display:block tue le vertical-align baseline qui décentrait le SVG */
+.dc svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9;
 }
 
+/* ---- Réseaux sociaux ---- */
 .drawerFollow {
-  margin-top: auto;
+  margin-top: 24px;
 }
 .drawerFollow b {
   font-family: var(--font-head);
-  color: var(--color-navy);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-navy-soft);
   display: block;
-  margin-bottom: 12px;
+  margin-bottom: 13px;
 }
 .ds {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 .ds a {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   background: #fff;
-  color: var(--color-primary);
+  color: var(--color-navy);
   display: grid;
   place-items: center;
-  box-shadow: var(--shadow-sm);
-  transition: 0.2s;
+  border: 1px solid var(--color-border-soft);
+  box-shadow: 0 4px 12px rgba(31, 84, 153, 0.05);
+  transition: background 0.2s, color 0.2s, transform 0.2s, border-color 0.2s;
+}
+.ds a svg {
+  width: 18px;
+  height: 18px;
 }
 .ds a:hover {
   background: var(--color-primary);
   color: #fff;
+  border-color: var(--color-primary);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(43, 111, 214, 0.28);
 }
 
 @media (max-width: 1080px) {

@@ -50,7 +50,12 @@ export default function Header({
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Groupes (accordéon) dépliés dans le drawer, indexés par label.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
+
+  const toggleGroup = (label: string) =>
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -170,33 +175,76 @@ export default function Header({
         </Link>
         <h3 className={styles.drawerTitle}>{lines(header.drawer.title)}</h3>
         <nav className={styles.drawerNav}>
-          {nav.map((link) => (
-            <div key={link.label}>
-              <Link
-                href={link.href}
-                onClick={() => setDrawerOpen(false)}
-                className={isActive(link.href) ? styles.active : undefined}
-                aria-current={isActive(link.href) ? "page" : undefined}
-              >
-                {link.label}
-              </Link>
-              {link.children && (
-                <div className={styles.drawerSub}>
-                  {link.children.map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      onClick={() => setDrawerOpen(false)}
-                      className={isActive(child.href) ? styles.active : undefined}
-                      aria-current={isActive(child.href) ? "page" : undefined}
-                    >
-                      {child.label}
-                    </Link>
-                  ))}
+          {nav.map((link) => {
+            if (!link.children) {
+              return (
+                <div key={link.label}>
+                  <Link
+                    href={link.href}
+                    onClick={() => setDrawerOpen(false)}
+                    className={isActive(link.href) ? styles.active : undefined}
+                    aria-current={isActive(link.href) ? "page" : undefined}
+                  >
+                    {link.label}
+                  </Link>
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            }
+            // Groupe avec sous-pages : le label mène à SA page ; un bouton
+            // chevron distinct déplie/replie les sous-pages (accordéon).
+            // Ouvert si déplié manuellement ou si une de ses pages est active.
+            const expanded = openGroups[link.label] ?? isGroupActive(link);
+            return (
+              <div key={link.label}>
+                <div
+                  className={`${styles.groupRow} ${
+                    isGroupActive(link) ? styles.active : ""
+                  }`}
+                >
+                  <Link
+                    href={link.href}
+                    onClick={() => setDrawerOpen(false)}
+                    className={styles.groupLink}
+                    aria-current={isActive(link.href) ? "page" : undefined}
+                  >
+                    {link.label}
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.groupToggle}
+                    aria-expanded={expanded}
+                    aria-label={`${expanded ? "Replier" : "Déplier"} ${link.label}`}
+                    onClick={() => toggleGroup(link.label)}
+                  >
+                    <Caret
+                      className={`${styles.groupCaret} ${
+                        expanded ? styles.groupCaretOpen : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div
+                  className={`${styles.drawerSub} ${
+                    expanded ? styles.drawerSubOpen : ""
+                  }`}
+                >
+                  <div className={styles.drawerSubInner}>
+                    {link.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={() => setDrawerOpen(false)}
+                        className={isActive(child.href) ? styles.active : undefined}
+                        aria-current={isActive(child.href) ? "page" : undefined}
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <div className={styles.drawerContact}>
           <span>
