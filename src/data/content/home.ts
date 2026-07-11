@@ -47,7 +47,7 @@ export const PAGE_HOME = {
         },
         infoBar: {
           items: [
-            { icon: "Phone", title: "Téléphone", value: "01 23 45 67 89" },
+            { icon: "Phone", title: "Téléphone", value: "07 62 59 66 53" },
             { icon: "Headset", title: "Support", value: "7j/7 par chat" },
             { icon: "MapPin", title: "Hébergement", value: "HDS · France" },
           ],

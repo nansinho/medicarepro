@@ -61,10 +61,10 @@ export type SocialLink = { label: string; icon: IconKey; href: string };
 export const SETTINGS = {
   /** Coordonnées de contact (header drawer, footer, page contact). */
   contact: {
-    phone: "01 23 45 67 89",
-    phoneHref: "tel:+33123456789",
+    phone: "07 62 59 66 53",
+    phoneHref: "tel:+33762596653",
     email: "contact@medicarepro.fr",
-    address: "12 rue de la Santé, 75000 Paris",
+    address: "340 Chem. du Plan Marseillais, 13320 Bouc-Bel-Air",
   },
 
   /** Réseaux sociaux du footer (liens placeholder "#" à brancher). */

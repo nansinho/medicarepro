@@ -45,9 +45,9 @@ export const PAGE_CONTACT = {
           {
             icon: "Phone",
             title: "Par téléphone",
-            value: "01 23 45 67 89",
+            value: "07 62 59 66 53",
             note: "Du lundi au vendredi, 9 h – 18 h",
-            href: "tel:+33123456789",
+            href: "tel:+33762596653",
           },
           {
             icon: "Headset",
