@@ -51,7 +51,9 @@ let cached: Env | null = null;
  * `undefined` — ce qui ferait échouer les `.optional()`/`.default()`.
  * On les convertit donc en `undefined` pour que « vide » = « absent ».
  */
-function withoutEmptyStrings(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+function withoutEmptyStrings(
+  source: NodeJS.ProcessEnv,
+): Record<string, string | undefined> {
   const cleaned: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(source)) {
     cleaned[key] = value === "" ? undefined : value;

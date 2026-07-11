@@ -2,6 +2,10 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { sendMail } from "@/lib/email";
+import {
+  contactEmailHtml,
+  contactEmailText,
+} from "@/lib/emails/contact-template";
 
 /* ============================================================
    POST /api/contact — réception du formulaire de contact.
@@ -26,16 +30,6 @@ const ContactSchema = z.object({
   // sans rien signaler — inutile d'apprendre au bot que c'est un piège.
   company: z.string().max(200).optional().default(""),
 });
-
-/** Échappe le HTML pour éviter toute injection dans le corps de l'email. */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 const PRATICIENS_LABEL: Record<(typeof PRATICIENS)[number], string> = {
   "1": "1 (libéral)",
@@ -67,36 +61,20 @@ export async function POST(request: NextRequest) {
   const { name, email, tel, praticiens, message } = parsed.data;
   const praticiensLabel = PRATICIENS_LABEL[praticiens];
 
-  const lines = [
-    `Nom : ${name}`,
-    `Email : ${email}`,
-    tel ? `Téléphone : ${tel}` : "Téléphone : —",
-    `Nombre de praticiens : ${praticiensLabel}`,
-    "",
-    "Message :",
-    message || "(aucun message)",
-  ];
-  const text = lines.join("\n");
+  const submittedAt = new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "full",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(new Date());
 
-  const html = `
-    <h2>Nouvelle demande de contact — MediCare Pro</h2>
-    <table cellpadding="6" style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
-      <tr><td><strong>Nom</strong></td><td>${escapeHtml(name)}</td></tr>
-      <tr><td><strong>Email</strong></td><td>${escapeHtml(email)}</td></tr>
-      <tr><td><strong>Téléphone</strong></td><td>${escapeHtml(tel || "—")}</td></tr>
-      <tr><td><strong>Praticiens</strong></td><td>${escapeHtml(praticiensLabel)}</td></tr>
-    </table>
-    <p style="font-family:sans-serif;font-size:14px"><strong>Message :</strong><br>${
-      message ? escapeHtml(message).replace(/\n/g, "<br>") : "<em>(aucun message)</em>"
-    }</p>
-  `.trim();
+  const emailData = { name, email, tel, praticiensLabel, message, submittedAt };
 
   try {
     await sendMail({
       to: env().CONTACT_TO,
-      subject: `Demande de contact — ${name}`,
-      text,
-      html,
+      subject: `Nouvelle demande de contact — ${name}`,
+      text: contactEmailText(emailData),
+      html: contactEmailHtml(emailData),
       replyTo: email,
     });
   } catch (err) {
