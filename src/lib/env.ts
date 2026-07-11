@@ -30,22 +30,39 @@ const EnvSchema = z.object({
   GSC_SITE_URL: z.string().min(1).optional(),
   GSC_SERVICE_ACCOUNT_KEY_B64: z.string().min(1).optional(),
 
-  /* Email transactionnel */
+  /* Email transactionnel (formulaire de contact, notifications) */
   SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().optional(),
+  /* Adresse expéditrice (From) — le SMTP doit être autorisé à l'émettre. */
+  SMTP_FROM: z.string().default("noreply@medicarepro.fr"),
+  /* Destinataire des demandes du formulaire de contact. */
+  CONTACT_TO: z.string().default("contact@medicarepro.fr"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
 
 let cached: Env | null = null;
 
+/**
+ * Écarte les variables vides avant validation : dans un fichier `.env`,
+ * une clé sans valeur (`FOO=`) est lue comme la chaîne `""` et non comme
+ * `undefined` — ce qui ferait échouer les `.optional()`/`.default()`.
+ * On les convertit donc en `undefined` pour que « vide » = « absent ».
+ */
+function withoutEmptyStrings(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const cleaned: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(source)) {
+    cleaned[key] = value === "" ? undefined : value;
+  }
+  return cleaned;
+}
+
 /** Env validée (mise en cache). Lève une erreur lisible si invalide. */
 export function env(): Env {
   if (!cached) {
-    const parsed = EnvSchema.safeParse(process.env);
+    const parsed = EnvSchema.safeParse(withoutEmptyStrings(process.env));
     if (!parsed.success) {
       throw new Error(
         `Variables d'environnement invalides : ${parsed.error.issues
@@ -63,5 +80,12 @@ export function hasSupabase(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
+/** Le SMTP est-il configuré ? (sinon : l'envoi d'email est désactivé) */
+export function hasSmtp(): boolean {
+  return Boolean(
+    process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
   );
 }

@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ArrowRight,
   CircleCheck,
+  AlertTriangle,
 } from "./icons";
 import type { SectionContentOf } from "@/lib/cms/sections.schema";
 import c from "./contact.module.css";
@@ -30,14 +31,40 @@ export default function ContactSection({
   content: SectionContentOf<"contact_channels">;
 }) {
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // TODO(backend): l'envoi est SIMULÉ — aucun message n'est réellement transmis.
-    // À brancher avec le backend Supabase (cf. MIGRATION.md, phase backend) :
-    // POST vers une route API (/api/contact) qui enregistre la demande et/ou
-    // envoie un email à contact@medicarepro.fr, avec validation + anti-spam.
-    setSent(true);
+    if (sending) return;
+    setError(null);
+    setSending(true);
+
+    const form = e.currentTarget;
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(body?.error ?? "L'envoi a échoué.");
+      }
+      setSent(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "L'envoi a échoué. Réessayez ou écrivez-nous directement.",
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -102,7 +129,7 @@ export default function ContactSection({
                   <p>{content.form.successText}</p>
                 </div>
               ) : (
-                <form onSubmit={onSubmit}>
+                <form onSubmit={onSubmit} noValidate>
                   <h3 className={c.formTitle}>{content.form.title}</h3>
                   <p className={c.formSub}>{content.form.sub}</p>
                   <div className={c.grid2}>
@@ -110,8 +137,10 @@ export default function ContactSection({
                       <label htmlFor="name">Nom</label>
                       <input
                         id="name"
+                        name="name"
                         type="text"
                         placeholder="Votre nom"
+                        autoComplete="name"
                         required
                       />
                     </div>
@@ -119,8 +148,10 @@ export default function ContactSection({
                       <label htmlFor="email">Email</label>
                       <input
                         id="email"
+                        name="email"
                         type="email"
                         placeholder="vous@cabinet.fr"
+                        autoComplete="email"
                         required
                       />
                     </div>
@@ -128,11 +159,17 @@ export default function ContactSection({
                   <div className={c.grid2}>
                     <div className={c.field}>
                       <label htmlFor="tel">Téléphone</label>
-                      <input id="tel" type="tel" placeholder="06 00 00 00 00" />
+                      <input
+                        id="tel"
+                        name="tel"
+                        type="tel"
+                        placeholder="06 00 00 00 00"
+                        autoComplete="tel"
+                      />
                     </div>
                     <div className={c.field}>
                       <label htmlFor="praticiens">Nombre de praticiens</label>
-                      <select id="praticiens" defaultValue="1">
+                      <select id="praticiens" name="praticiens" defaultValue="1">
                         <option value="1">1 (libéral)</option>
                         <option value="2-3">2 à 3</option>
                         <option value="4+">4 et plus</option>
@@ -143,16 +180,39 @@ export default function ContactSection({
                     <label htmlFor="message">Message</label>
                     <textarea
                       id="message"
+                      name="message"
                       rows={4}
                       placeholder="Parlez-nous de votre cabinet..."
+                    />
+                  </div>
+                  {/* Honeypot anti-spam : masqué, ignoré par l'API si rempli. */}
+                  <div className={c.hp} aria-hidden="true">
+                    <label htmlFor="company">Ne pas remplir</label>
+                    <input
+                      id="company"
+                      name="company"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
                     />
                   </div>
                   <label className={c.consent}>
                     <input type="checkbox" required />
                     {content.form.consent}
                   </label>
-                  <button className={`btn ${c.sendBtn}`} type="submit">
-                    {content.form.submitLabel} <ArrowRight className="ico ar" />
+                  {error && (
+                    <p className={c.formError} role="alert">
+                      <AlertTriangle width={18} height={18} />
+                      {error}
+                    </p>
+                  )}
+                  <button
+                    className={`btn ${c.sendBtn}`}
+                    type="submit"
+                    disabled={sending}
+                  >
+                    {sending ? "Envoi en cours…" : content.form.submitLabel}{" "}
+                    <ArrowRight className="ico ar" />
                   </button>
                   <div className={c.formFoot}>
                     <ShieldCheck width={18} height={18} />

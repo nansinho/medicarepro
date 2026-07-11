@@ -262,6 +262,33 @@
   width: 100%;
   justify-content: center;
 }
+.sendBtn[disabled] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Honeypot anti-spam : masqué aux humains, invisible aux lecteurs d'écran. */
+.hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Message d'erreur d'envoi (échec réseau/SMTP). */
+.formError {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fdecec;
+  border: 1px solid #f3c2c2;
+  color: #a12626;
+  font-size: 0.9rem;
+}
 .formFoot {
   display: flex;
   align-items: center;
