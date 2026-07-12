@@ -133,7 +133,7 @@ export default function Hero({
                 {content.demoCta.label}
               </Link>
 
-              {/* Prix en texte simple */}
+              {/* Prix en texte simple (desktop) / barre cliquable (mobile) */}
               <Link href={content.priceCta.href} className={styles.priceText}>
                 <span className={styles.priceLabel}>
                   {content.priceCta.label}
@@ -146,6 +146,9 @@ export default function Hero({
                     {content.priceCta.note}
                   </span>
                 </span>
+                {/* Flèche d'action, affichée uniquement en mobile (la barre
+                    mène à /tarifs — l'affordance doit se voir). */}
+                <ArrowRight className={styles.priceArrow} aria-hidden />
               </Link>
             </div>
 

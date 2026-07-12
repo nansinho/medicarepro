@@ -62,10 +62,7 @@ export default async function AdminUtilisateursPage() {
       <header className={s.pageHead}>
         <h1 className={s.pageTitle}>Utilisateurs</h1>
         <p className={s.pageDesc}>
-          Comptes du back office. Deux rôles : <b>administrateur</b> (tout,
-          dont facturation, réglages et comptes) et <b>éditeur</b> (contenu du
-          site uniquement). Un changement de rôle est effectif à la prochaine
-          connexion de la personne.
+          Comptes du back office — administrateurs et éditeurs.
         </p>
       </header>
       <UsersManager users={rows} selfId={staff.id} />

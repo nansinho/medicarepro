@@ -231,7 +231,7 @@
    Non gaté par media query (volontaire) : le repli s'affiche aussi sur
    desktop en reduced-motion, où il était tout autant blanc-sur-blanc. */
 .fallback .kicker {
-  color: var(--color-primary-bright);
+  color: var(--color-accent-ink);
 }
 .fallback .title {
   color: var(--color-navy);

@@ -7,11 +7,11 @@ import {
   changePostStatus,
   deletePost,
   savePost,
-  type PostActionResult,
   type PostStatus,
 } from "@/app/admin/(protected)/blog/actions";
 import RichTextEditor from "@/components/admin/rich-text/RichTextEditor";
 import ImagePicker from "@/components/admin/media/ImagePicker";
+import { useToast } from "@/components/admin/ui/Toast";
 import s from "../Admin.module.css";
 import b from "./blog.module.css";
 
@@ -46,8 +46,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function PostEditor({ post }: { post: PostEditorData }) {
   const router = useRouter();
+  const toast = useToast();
   const [pending, startTransition] = useTransition();
-  const [notice, setNotice] = useState<PostActionResult | null>(null);
 
   const [title, setTitle] = useState(post.title);
   const [slug, setSlug] = useState(post.slug);
@@ -75,11 +75,12 @@ export default function PostEditor({ post }: { post: PostEditorData }) {
   function handleSave() {
     startTransition(async () => {
       const result = await savePost(buildFormData());
-      setNotice(result);
-      if (result.ok && !post.id) {
-        router.replace(`/admin/blog/${result.id}`);
-      } else if (result.ok) {
-        router.refresh();
+      if (result.ok) {
+        toast.success(result.message ?? "Enregistré.");
+        if (!post.id) router.replace(`/admin/blog/${result.id}`);
+        else router.refresh();
+      } else {
+        toast.error(result.message);
       }
     });
   }
@@ -91,7 +92,7 @@ export default function PostEditor({ post }: { post: PostEditorData }) {
         ? await savePost(buildFormData())
         : { ok: false as const, message: "Enregistrez l'article d'abord." };
       if (!saved.ok) {
-        setNotice(saved);
+        toast.error(saved.message);
         return;
       }
       const formData = new FormData();
@@ -99,8 +100,12 @@ export default function PostEditor({ post }: { post: PostEditorData }) {
       formData.set("status", status);
       if (status === "scheduled") formData.set("scheduledFor", scheduleAt);
       const result = await changePostStatus(formData);
-      setNotice(result);
-      if (result.ok) router.refresh();
+      if (result.ok) {
+        toast.success(result.message ?? "Statut mis à jour.");
+        router.refresh();
+      } else {
+        toast.error(result.message);
+      }
     });
   }
 
@@ -112,9 +117,10 @@ export default function PostEditor({ post }: { post: PostEditorData }) {
     startTransition(async () => {
       const result = await deletePost(formData);
       if (result.ok) {
+        toast.success("Article supprimé.");
         router.push("/admin/blog");
       } else {
-        setNotice(result);
+        toast.error(result.message);
       }
     });
   }
@@ -282,15 +288,6 @@ export default function PostEditor({ post }: { post: PostEditorData }) {
           </button>
         )}
       </aside>
-
-      {notice && (
-        <div
-          className={`${b.notice} ${notice.ok ? b.noticeOk : b.noticeErr}`}
-          role={notice.ok ? "status" : "alert"}
-        >
-          {notice.ok ? notice.message ?? "OK" : notice.message}
-        </div>
-      )}
     </div>
   );
 }

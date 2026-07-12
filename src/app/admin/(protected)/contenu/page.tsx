@@ -87,11 +87,7 @@ export default async function AdminContenuPage() {
     <>
       <header className={s.pageHead}>
         <h1 className={s.pageTitle}>Contenu du site</h1>
-        <p className={s.pageDesc}>
-          État du contenu de medicarepro.fr. L&apos;édition des pages, du blog
-          et des médias arrive dans les prochaines phases du back office —
-          en attendant, les modifications passent par l&apos;équipe technique.
-        </p>
+        <p className={s.pageDesc}>Vue d&apos;ensemble du site en un coup d&apos;œil.</p>
       </header>
 
       <div className={s.kpiGrid}>

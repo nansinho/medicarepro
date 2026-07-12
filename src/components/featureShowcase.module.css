@@ -40,7 +40,8 @@
   color: #fff;
 }
 .dark .kicker {
-  color: var(--color-shield);
+  /* Shield (#79b0ea) ne fait que 4.16:1 sur le fond navy — accent AA. */
+  color: var(--color-accent-ink-dark);
 }
 .dark .icon {
   background: rgba(255, 255, 255, 0.14);
@@ -94,7 +95,8 @@
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-primary-bright);
+  /* Accent AA petit texte (le tone dark garde son override --color-shield). */
+  color: var(--color-accent-ink);
   font-size: 0.82rem;
 }
 .title {
@@ -169,7 +171,9 @@
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-primary-bright);
+  /* Accent AA petit texte (contexte clair ; la bande sombre — toujours
+     statDark aujourd'hui — surcharge avec --color-accent-ink-dark). */
+  color: var(--color-accent-ink);
   font-size: 0.82rem;
   margin-bottom: 14px;
 }
@@ -267,7 +271,8 @@
   background: radial-gradient(circle, rgba(46, 134, 230, 0.22), transparent 70%);
 }
 .statDark .statKicker {
-  color: var(--color-shield);
+  /* Shield (#79b0ea) ne fait que 4.16:1 sur le fond navy — accent AA. */
+  color: var(--color-accent-ink-dark);
 }
 .statDark .statTitle {
   color: #fff;

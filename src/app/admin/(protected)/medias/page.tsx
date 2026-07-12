@@ -18,12 +18,7 @@ export default async function AdminMediasPage() {
     <>
       <header className={s.pageHead}>
         <h1 className={s.pageTitle}>Médias</h1>
-        <p className={s.pageDesc}>
-          Bibliothèque d&apos;images du site : téléversez, renseignez les
-          textes alternatifs et organisez par dossier. L&apos;alt saisi ici
-          est proposé par défaut quand l&apos;image est insérée dans un
-          contenu (les contenus existants gardent leur propre alt).
-        </p>
+        <p className={s.pageDesc}>Bibliothèque d&apos;images du site.</p>
       </header>
       <MediaLibrary canDelete={isAdmin} />
     </>

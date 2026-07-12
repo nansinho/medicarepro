@@ -66,9 +66,7 @@ export default async function AdminPageEditorPage({
         <div>
           <h1 className={s.pageTitle}>{page.title}</h1>
           <p className={s.pageDesc}>
-            {slug} · {slots.length} sections. Les modifications
-            s&apos;enregistrent automatiquement en brouillon — rien ne part en
-            ligne avant « Publier ».
+            {slug} · {slots.length} sections · enregistrement auto en brouillon.
           </p>
         </div>
       </header>

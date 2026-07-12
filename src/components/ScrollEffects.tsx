@@ -47,23 +47,32 @@ export default function ScrollEffects() {
     });
 
     // --- Apparitions au scroll ---
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            e.target.classList.add("in");
-            io.unobserve(e.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
-    );
+    // Filet de sécurité : c'est CE code qui pose data-rv (l'état masqué).
+    // Si IntersectionObserver est absent ou jette, on ne pose rien — le
+    // contenu reste visible, simplement sans animation d'apparition.
+    let io: IntersectionObserver | null = null;
+    try {
+      io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              io?.unobserve(e.target);
+            }
+          });
+        },
+        { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+      );
+    } catch {
+      io = null;
+    }
 
     const reveal = (sel: string, type = "", stagger = 0) => {
+      if (!io) return;
       document.querySelectorAll<HTMLElement>(sel).forEach((el, i) => {
         el.setAttribute("data-rv", type);
         el.style.transitionDelay = (i % 6) * stagger + "ms";
-        io.observe(el);
+        io?.observe(el);
       });
     };
 
@@ -78,7 +87,7 @@ export default function ScrollEffects() {
     // La FAQ gère son apparition au scroll dans son propre composant (Faq.tsx),
     // sinon les re-renders au clic écraseraient la classe de révélation.
     reveal("[data-rv-footcol]", "", 85);
-    cleanups.push(() => io.disconnect());
+    cleanups.push(() => io?.disconnect());
 
     // --- Boutons magnétiques ---
     const buttons = document.querySelectorAll<HTMLElement>(".btn");

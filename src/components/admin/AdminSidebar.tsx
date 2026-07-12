@@ -15,6 +15,7 @@ import {
   Layers,
   Lock,
   Mail,
+  MapPin,
   Monitor,
   Refresh,
   Shield,
@@ -50,9 +51,9 @@ const NAV_CONTENU: NavLink[] = [
   { href: "/admin/contacts", label: "Demandes de contact", icon: Mail },
 ];
 
-/* SEO : /admin/villes s'ajoutera avec son lot. */
 const NAV_SEO: NavLink[] = [
   { href: "/admin/seo", label: "Référencement", icon: TrendingUp },
+  { href: "/admin/villes", label: "Villes SEO", icon: MapPin },
 ];
 
 const NAV_FACTURATION: NavLink[] = [
@@ -69,6 +70,7 @@ const NAV_FACTURATION: NavLink[] = [
 const NAV_ADMINISTRATION: NavLink[] = [
   { href: "/admin/utilisateurs", label: "Utilisateurs", icon: Users },
   { href: "/admin/reglages", label: "Réglages du site", icon: Key },
+  { href: "/admin/audit", label: "Journal d'audit", icon: FileText },
 ];
 
 export default function AdminSidebar({

@@ -13,6 +13,12 @@
   --color-primary: #2b6fd6;
   --color-primary-bright: #2e86e6;
   --color-primary-dark: #1e457f;
+  /* Accent pour PETIT texte sur fond clair : #2e86e6 ne fait que 3.7:1 sur
+     blanc (< AA 4.5). Celui-ci : 5.1:1 sur blanc, 4.6:1 sur --color-light. */
+  --color-accent-ink: #1b6fc4;
+  /* Pendant sombre : petit texte accentué sur les bandes navy (#1e457f) —
+     --color-shield n'y fait que 4.16:1, celui-ci 4.97:1. */
+  --color-accent-ink-dark: #8fc0f2;
   --color-light: #eaf3fc;
   --color-light-2: #d8e9f8;
   --color-footer-light: #c8ddf0;
@@ -160,7 +166,7 @@ section {
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-primary-bright);
+  color: var(--color-accent-ink);
   font-size: 0.82rem;
   margin-bottom: var(--kicker-mb);
 }
@@ -285,7 +291,11 @@ h1.sec-title {
   font-family: var(--font-head);
   font-weight: 600;
   color: var(--color-primary);
-  margin-top: 22px;
+  /* Zone de tap ≥44px sans changement visuel : padding compensé par les
+     marges (22px - 9px = 13px pour préserver l'espacement d'origine). */
+  padding-block: 9px;
+  margin-top: 13px;
+  margin-bottom: -9px;
   transition: gap 0.2s var(--ease);
 }
 .learn-more:hover {
@@ -307,6 +317,9 @@ h1.sec-title {
   font-family: var(--font-head);
   font-weight: 600;
   color: var(--color-navy);
+  /* Zone de tap ≥44px sans changement visuel. */
+  padding-block: 9px;
+  margin-block: -9px;
   transition: color 0.2s var(--ease), gap 0.2s var(--ease);
 }
 .cross-links a:hover {

@@ -91,10 +91,7 @@ export default async function AdminSeoPage() {
       <header className={s.pageHead}>
         <div>
           <h1 className={s.pageTitle}>SEO</h1>
-          <p className={s.pageDesc}>
-            Balises méta par page, redirections 301 et pages introuvables
-            (404) signalées par les visiteurs.
-          </p>
+          <p className={s.pageDesc}>Balises méta, redirections et pages introuvables.</p>
         </div>
       </header>
       <SeoManager

@@ -212,6 +212,11 @@
   width: fit-content;
   transition: color 0.25s var(--ease);
 }
+/* Zone de tap ≥44px sans changement visuel (padding compensé par la marge). */
+.footContact a {
+  padding-block: 5px;
+  margin-block: -5px;
+}
 .footContact a:hover {
   color: #fff;
 }
@@ -244,13 +249,18 @@
   color: rgba(224, 237, 250, 0.75);
   font-size: 0.97rem;
   transition: color 0.25s var(--ease), transform 0.25s var(--ease);
+  /* Zone de tap ≥44px sans changement visuel (padding compensé par la marge,
+     le rythme vertical des colonnes reste identique). */
+  padding-block: 10px;
+  margin-block: -10px;
 }
-/* Soulignement dégradé révélé au survol. */
+/* Soulignement dégradé révélé au survol.
+   bottom: 7px = -3px par rapport au TEXTE (compense le padding tactile). */
 .footLinks a::before {
   content: "";
   position: absolute;
   left: 0;
-  bottom: -3px;
+  bottom: 7px;
   width: 100%;
   height: 1.5px;
   border-radius: 2px;

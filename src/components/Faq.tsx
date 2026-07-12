@@ -25,16 +25,24 @@ export default function Faq({
       setRevealed(true);
       return;
     }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setRevealed(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
-    );
-    io.observe(el);
+    // Filet : sans IntersectionObserver fonctionnel, révéler d'office
+    // (contenu visible sans animation) plutôt que rester masqué.
+    let io: IntersectionObserver;
+    try {
+      io = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            setRevealed(true);
+            io.disconnect();
+          }
+        },
+        { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+      );
+      io.observe(el);
+    } catch {
+      setRevealed(true);
+      return;
+    }
     return () => io.disconnect();
   }, []);
 

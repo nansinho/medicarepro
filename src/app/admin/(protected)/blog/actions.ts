@@ -285,3 +285,131 @@ export async function deletePost(formData: FormData): Promise<PostActionResult> 
     throw err;
   }
 }
+
+/** Duplique un article en brouillon (slug suffixé, statut draft). */
+export async function duplicatePost(formData: FormData): Promise<PostActionResult> {
+  try {
+    const { staff, service } = await requireStaffService();
+    const id = String(formData.get("id") ?? "");
+    if (!id) throw new ActionError("Article manquant.");
+
+    const { data: src } = await service
+      .from("posts")
+      .select("title, slug, excerpt, cover_media_id, cover_alt, body, reading_time_min")
+      .eq("id", id)
+      .maybeSingle();
+    if (!src) throw new ActionError("Article introuvable.");
+
+    /* Slug unique : suffixe -copie, -copie-2… */
+    let base = `${src.slug}-copie`;
+    for (let n = 1; n < 50; n++) {
+      const candidate = n === 1 ? base : `${base}-${n}`;
+      const { count } = await service
+        .from("posts")
+        .select("id", { count: "exact", head: true })
+        .eq("slug", candidate);
+      if (!count) {
+        base = candidate;
+        break;
+      }
+    }
+
+    const { data: created, error } = await service
+      .from("posts")
+      .insert({
+        title: `${src.title} (copie)`,
+        slug: base,
+        excerpt: src.excerpt,
+        cover_media_id: src.cover_media_id,
+        cover_alt: src.cover_alt,
+        body: src.body,
+        reading_time_min: src.reading_time_min,
+        status: "draft",
+        author_id: staff.id,
+        origin: "manual",
+      })
+      .select("id")
+      .single();
+    if (error) throw new ActionError(`Duplication impossible : ${error.message}`);
+
+    await logAudit({
+      action: "post.duplicate",
+      entityType: "posts",
+      entityId: created.id,
+      diff: { from: id, slug: base },
+      actorId: staff.id,
+      actorEmail: staff.email,
+    });
+    updateTag(TAGS.posts);
+    return { ok: true, id: created.id, message: "Article dupliqué en brouillon." };
+  } catch (err) {
+    if (err instanceof ActionError) return { ok: false, message: err.message };
+    throw err;
+  }
+}
+
+export type BulkResult =
+  | { ok: true; count: number; message: string }
+  | { ok: false; message: string };
+
+/** Action groupée sur plusieurs articles : publish / archive / draft / delete. */
+export async function bulkPostAction(
+  action: "publish" | "archive" | "draft" | "delete",
+  ids: string[],
+): Promise<BulkResult> {
+  try {
+    /* delete = admin ; le reste = staff. */
+    const { staff, service } =
+      action === "delete"
+        ? await requireAdminService()
+        : await requireStaffService();
+    if (ids.length === 0) throw new ActionError("Aucun article sélectionné.");
+
+    const { data: posts } = await service
+      .from("posts")
+      .select("id, slug")
+      .in("id", ids);
+    const slugs = (posts ?? []).map((p) => p.slug);
+
+    if (action === "delete") {
+      const { error } = await service.from("posts").delete().in("id", ids);
+      if (error) throw new ActionError(error.message);
+    } else {
+      const patch: Record<string, unknown> =
+        action === "publish"
+          ? { status: "published", published_at: new Date().toISOString(), scheduled_for: null }
+          : action === "archive"
+            ? { status: "archived" }
+            : { status: "draft" };
+      const { error } = await service.from("posts").update(patch).in("id", ids);
+      if (error) throw new ActionError(error.message);
+    }
+
+    await logAudit({
+      action: `post.bulk.${action}`,
+      entityType: "posts",
+      diff: { count: ids.length, ids },
+      actorId: staff.id,
+      actorEmail: staff.email,
+    });
+
+    updateTag(TAGS.posts);
+    updateTag(TAGS.sitemap);
+    for (const slug of slugs) updateTag(TAGS.post(slug));
+
+    const LABELS: Record<typeof action, string> = {
+      publish: "publié(s)",
+      archive: "archivé(s)",
+      draft: "repassé(s) en brouillon",
+      delete: "supprimé(s)",
+    };
+    return {
+      ok: true,
+      count: ids.length,
+      message: `${ids.length} article(s) ${LABELS[action]}.`,
+    };
+  } catch (err) {
+    if (err instanceof ActionError) return { ok: false, message: err.message };
+    throw err;
+  }
+}

@@ -196,19 +196,27 @@
 }
 
 .pageHead {
-  margin-bottom: 26px;
+  margin-bottom: 28px;
+}
+.pageHeadRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 .pageTitle {
   font-size: 1.55rem;
   font-weight: 700;
   color: var(--color-navy);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 .pageDesc {
-  margin-top: 4px;
-  font-size: 0.92rem;
-  color: var(--color-body);
-  max-width: 720px;
+  margin-top: 7px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--color-muted);
+  max-width: 620px;
 }
 
 .sectionTitle {

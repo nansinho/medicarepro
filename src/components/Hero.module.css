@@ -260,7 +260,8 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--color-primary-bright);
+  /* 0.66rem : accent AA obligatoire (petit texte sur fond clair). */
+  color: var(--color-accent-ink);
 }
 .priceLine {
   display: flex;
@@ -280,6 +281,10 @@
   font-size: 0.84rem;
   font-weight: 500;
   color: var(--color-body);
+}
+/* Flèche d'action de la barre prix : mobile uniquement. */
+.priceArrow {
+  display: none;
 }
 
 /* Carte preuve sociale (avatars + compteur) sous le CTA */
@@ -622,20 +627,68 @@
   .hero h1 {
     font-size: clamp(2.15rem, 8.6vw, 2.7rem);
   }
+  /* Comme pour le lead : le <br> éditorial du titre crée des orphelines
+     sur les écrans étroits — coupe naturelle sur mobile. */
+  .hero h1 br {
+    display: none;
+  }
   .lead {
     font-size: 1.05rem;
     margin: 16px 0 26px;
   }
-  /* Carte preuve sociale compactée (le défilement d'avatars reste actif) */
+  /* Le retour à la ligne éditorial du lead est pensé pour desktop ; sur
+     mobile il crée des lignes orphelines — texte au fil de l'eau (lines()
+     insère une espace de repli quand le <br> est masqué). */
+  .lead br {
+    display: none;
+  }
+  /* Zone CTA : colonne intentionnelle au lieu de trois blocs en escalier —
+     la barre prix et la carte preuve partagent la MÊME largeur (100 %),
+     seule la rangée démo respire différemment (hiérarchie). */
+  .ctaRow {
+    gap: 14px;
+  }
+  .priceText {
+    width: 100%;
+    position: relative;
+    padding: 12px 60px 12px 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--color-border-soft);
+    border-radius: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .priceText::before {
+    display: none;
+  }
+  /* La barre prix est un lien vers /tarifs : flèche d'action visible,
+     pastille dégradée qui fait écho au bouton play et aux infoCirc. */
+  .priceArrow {
+    display: block;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    padding: 9px;
+    border-radius: 50%;
+    background: var(--grad-btn);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(33, 72, 126, 0.24);
+  }
+  /* Carte preuve sociale : même largeur que la barre prix, coche calée à
+     droite (le défilement d'avatars reste actif). */
   .proofCard {
-    margin-top: 22px;
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 14px;
     padding: 8px 16px 8px 8px;
   }
   .avatarsWindow {
     width: 96px;
   }
   .proofText b {
-    font-size: 1.1rem;
+    font-size: 1.02rem;
   }
   /* Blobs réduits : surface de peinture moindre sur mobile */
   .hero::before {
@@ -649,15 +702,9 @@
 }
 
 @media (max-width: 480px) {
-  /* Ligne CTA resserrée : le prix perd son séparateur vertical */
+  /* Ligne CTA resserrée (la chip prix du bloc ≤880 gère padding et séparateur) */
   .ctaRow {
-    gap: 22px;
-  }
-  .priceText {
-    padding-left: 0;
-  }
-  .priceText::before {
-    display: none;
+    gap: 12px;
   }
   .proofCard {
     gap: 10px;

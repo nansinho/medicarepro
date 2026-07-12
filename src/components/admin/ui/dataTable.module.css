@@ -1,0 +1,220 @@
+/* ---------- DataTable (tableau de gestion) ---------- */
+
+.wrap {
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.search {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 11px;
+  padding: 0 13px;
+  color: var(--color-muted);
+}
+.search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-navy);
+  padding: 10px 0;
+}
+.filter {
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--color-navy);
+  background: #f7fafd;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 11px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.filter:hover {
+  border-color: var(--color-light-2);
+}
+.count {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Barre d'actions groupées */
+.bulkBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, #eef5fe, #f7fafd);
+  border-bottom: 1px solid var(--color-light-2);
+}
+.bulkBar > span {
+  font-size: 0.86rem;
+  color: var(--color-navy-soft);
+}
+.bulkBar b {
+  color: var(--color-primary);
+}
+.bulkActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bulkBtn,
+.bulkDanger,
+.bulkClear {
+  font-family: var(--font-head);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 9px;
+  padding: 7px 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.bulkBtn {
+  color: var(--color-primary);
+  background: #fff;
+  border-color: var(--color-border-soft);
+}
+.bulkBtn:hover {
+  border-color: var(--color-primary);
+}
+.bulkDanger {
+  color: #b4232f;
+  background: #fff;
+  border-color: #f5d4d7;
+}
+.bulkDanger:hover {
+  background: #fdf1f2;
+}
+.bulkClear {
+  color: var(--color-muted);
+  background: none;
+}
+
+/* Tableau */
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.table th {
+  text-align: left;
+  font-family: var(--font-head);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  background: #f7fafd;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+  white-space: nowrap;
+}
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.sortable:hover {
+  color: var(--color-navy-soft);
+}
+.thInner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.sortIdle {
+  opacity: 0.35;
+}
+.sortAsc {
+  color: var(--color-primary);
+}
+.sortDesc {
+  color: var(--color-primary);
+  transform: rotate(180deg);
+}
+.table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+  color: var(--color-body);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr:hover td {
+  background: #f9fbfe;
+}
+.rowSelected td {
+  background: #eef5fe !important;
+}
+.checkCell {
+  width: 1%;
+  padding-left: 16px;
+  padding-right: 0;
+}
+.checkCell input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.empty {
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+/* Pagination */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 14px;
+  border-top: 1px solid var(--color-border-soft);
+  font-size: 0.84rem;
+  color: var(--color-body);
+}
+.pager button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: none;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 9px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

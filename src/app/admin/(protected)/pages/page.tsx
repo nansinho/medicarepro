@@ -47,10 +47,7 @@ export default async function AdminPagesListPage() {
       <header className={s.pageHead}>
         <div>
           <h1 className={s.pageTitle}>Pages du site</h1>
-          <p className={s.pageDesc}>
-            Modifiez les textes et visuels de chaque page. Vos changements
-            restent en brouillon (avec aperçu) jusqu&apos;à publication.
-          </p>
+          <p className={s.pageDesc}>Textes et visuels de chaque page du site.</p>
         </div>
       </header>
 

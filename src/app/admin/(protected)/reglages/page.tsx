@@ -56,11 +56,7 @@ export default async function AdminReglagesPage() {
     <>
       <header className={s.pageHead}>
         <h1 className={s.pageTitle}>Réglages du site</h1>
-        <p className={s.pageDesc}>
-          Coordonnées, bandeau promo, pied de page, entité légale… Chaque
-          bloc s&apos;enregistre séparément et le site est mis à jour
-          immédiatement.
-        </p>
+        <p className={s.pageDesc}>Coordonnées, bandeau promo, pied de page, entité légale.</p>
       </header>
       <SettingsManager initialValues={values} />
     </>

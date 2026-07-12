@@ -2,6 +2,7 @@ import type { Metadata, MetadataRoute } from "next";
 import { unstable_cache } from "next/cache";
 import { SEO_DEFAULTS } from "./fallback";
 import { getPosts } from "./posts";
+import { getPublishedCities } from "./cities";
 import { TAGS, CACHE_SAFETY_REVALIDATE } from "./tags";
 import { publicClient } from "@/lib/supabase/public";
 import type { SeoDefault } from "@/data/content/site";
@@ -104,7 +105,7 @@ export async function pageMetadata(path: string): Promise<Metadata> {
 }
 
 /** Entrées du sitemap : routes gérées (surcharges + lastmod DB réels)
- *  + articles publiés. Les pages villes s'ajouteront ici (Phase 7). */
+ *  + articles publiés + pages villes publiées + le hub. */
 export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const rows = await getSeoRows();
   const buildDate = new Date();
@@ -133,5 +134,25 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
-  return [...pages, ...posts];
+  /* Pages villes SEO local publiées + le hub. */
+  const cities = await getPublishedCities();
+  const cityEntries: MetadataRoute.Sitemap =
+    cities.length > 0
+      ? [
+          {
+            url: `${SITE_URL}/logiciel-podologue`,
+            lastModified: buildDate,
+            changeFrequency: "weekly" as const,
+            priority: 0.6,
+          },
+          ...cities.map((city) => ({
+            url: `${SITE_URL}/logiciel-podologue/${city.slug}`,
+            lastModified: buildDate,
+            changeFrequency: "monthly" as const,
+            priority: 0.5,
+          })),
+        ]
+      : [];
+
+  return [...pages, ...posts, ...cityEntries];
 }

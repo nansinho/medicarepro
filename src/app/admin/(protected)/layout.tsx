@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireStaff } from "@/lib/admin/auth";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import ToastProvider from "@/components/admin/ui/Toast";
 import s from "@/components/admin/Admin.module.css";
 
 /* ============================================================
@@ -31,13 +32,15 @@ export default async function AdminProtectedLayout({
   const staff = await requireStaff();
 
   return (
-    <div className={s.shell}>
-      <AdminSidebar
-        displayName={staff.displayName}
-        email={staff.email}
-        role={staff.role}
-      />
-      <main className={s.main}>{children}</main>
-    </div>
+    <ToastProvider>
+      <div className={s.shell}>
+        <AdminSidebar
+          displayName={staff.displayName}
+          email={staff.email}
+          role={staff.role}
+        />
+        <main className={s.main}>{children}</main>
+      </div>
+    </ToastProvider>
   );
 }
