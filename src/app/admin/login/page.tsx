@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
       <div className={styles.card}>
         <div className={styles.brand}>
           {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
-          <img src="/logo.svg?v=4" alt="MediCare Pro" width={156} height={32} />
+          <img src="/logo.svg?v=5" alt="MediCare Pro" width={203} height={32} />
           <span className={styles.kicker}>
             <Lock width={12} height={12} /> Back office
           </span>
