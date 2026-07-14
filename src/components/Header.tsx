@@ -105,9 +105,9 @@ export default function Header({
           <Link href="/" className={styles.logo}>
             {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
             <img
-              src="/logo.svg?v=5"
+              src="/logo.svg?v=6"
               alt={header.logoLabel}
-              width={203}
+              width={155}
               height={32}
               className={styles.logoImg}
             />
@@ -197,9 +197,9 @@ export default function Header({
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
           <img
-            src="/logo.svg?v=5"
+            src="/logo.svg?v=6"
             alt={header.logoLabel}
-            width={203}
+            width={155}
             height={32}
             className={styles.logoImg}
           />

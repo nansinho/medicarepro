@@ -39,9 +39,9 @@ export default function CheckoutLayout({
           <Link href="/" aria-label="Retour à l'accueil MediCare Pro">
             {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
             <img
-              src="/logo.svg?v=5"
+              src="/logo.svg?v=6"
               alt="MediCare Pro"
-              width={203}
+              width={155}
               height={32}
               className={s.logoImg}
             />
