@@ -1,6 +1,6 @@
 import Link from "next/link";
+import BrandLogo from "./BrandLogo";
 import {
-  ShieldPlus,
   ShieldCheck,
   MapPin,
   Phone,
@@ -74,11 +74,8 @@ export default function Footer({
         <div className={s.footTop}>
           {/* Marque + contact */}
           <div className={s.footBrand} data-rv-footcol>
-            <Link href="/" className={s.footLogo}>
-              <span className={s.footLogoMark}>
-                <ShieldPlus width={24} height={24} />
-              </span>
-              MediCare&nbsp;Pro
+            <Link href="/" className={s.footLogo} aria-label="MediCare Pro — accueil">
+              <BrandLogo size={34} variant="light" />
             </Link>
             <p className={s.footTagline}>{footer.tagline}</p>
             <div className={s.footContact}>

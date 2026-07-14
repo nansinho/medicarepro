@@ -44,11 +44,10 @@ export function escHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/* Le VRAI logo du site : ShieldPlus (bouclier + croix), en blanc,
-   en data-URI (style « lucide »). */
-const LOGO = `data:image/svg+xml;base64,${Buffer.from(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3Z"/><path d="M12 8v6M9 11h6"/></svg>',
-).toString("base64")}`;
+/* Pictogramme officiel 2026 (croix + étoile), hébergé sur le site :
+   les clients mail bloquent les data-URI mais chargent les images
+   distantes — PNG net à 26 px, servi depuis medicarepro.fr. */
+const LOGO = "https://medicarepro.fr/icon-192.png";
 
 /** Valeur « technique » (référence, RUM, IBAN masqué) en chasse fixe. */
 export function mono(value: string): string {
@@ -177,7 +176,7 @@ export function emailShell(opts: EmailShellOptions): string {
                     <table role="presentation" cellpadding="0" cellspacing="0"><tr>
                       <td style="vertical-align:middle;padding-right:13px;">
                         <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="width:42px;height:42px;background:rgba(255,255,255,.16);border-radius:12px;text-align:center;vertical-align:middle;">
-                          <img src="${LOGO}" width="26" height="26" alt="" style="vertical-align:middle;">
+                          <img src="${LOGO}" width="26" height="26" alt="" style="vertical-align:middle;background:#ffffff;border-radius:8px;padding:3px;">
                         </td></tr></table>
                       </td>
                       <td style="vertical-align:middle;font-family:${SANS};font-size:19px;font-weight:700;color:#ffffff;letter-spacing:-.01em;">MediCare&nbsp;Pro</td>

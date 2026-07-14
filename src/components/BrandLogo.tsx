@@ -10,13 +10,19 @@ import s from "./BrandLogo.module.css";
 type Props = {
   /** Hauteur du pictogramme en px — le texte suit proportionnellement. */
   size?: number;
+  /** "light" = fond sombre : pastille blanche sous l'icône, nom en blanc. */
+  variant?: "dark" | "light";
   className?: string;
 };
 
-export default function BrandLogo({ size = 38, className }: Props) {
+export default function BrandLogo({
+  size = 38,
+  variant = "dark",
+  className,
+}: Props) {
   return (
     <span
-      className={`${s.brand} ${className ?? ""}`}
+      className={`${s.brand} ${variant === "light" ? s.light : ""} ${className ?? ""}`}
       style={{ "--brand-size": `${size}px` } as CSSProperties}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}

@@ -22,3 +22,17 @@
 .pro {
   color: var(--color-primary);
 }
+
+/* Variante fond sombre : pastille blanche sous l'icône, nom en blanc. */
+.light .icon {
+  background: #fff;
+  border-radius: 26%;
+  padding: calc(var(--brand-size) * 0.12);
+  box-shadow: 0 6px 16px rgba(8, 24, 48, 0.35);
+}
+.light .name {
+  color: #fff;
+}
+.light .pro {
+  color: #7db4ff;
+}

@@ -19,7 +19,6 @@ import {
   Monitor,
   Refresh,
   Shield,
-  ShieldPlus,
   Signature,
   Star,
   TrendingUp,
@@ -130,7 +129,14 @@ export default function AdminSidebar({
   return (
     <aside className={s.sidebar}>
       <Link href="/" className={s.sideBrand} title="Voir le site">
-        <ShieldPlus width={26} height={26} style={{ color: "#79b0ea" }} />
+        {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
+        <img
+          src="/logo-icon.svg?v=7"
+          alt=""
+          width={26}
+          height={26}
+          style={{ background: "#fff", borderRadius: 8, padding: 3, flex: "none" }}
+        />
         <span className={s.sideBrandName}>
           MediCare Pro
           <span className={s.sideBrandSub}>Back office</span>
