@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 import { ArrowRight, Lock } from "@/components/icons";
 import LoginForm from "./LoginForm";
 import styles from "./login.module.css";
@@ -16,8 +17,7 @@ export default function AdminLoginPage() {
     <main className={styles.page}>
       <div className={styles.card}>
         <div className={styles.brand}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
-          <img src="/logo.svg?v=6" alt="MediCare Pro" width={184} height={38} />
+          <BrandLogo size={38} />
           <span className={styles.kicker}>
             <Lock width={12} height={12} /> Back office
           </span>

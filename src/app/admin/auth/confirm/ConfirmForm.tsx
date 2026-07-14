@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Lock } from "@/components/icons";
 import { browserClient } from "@/lib/supabase/browser";
@@ -83,8 +84,7 @@ export default function ConfirmForm() {
     <main className={styles.page}>
       <div className={styles.card}>
         <div className={styles.brand}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique */}
-          <img src="/logo.svg?v=6" alt="MediCare Pro" width={184} height={38} />
+          <BrandLogo size={38} />
           <span className={styles.kicker}>
             <Lock width={12} height={12} /> Back office
           </span>

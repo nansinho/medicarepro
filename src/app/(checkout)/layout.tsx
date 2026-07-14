@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 import { hasBilling, missingBillingEnv } from "@/lib/env";
 import s from "@/components/checkout/Checkout.module.css";
 
@@ -37,14 +38,7 @@ export default function CheckoutLayout({
       <header className={s.topbar}>
         <div className={s.topbarInner}>
           <Link href="/" aria-label="Retour à l'accueil MediCare Pro">
-            {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
-            <img
-              src="/logo.svg?v=6"
-              alt="MediCare Pro"
-              width={184}
-              height={38}
-              className={s.logoImg}
-            />
+            <BrandLogo size={38} />
           </Link>
           <span className={s.topbarNote}>
             <svg

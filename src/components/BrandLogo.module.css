@@ -1,0 +1,24 @@
+/* Marque MediCare Pro — pictogramme officiel + nom en texte.
+   Tout est proportionnel à --brand-size (hauteur du pictogramme). */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--brand-size) * 0.24);
+}
+.icon {
+  display: block;
+  width: var(--brand-size);
+  height: var(--brand-size);
+}
+.name {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(var(--brand-size) * 0.56);
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--color-navy);
+  white-space: nowrap;
+}
+.pro {
+  color: var(--color-primary);
+}

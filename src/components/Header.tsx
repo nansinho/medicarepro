@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import BrandLogo from "@/components/BrandLogo";
 import { usePathname } from "next/navigation";
 import {
   Search,
@@ -102,15 +103,8 @@ export default function Header({
     <>
       <header className={`${styles.header} ${scrolled ? styles.scrolled : ""}`}>
         <div className={`wrap ${styles.nav}`}>
-          <Link href="/" className={styles.logo}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
-            <img
-              src="/logo.svg?v=6"
-              alt={header.logoLabel}
-              width={184}
-              height={38}
-              className={styles.logoImg}
-            />
+          <Link href="/" className={styles.logo} aria-label={header.logoLabel}>
+            <BrandLogo size={38} />
           </Link>
           <ul className={styles.menu}>
             {nav.map((link) =>
@@ -194,15 +188,9 @@ export default function Header({
           href="/"
           className={styles.logo}
           onClick={() => setDrawerOpen(false)}
+          aria-label={header.logoLabel}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
-          <img
-            src="/logo.svg?v=6"
-            alt={header.logoLabel}
-            width={184}
-            height={38}
-            className={styles.logoImg}
-          />
+          <BrandLogo size={34} />
         </Link>
         <h3 className={styles.drawerTitle}>{lines(header.drawer.title)}</h3>
         <nav className={styles.drawerNav}>
