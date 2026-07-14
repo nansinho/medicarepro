@@ -107,8 +107,8 @@ export default function Header({
             <img
               src="/logo.svg?v=6"
               alt={header.logoLabel}
-              width={155}
-              height={32}
+              width={184}
+              height={38}
               className={styles.logoImg}
             />
           </Link>
@@ -199,8 +199,8 @@ export default function Header({
           <img
             src="/logo.svg?v=6"
             alt={header.logoLabel}
-            width={155}
-            height={32}
+            width={184}
+            height={38}
             className={styles.logoImg}
           />
         </Link>

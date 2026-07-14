@@ -41,8 +41,8 @@ export default function CheckoutLayout({
             <img
               src="/logo.svg?v=6"
               alt="MediCare Pro"
-              width={155}
-              height={32}
+              width={184}
+              height={38}
               className={s.logoImg}
             />
           </Link>
