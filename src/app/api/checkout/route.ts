@@ -6,6 +6,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { encryptSecret } from "@/lib/crypto";
 import { buildPaymentForm } from "@/lib/monetico";
 import { CheckoutSchema } from "@/lib/checkout/schema";
+import { verifyRppsOnline } from "@/lib/checkout/rpps";
 import { checkoutAmountCents } from "@/lib/checkout/pricing";
 import { invoicePrefixCandidates } from "@/lib/checkout/invoice-prefix";
 import {
@@ -216,6 +217,25 @@ export async function POST(request: NextRequest) {
   }
 
   const { cabinet, user, sepa } = input;
+
+  // RPPS contre l'Annuaire Santé — bloquant UNIQUEMENT sur un
+  // « introuvable » certain ; panne ou clé absente = on laisse passer.
+  if ((await verifyRppsOnline(cabinet.rppsNumber)) === "not_found") {
+    return Response.json(
+      {
+        error: "Numéro RPPS introuvable dans l'Annuaire Santé.",
+        issues: [
+          {
+            path: ["cabinet", "rppsNumber"],
+            message:
+              "Ce numéro RPPS est introuvable dans l'Annuaire Santé — vérifiez votre saisie.",
+          },
+        ],
+      },
+      { status: 422 },
+    );
+  }
+
   const amountCents = checkoutAmountCents(input.plan, input.extraCollaborators);
   const reference = newMoneticoReference();
 

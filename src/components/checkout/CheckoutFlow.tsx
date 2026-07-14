@@ -10,6 +10,8 @@ import {
   CheckoutSchema,
 } from "@/lib/checkout/schema";
 import type { BillingPlan } from "@/lib/checkout/pricing";
+import { PRICING_VERSION } from "@/lib/checkout/pricing";
+import { LEGAL_DOCUMENTS } from "@/lib/legal/registry";
 import { mandateText } from "@/lib/sepa/mandate-text";
 import { maskIban } from "@/lib/sepa/iban";
 import PasswordStrength from "@/components/auth/PasswordStrength";
@@ -17,10 +19,12 @@ import MoneticoRedirectForm from "./MoneticoRedirectForm";
 import s from "./Checkout.module.css";
 
 /* ============================================================
-   Tunnel d'inscription — formulaire 5 étapes :
-   1. Formule (plan + collaborateurs)   2. Cabinet
+   Tunnel d'inscription — formulaire 6 étapes :
+   1. Formule (plan + collaborateurs)   2. Cabinet (SIRET d'abord,
+      auto-remplissage annuaire des entreprises)
    3. Administrateur                    4. Mandat SEPA
-   5. Récapitulatif + CGV + Turnstile → POST /api/checkout
+   5. Documents contractuels (case unique art. 5 CGV)
+   6. Récapitulatif + Turnstile → POST /api/checkout
    → auto-post du formulaire Monetico (paiement carte).
    Chaque étape est validée avec les sous-schémas Zod partagés
    avec la route serveur (validation d'autorité côté API).
@@ -56,6 +60,7 @@ const STEPS = [
   "Cabinet",
   "Administrateur",
   "Mandat SEPA",
+  "Documents",
   "Récapitulatif",
 ] as const;
 
@@ -71,8 +76,9 @@ function stepForErrorKey(key: string): number {
   if (key.startsWith("cabinet.")) return 1;
   if (key.startsWith("user.")) return 2;
   if (key.startsWith("sepa.") || key === "mandateAccepted") return 3;
+  if (key === "termsAccepted") return 4;
   if (key === "plan" || key === "extraCollaborators") return 0;
-  return 4; // termsAccepted, turnstileToken, website…
+  return 5; // turnstileToken, website…
 }
 
 /** JSON d'une réponse d'erreur, sans jeter si le corps n'est pas du JSON. */
@@ -238,6 +244,12 @@ export default function CheckoutFlow({
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot — reste vide chez un humain
 
+  /* ---- Auto-remplissage SIRET (annuaire des entreprises) ---- */
+  const [siretLookup, setSiretLookup] = useState<{
+    status: "idle" | "loading" | "found" | "not_found" | "error";
+    name?: string;
+  }>({ status: "idle" });
+
   /* ---- État technique ---- */
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
@@ -269,6 +281,61 @@ export default function CheckoutFlow({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
+  /* SIRET complet (14 chiffres) → interrogation de l'annuaire des
+     entreprises et pré-remplissage des champs ENCORE VIDES uniquement
+     (on n'écrase jamais une saisie). Service de confort : toute erreur
+     est silencieuse et n'empêche pas de continuer. */
+  useEffect(() => {
+    const siret = cabinet.siretNumber;
+    if (siret.length !== 14) {
+      setSiretLookup({ status: "idle" });
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSiretLookup({ status: "loading" });
+      try {
+        const res = await fetch(`/api/checkout/siret?siret=${siret}`, {
+          signal: controller.signal,
+          credentials: "same-origin",
+        });
+        if (!res.ok) {
+          setSiretLookup({ status: res.status === 422 ? "not_found" : "error" });
+          return;
+        }
+        const data = (await res.json()) as {
+          found: boolean;
+          name?: string;
+          address?: string;
+          postalCode?: string;
+          city?: string;
+        };
+        if (!data.found) {
+          setSiretLookup({ status: "not_found" });
+          return;
+        }
+        setCabinet((p) => ({
+          ...p,
+          name: p.name.trim() === "" && data.name ? data.name : p.name,
+          address:
+            p.address.trim() === "" && data.address ? data.address : p.address,
+          postalCode:
+            p.postalCode.trim() === "" && data.postalCode
+              ? data.postalCode
+              : p.postalCode,
+          city: p.city.trim() === "" && data.city ? data.city : p.city,
+        }));
+        setSiretLookup({ status: "found", name: data.name });
+      } catch {
+        if (!controller.signal.aborted) setSiretLookup({ status: "error" });
+      }
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [cabinet.siretNumber]);
+
   /* Pré-remplit le titulaire du compte avec le nom du cabinet à l'arrivée sur l'étape SEPA. */
   useEffect(() => {
     if (step === 3) {
@@ -280,7 +347,7 @@ export default function CheckoutFlow({
 
   /* Rend le widget Turnstile à l'arrivée sur le récapitulatif (rendu explicite). */
   useEffect(() => {
-    if (step !== 4 || !siteKey || !turnstileReady) return;
+    if (step !== 5 || !siteKey || !turnstileReady) return;
     const api = window.turnstile;
     const host = turnstileHost.current;
     if (!api || !host || turnstileWidgetId.current !== null) return;
@@ -366,6 +433,11 @@ export default function CheckoutFlow({
       if (!mandateAccepted) {
         errs["mandateAccepted"] = "Vous devez accepter le mandat de prélèvement";
       }
+    } else if (index === 4) {
+      if (!termsAccepted) {
+        errs["termsAccepted"] =
+          "Vous devez accepter les conditions contractuelles";
+      }
     }
     return errs;
   }
@@ -426,15 +498,18 @@ export default function CheckoutFlow({
 
   /* ---- Soumission finale → POST /api/checkout ---- */
   async function submit() {
-    const errs: Record<string, string> = {};
+    // Filet de sécurité : la case contractuelle se coche à l'étape 5.
     if (!termsAccepted) {
-      errs["termsAccepted"] = "Vous devez accepter les conditions contractuelles";
+      setErrors({
+        termsAccepted: "Vous devez accepter les conditions contractuelles",
+      });
+      setStep(4);
+      return;
     }
     if (!turnstileToken) {
-      errs["turnstileToken"] = "Merci de valider la vérification anti-robot";
-    }
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
+      setErrors({
+        turnstileToken: "Merci de valider la vérification anti-robot",
+      });
       return;
     }
 
@@ -547,6 +622,10 @@ export default function CheckoutFlow({
       desc: "Pour le renouvellement automatique de votre abonnement. Aucun prélèvement sans prénotification par email.",
     },
     4: {
+      title: "Documents contractuels",
+      desc: "Les documents qui encadrent votre abonnement — consultables et téléchargeables à tout moment.",
+    },
+    5: {
       title: "Récapitulatif",
       desc: "Vérifiez votre dossier avant de procéder au paiement.",
     },
@@ -744,6 +823,64 @@ export default function CheckoutFlow({
           {/* ================= Étape 2 — Cabinet ================= */}
           {step === 1 && (
             <div className={s.grid2}>
+              {/* SIRET en premier (exigence client) : il pré-remplit le
+                  reste du formulaire depuis l'annuaire des entreprises. */}
+              <div className={`${s.field} ${s.col2}`}>
+                <label className={s.label} htmlFor="cab-siret">
+                  SIRET
+                </label>
+                <input
+                  id="cab-siret"
+                  className={`${s.input} ${
+                    errors["cabinet.siretNumber"] ? s.inputInvalid : ""
+                  }`}
+                  type="text"
+                  value={cabinet.siretNumber}
+                  onChange={(e) =>
+                    setCabinet((p) => ({
+                      ...p,
+                      siretNumber: e.target.value.replace(/\D/g, "").slice(0, 14),
+                    }))
+                  }
+                  inputMode="numeric"
+                  placeholder="14 chiffres"
+                  maxLength={14}
+                  autoComplete="off"
+                  aria-invalid={errors["cabinet.siretNumber"] ? true : undefined}
+                  aria-describedby={
+                    errors["cabinet.siretNumber"] ? "cab-siret-err" : "cab-siret-live"
+                  }
+                />
+                {errors["cabinet.siretNumber"] ? (
+                  <p className={s.fieldError} id="cab-siret-err">
+                    <IconAlert /> {errors["cabinet.siretNumber"]}
+                  </p>
+                ) : siretLookup.status === "loading" ? (
+                  <p className={s.hint} id="cab-siret-live">
+                    Recherche dans l&apos;annuaire des entreprises…
+                  </p>
+                ) : siretLookup.status === "found" ? (
+                  <p className={s.ibanOk} id="cab-siret-live">
+                    ✓ {siretLookup.name ?? "Établissement trouvé"} — coordonnées
+                    pré-remplies ci-dessous, vérifiez-les.
+                  </p>
+                ) : siretLookup.status === "not_found" ? (
+                  <p className={s.fieldError} id="cab-siret-live">
+                    <IconAlert /> SIRET introuvable dans l&apos;annuaire des
+                    entreprises — vérifiez votre saisie.
+                  </p>
+                ) : siretLookup.status === "error" ? (
+                  <p className={s.hint} id="cab-siret-live">
+                    Annuaire momentanément indisponible — remplissez les champs
+                    manuellement.
+                  </p>
+                ) : (
+                  <p className={s.hint} id="cab-siret-live">
+                    Vos coordonnées se pré-rempliront automatiquement depuis
+                    l&apos;annuaire officiel des entreprises.
+                  </p>
+                )}
+              </div>
               <Field
                 id="cab-name"
                 label="Nom du cabinet"
@@ -829,30 +966,20 @@ export default function CheckoutFlow({
                 maxLength={120}
               />
               <Field
-                id="cab-siret"
-                label="SIRET"
-                optional
-                value={cabinet.siretNumber}
-                onChange={(v) =>
-                  setCabinet((p) => ({
-                    ...p,
-                    siretNumber: v.replace(/\D/g, "").slice(0, 14),
-                  }))
-                }
-                error={errors["cabinet.siretNumber"]}
-                inputMode="numeric"
-                placeholder="14 chiffres"
-                maxLength={14}
-              />
-              <Field
                 id="cab-rpps"
                 label="Numéro RPPS"
                 value={cabinet.rppsNumber}
-                onChange={(v) => setCabinet((p) => ({ ...p, rppsNumber: v }))}
+                onChange={(v) =>
+                  setCabinet((p) => ({
+                    ...p,
+                    rppsNumber: v.replace(/\D/g, "").slice(0, 11),
+                  }))
+                }
                 error={errors["cabinet.rppsNumber"]}
+                hint="11 chiffres — identifiant du titulaire au répertoire national des professionnels de santé."
                 inputMode="numeric"
-                placeholder="Identifiant RPPS du titulaire"
-                maxLength={20}
+                placeholder="11 chiffres"
+                maxLength={11}
               />
             </div>
           )}
@@ -1082,102 +1209,60 @@ export default function CheckoutFlow({
             </div>
           )}
 
-          {/* ================= Étape 5 — Récapitulatif ================= */}
+          {/* ============ Étape 5 — Documents contractuels ============ */}
           {step === 4 && (
             <div className={s.sectionGap}>
-              <div className={s.recap}>
-                <div className={s.recapBlock}>
-                  <div className={s.recapHeadRow}>
-                    <h3>Formule</h3>
-                    <button
-                      type="button"
-                      className={s.editBtn}
-                      onClick={() => goTo(0)}
-                    >
-                      Modifier
-                    </button>
-                  </div>
-                  <div className={s.recapList}>
-                    <span>
-                      <b>{PLAN_LABEL[plan]}</b>
-                      {extra > 0 &&
-                        ` + ${extra} collaborateur${extra > 1 ? "s" : ""}`}
-                    </span>
-                    <span>
-                      Mensualité&nbsp;: <b>{row.monthlyLabel} TTC/mois</b>
-                    </span>
-                    <span className={s.recapTotal}>
-                      Débité aujourd&apos;hui par carte&nbsp;: {row.totalLabel}{" "}
-                      TTC {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={s.recapBlock}>
-                  <div className={s.recapHeadRow}>
-                    <h3>Cabinet</h3>
-                    <button
-                      type="button"
-                      className={s.editBtn}
-                      onClick={() => goTo(1)}
-                    >
-                      Modifier
-                    </button>
-                  </div>
-                  <div className={s.recapList}>
-                    <span>
-                      <b>{cabinet.name}</b> — {cabinet.email}
-                    </span>
-                    <span>
-                      {cabinet.address}, {cabinet.postalCode} {cabinet.city}
-                    </span>
-                    <span>
-                      RPPS {cabinet.rppsNumber}
-                      {cabinet.siretNumber && ` · SIRET ${cabinet.siretNumber}`}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={s.recapBlock}>
-                  <div className={s.recapHeadRow}>
-                    <h3>Administrateur</h3>
-                    <button
-                      type="button"
-                      className={s.editBtn}
-                      onClick={() => goTo(2)}
-                    >
-                      Modifier
-                    </button>
-                  </div>
-                  <div className={s.recapList}>
-                    <span>
-                      <b>
-                        {user.firstName} {user.lastName}
-                      </b>{" "}
-                      — {user.email}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={s.recapBlock}>
-                  <div className={s.recapHeadRow}>
-                    <h3>Prélèvement SEPA (renouvellement)</h3>
-                    <button
-                      type="button"
-                      className={s.editBtn}
-                      onClick={() => goTo(3)}
-                    >
-                      Modifier
-                    </button>
-                  </div>
-                  <div className={s.recapList}>
-                    <span>
-                      <b>{sepa.accountHolder}</b>
-                    </span>
-                    <span>{ibanValid ? maskIban(sepa.iban) : "IBAN à valider"}</span>
-                  </div>
-                </div>
+              <div className={s.alert}>
+                <IconAlert />
+                <span>
+                  Ces documents officiels encadrent votre abonnement MediCare
+                  Pro. Ouvrez-les d&apos;un clic — chaque page propose le PDF
+                  officiel en téléchargement.
+                </span>
               </div>
+
+              <ul className={s.docList}>
+                {Object.values(LEGAL_DOCUMENTS).map((doc) => (
+                  <li key={doc.key} className={s.docItem}>
+                    <div className={s.docMain}>
+                      <a
+                        href={doc.pageHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={s.docTitle}
+                      >
+                        {doc.title}
+                      </a>
+                      <span className={s.docMeta}>Version {doc.version}</span>
+                    </div>
+                    <a
+                      href={doc.pdfHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={s.docPdf}
+                      aria-label={`Télécharger le PDF officiel : ${doc.title} (version ${doc.version})`}
+                    >
+                      PDF
+                    </a>
+                  </li>
+                ))}
+                <li className={s.docItem}>
+                  <div className={s.docMain}>
+                    <a
+                      href="/tarifs"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={s.docTitle}
+                    >
+                      Grille tarifaire en vigueur
+                    </a>
+                    <span className={s.docMeta}>
+                      Édition {PRICING_VERSION.replace("tarifs-", "")} — vos
+                      montants exacts figurent au récapitulatif.
+                    </span>
+                  </div>
+                </li>
+              </ul>
 
               {/* Case contractuelle UNIQUE (art. 5 CGV v2.1) : obligatoire,
                   non pré-cochée, libellé exact du client (cf. TERMS_LABEL
@@ -1230,6 +1315,123 @@ export default function CheckoutFlow({
                     <IconAlert /> {errors["termsAccepted"]}
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* ================= Étape 6 — Récapitulatif ================= */}
+          {step === 5 && (
+            <div className={s.sectionGap}>
+              <div className={s.recap}>
+                <div className={s.recapBlock}>
+                  <div className={s.recapHeadRow}>
+                    <h3>Formule</h3>
+                    <button
+                      type="button"
+                      className={s.editBtn}
+                      onClick={() => goTo(0)}
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                  <div className={s.recapList}>
+                    <span>
+                      <b>{PLAN_LABEL[plan]}</b>
+                      {extra > 0 &&
+                        ` + ${extra} collaborateur${extra > 1 ? "s" : ""}`}
+                    </span>
+                    <span>
+                      Mensualité&nbsp;: <b>{row.monthlyLabel} TTC/mois</b>
+                    </span>
+                    <span className={s.recapTotal}>
+                      Débité aujourd&apos;hui par carte&nbsp;: {row.totalLabel}{" "}
+                      TTC {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={s.recapBlock}>
+                  <div className={s.recapHeadRow}>
+                    <h3>Cabinet</h3>
+                    <button
+                      type="button"
+                      className={s.editBtn}
+                      onClick={() => goTo(1)}
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                  <div className={s.recapList}>
+                    <span>
+                      <b>{cabinet.name}</b> — {cabinet.email}
+                    </span>
+                    <span>
+                      {cabinet.address}, {cabinet.postalCode} {cabinet.city}
+                    </span>
+                    <span>
+                      SIRET {cabinet.siretNumber} · RPPS {cabinet.rppsNumber}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={s.recapBlock}>
+                  <div className={s.recapHeadRow}>
+                    <h3>Administrateur</h3>
+                    <button
+                      type="button"
+                      className={s.editBtn}
+                      onClick={() => goTo(2)}
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                  <div className={s.recapList}>
+                    <span>
+                      <b>
+                        {user.firstName} {user.lastName}
+                      </b>{" "}
+                      — {user.email}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={s.recapBlock}>
+                  <div className={s.recapHeadRow}>
+                    <h3>Prélèvement SEPA (renouvellement)</h3>
+                    <button
+                      type="button"
+                      className={s.editBtn}
+                      onClick={() => goTo(3)}
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                  <div className={s.recapList}>
+                    <span>
+                      <b>{sepa.accountHolder}</b>
+                    </span>
+                    <span>{ibanValid ? maskIban(sepa.iban) : "IBAN à valider"}</span>
+                  </div>
+                </div>
+
+                <div className={s.recapBlock}>
+                  <div className={s.recapHeadRow}>
+                    <h3>Documents contractuels</h3>
+                    <button
+                      type="button"
+                      className={s.editBtn}
+                      onClick={() => goTo(4)}
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                  <div className={s.recapList}>
+                    <span>
+                      ✓ CGV, CGU, DPA et grille tarifaire acceptées —
+                      politiques de confidentialité et de cookies consultées.
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Anti-bot Cloudflare Turnstile */}

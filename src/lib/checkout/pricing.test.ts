@@ -89,7 +89,7 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
       address: "12 rue de la Santé",
       city: "Paris",
       postalCode: "75014",
-      siretNumber: "12345678901234",
+      siretNumber: "73282932000074", // Luhn valide (exemple INSEE)
       rppsNumber: "12345678901",
     },
     user: {
@@ -110,7 +110,7 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
   it("accepte un dossier complet et normalise l'IBAN", () => {
     const parsed = CheckoutSchema.parse(valid);
     expect(parsed.sepa.iban).toBe("FR7630006000011234567890189"); // espaces retirés
-    expect(parsed.cabinet.siretNumber).toBe("12345678901234");
+    expect(parsed.cabinet.siretNumber).toBe("73282932000074");
     expect(parsed.website).toBe("");
   });
 
@@ -141,12 +141,31 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
     ).toBe(false);
   });
 
-  it("SIRET vide → undefined (optionnel côté contrat)", () => {
-    const parsed = CheckoutSchema.parse({
-      ...valid,
-      cabinet: { ...valid.cabinet, siretNumber: "" },
-    });
-    expect(parsed.cabinet.siretNumber).toBeUndefined();
+  it("SIRET obligatoire (exigence client 14/07/2026) et contrôlé par Luhn", () => {
+    expect(
+      CheckoutSchema.safeParse({
+        ...valid,
+        cabinet: { ...valid.cabinet, siretNumber: "" },
+      }).success,
+    ).toBe(false);
+    // 14 chiffres mais somme de Luhn fausse (faute de frappe simulée).
+    expect(
+      CheckoutSchema.safeParse({
+        ...valid,
+        cabinet: { ...valid.cabinet, siretNumber: "73282932000075" },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("RPPS : exactement 11 chiffres", () => {
+    for (const bad of ["123", "123456789012", "1234567890A"]) {
+      expect(
+        CheckoutSchema.safeParse({
+          ...valid,
+          cabinet: { ...valid.cabinet, rppsNumber: bad },
+        }).success,
+      ).toBe(false);
+    }
   });
 
   it("exige les deux consentements distincts", () => {

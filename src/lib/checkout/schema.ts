@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { electronicFormatIBAN, isValidIBAN } from "ibantools";
+import { isValidSiret } from "./siret";
 
 /* ============================================================
    Validation du dossier d'inscription (tunnel checkout).
@@ -31,13 +32,17 @@ export const CabinetSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{5}$/, "Code postal : 5 chiffres"),
+  /** Obligatoire (exigence client 14/07/2026) — contrôle Luhn local. */
   siretNumber: z
     .string()
     .trim()
     .regex(/^\d{14}$/, "SIRET : 14 chiffres")
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  rppsNumber: z.string().trim().min(1, "Numéro RPPS requis").max(20),
+    .refine(isValidSiret, "SIRET invalide — vérifiez votre saisie"),
+  /** Identifiant RPPS : 11 chiffres (répertoire national des PS). */
+  rppsNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{11}$/, "Numéro RPPS : 11 chiffres"),
 });
 
 export const UserSchema = z.object({
