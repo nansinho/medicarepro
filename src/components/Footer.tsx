@@ -7,6 +7,7 @@ import {
   Phone,
   Mail,
   ArrowRight,
+  Play,
   Facebook,
   LinkedIn,
   XSocial,
@@ -45,7 +46,7 @@ type ContactSettings = {
 };
 type SocialLink = { label: string; icon: string; href: string };
 
-/** Lien interne (route) → <Link> ; placeholder ("#") → <a>. */
+/** Lien interne (route) → <Link> ; externe/placeholder → <a>. */
 function FootLink({ href, label }: { href: string; label: string }) {
   if (href.startsWith("/")) {
     return <Link href={href}>{label}</Link>;
@@ -53,15 +54,63 @@ function FootLink({ href, label }: { href: string; label: string }) {
   return <a href={href}>{label}</a>;
 }
 
+/** Une colonne de liens du footer. */
+function FootCol({
+  heading,
+  links,
+}: {
+  heading: string;
+  links: { href: string; label: string }[];
+}) {
+  return (
+    <div data-rv-footcol>
+      <h4>{heading}</h4>
+      <div className={s.footLinks}>
+        {links.map((l) => (
+          <FootLink key={l.label} href={l.href} label={l.label} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Sous-ensembles fixes des menus (répartition en colonnes équilibrées).
+   Les libellés restent alignés sur les routes réelles du site. */
+const PRODUCT_LINKS = [
+  { label: "Fonctionnalités", href: "/fonctionnalites" },
+  { label: "Bilans podologiques", href: "/bilans" },
+  { label: "Sécurité & conformité", href: "/securite" },
+  { label: "Avantages", href: "/avantages" },
+  { label: "Tarifs", href: "/tarifs" },
+];
+const COMPANY_LINKS = [
+  { label: "À propos", href: "/a-propos" },
+  { label: "Blog", href: "/blog" },
+  { label: "Contact", href: "/contact" },
+  { label: "Logiciel podologue par ville", href: "/logiciel-podologue" },
+];
+const RESOURCES_LINKS = [
+  { label: "FAQ", href: "/tarifs" },
+  { label: "Plan du site", href: "/plan-du-site" },
+];
+const LEGAL_LINKS = [
+  { label: "Confidentialité", href: "/confidentialite" },
+  { label: "CGU", href: "/cgu" },
+  { label: "CGV", href: "/cgv" },
+  { label: "DPA", href: "/dpa" },
+  { label: "Cookies", href: "/cookies" },
+  { label: "Mentions légales", href: "/mentions-legales" },
+];
+
 export default function Footer({
-  product,
-  resources,
   footer,
   contact,
   socials,
 }: {
-  product: MenuItem[];
-  resources: MenuItem[];
+  /* product / resources restent acceptés pour compat mais le footer compose
+     désormais ses colonnes à partir des sous-ensembles ci-dessus. */
+  product?: MenuItem[];
+  resources?: MenuItem[];
   footer: FooterSettings;
   contact: ContactSettings;
   socials: SocialLink[];
@@ -72,24 +121,50 @@ export default function Footer({
       <div className={`${s.footHalo} ${s.footHaloA}`} aria-hidden="true" />
       <div className={`${s.footHalo} ${s.footHaloB}`} aria-hidden="true" />
 
+      {/* ---- Bande de conversion (SEO + CTA) ---- */}
+      <div className={s.footCtaBand}>
+        <div className="wrap">
+          <div className={s.footCtaInner}>
+            <div className={s.footCtaCopy}>
+              <span className={s.footCtaKicker}>Prêt à passer à l&apos;action ?</span>
+              <h2 className={s.footCtaTitle}>
+                Réunissez tout votre cabinet de podologie
+                <br />
+                dans une seule application.
+              </h2>
+              <p className={s.footCtaText}>
+                Dossiers patients, 13 bilans, facturation, agenda et comptabilité.
+                Hébergé en France (HDS), dès 24,84&nbsp;€/mois, tout inclus.
+              </p>
+            </div>
+            <div className={s.footCtaActions}>
+              <a
+                href={resolveHref("app:register")}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={s.footCtaPrimary}
+              >
+                <ShieldPlus width={18} height={18} />
+                Je m&apos;abonne
+                <ArrowRight width={16} height={16} className={s.footCtaArrow} />
+              </a>
+              <Link href="/contact" className={s.footCtaSecondary}>
+                <Play width={16} height={16} />
+                Voir la démo
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="wrap">
         <div className={s.footTop}>
-          {/* Marque + contact */}
+          {/* Marque + contact + réassurance */}
           <div className={s.footBrand} data-rv-footcol>
             <Link href="/" className={s.footLogo} aria-label="MediCare Pro — accueil">
               <BrandLogo size={34} variant="light" />
             </Link>
             <p className={s.footTagline}>{footer.tagline}</p>
-            <a
-              href={resolveHref("app:register")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={s.footCta}
-            >
-              <ShieldPlus width={17} height={17} />
-              Je m&apos;abonne
-              <ArrowRight width={16} height={16} className={s.footCtaArrow} />
-            </a>
             <div className={s.footContact}>
               <span>
                 <span className={s.fc}>
@@ -110,41 +185,6 @@ export default function Footer({
                 {contact.email}
               </a>
             </div>
-          </div>
-
-          <div data-rv-footcol>
-            <h4>{footer.productHeading}</h4>
-            <div className={s.footLinks}>
-              {product.map((l) => (
-                <FootLink key={l.label} href={l.href} label={l.label} />
-              ))}
-            </div>
-          </div>
-
-          <div data-rv-footcol>
-            <h4>{footer.resourcesHeading}</h4>
-            <div className={s.footLinks}>
-              {resources.map((l) => (
-                <FootLink key={l.label} href={l.href} label={l.label} />
-              ))}
-            </div>
-          </div>
-
-          {/* Newsletter + badges de confiance */}
-          <div className={s.news} data-rv-footcol>
-            <h4>{footer.newsletter.heading}</h4>
-            <p>{footer.newsletter.text}</p>
-            {/* TODO(backend) : brancher l'inscription newsletter (Supabase). */}
-            <div className={s.nbox}>
-              <input
-                type="email"
-                placeholder={footer.newsletter.placeholder}
-                aria-label={footer.newsletter.inputLabel}
-              />
-              <button className={`btn ${s.nbtn}`} type="button">
-                {footer.newsletter.buttonLabel} <ArrowRight className="ico ar" />
-              </button>
-            </div>
             <div className={s.footBadges}>
               {footer.badges.map((badge) => {
                 const Icon = badge.icon
@@ -163,6 +203,51 @@ export default function Footer({
               })}
             </div>
           </div>
+
+          {/* Colonnes de liens équilibrées */}
+          <FootCol heading="Produit" links={PRODUCT_LINKS} />
+          <FootCol heading="Entreprise" links={COMPANY_LINKS} />
+          <FootCol heading="Ressources" links={[...RESOURCES_LINKS, ...LEGAL_LINKS]} />
+
+          {/* Newsletter */}
+          <div className={s.news} data-rv-footcol>
+            <h4>{footer.newsletter.heading}</h4>
+            <p>{footer.newsletter.text}</p>
+            {/* TODO(backend) : brancher l'inscription newsletter (Supabase). */}
+            <div className={s.nbox}>
+              <input
+                type="email"
+                placeholder={footer.newsletter.placeholder}
+                aria-label={footer.newsletter.inputLabel}
+              />
+              <button className={`btn ${s.nbtn}`} type="button">
+                {footer.newsletter.buttonLabel} <ArrowRight className="ico ar" />
+              </button>
+            </div>
+            <div className={s.footSocialInline}>
+              <span>{footer.followLabel}</span>
+              <div className={s.footSocialRow}>
+                {socials.map((social) => {
+                  const Icon =
+                    SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
+                  const size = social.icon === "XSocial" ? 15 : 16;
+                  const external = social.href.startsWith("http");
+                  return (
+                    <a
+                      href={social.href}
+                      aria-label={social.label}
+                      key={social.label}
+                      {...(external
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
+                    >
+                      <Icon width={size} height={size} />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -170,26 +255,10 @@ export default function Footer({
         <div className="wrap">
           <div className={s.wrapInner}>
             <small>{footer.copyright}</small>
-            <div className={s.socials}>
-              {footer.followLabel}
-              {socials.map((social) => {
-                const Icon =
-                  SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
-                const size = social.icon === "XSocial" ? 16 : 17;
-                const external = social.href.startsWith("http");
-                return (
-                  <a
-                    href={social.href}
-                    aria-label={social.label}
-                    key={social.label}
-                    {...(external
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
-                  >
-                    <Icon width={size} height={size} />
-                  </a>
-                );
-              })}
+            <div className={s.footBottomLinks}>
+              <Link href="/mentions-legales">Mentions légales</Link>
+              <Link href="/confidentialite">Confidentialité</Link>
+              <Link href="/plan-du-site">Plan du site</Link>
             </div>
           </div>
         </div>
