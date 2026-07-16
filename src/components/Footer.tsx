@@ -2,10 +2,6 @@ import Link from "next/link";
 import BrandLogo from "./BrandLogo";
 import {
   ShieldCheck,
-  ShieldPlus,
-  MapPin,
-  Phone,
-  Mail,
   ArrowRight,
   Play,
   Facebook,
@@ -124,99 +120,47 @@ export default function Footer({
       <div className={`${s.footHalo} ${s.footHaloA}`} aria-hidden="true" />
       <div className={`${s.footHalo} ${s.footHaloB}`} aria-hidden="true" />
 
-      {/* ---- Bande de conversion (SEO + CTA) ---- */}
-      <div className={s.footCtaBand}>
-        <div className="wrap">
-          <div className={s.footCtaInner}>
-            <div className={s.footCtaCopy}>
-              <span className={s.footCtaKicker}>Prêt à passer à l&apos;action ?</span>
-              <h2 className={s.footCtaTitle}>
-                Réunissez tout votre cabinet de podologie
-                <br />
-                dans une seule application.
-              </h2>
-              <p className={s.footCtaText}>
-                Dossiers patients, 13 bilans, facturation, agenda et comptabilité.
-                Hébergé en France (HDS), dès 24,84&nbsp;€/mois, tout inclus.
-              </p>
-            </div>
-            <div className={s.footCtaActions}>
-              <a
-                href={resolveHref("app:register")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={s.footCtaPrimary}
-              >
-                <ShieldPlus width={18} height={18} />
-                Je m&apos;abonne
-                <ArrowRight width={16} height={16} className={s.footCtaArrow} />
-              </a>
-              <Link href="/contact" className={s.footCtaSecondary}>
-                <Play width={16} height={16} />
-                Voir la démo
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ---- Bande newsletter (container dédié, pleine largeur) ---- */}
+      {/* ---- Barre haute fine : accroche + CTA + newsletter en ligne ---- */}
       <div className="wrap">
-        <div className={s.footNews}>
-          <div className={s.footNewsCopy}>
-            <span className={s.footNewsTag}>
-              <Mail width={15} height={15} />
-              Newsletter
-            </span>
-            <h3 className={s.footNewsHeading}>{footer.newsletter.heading}</h3>
-            <p className={s.footNewsText}>{footer.newsletter.text}</p>
-          </div>
-          <div className={s.footNewsForm}>
-            {/* TODO(backend) : brancher l'inscription newsletter (Supabase). */}
-            <div className={s.nbox}>
-              <input
-                type="email"
-                placeholder={footer.newsletter.placeholder}
-                aria-label={footer.newsletter.inputLabel}
-              />
-              <button className={`btn ${s.nbtn}`} type="button">
-                {footer.newsletter.buttonLabel} <ArrowRight className="ico ar" />
-              </button>
-            </div>
-            <p className={s.footNewsFine}>
-              Sans spam, désinscription en un clic. Vos données restent en France.
+        <div className={s.footLead}>
+          <div className={s.footLeadCopy}>
+            <h2 className={s.footLeadTitle}>
+              Tout votre cabinet de podologie, dans une seule application.
+            </h2>
+            <p className={s.footLeadText}>
+              Dès 24,84&nbsp;€/mois, tout inclus. Hébergé en France (HDS).
             </p>
+          </div>
+          <div className={s.footLeadActions}>
+            <a
+              href={resolveHref("app:register")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={s.footLeadPrimary}
+            >
+              Je m&apos;abonne
+              <ArrowRight width={15} height={15} className={s.footLeadArrow} />
+            </a>
+            <Link href="/contact" className={s.footLeadSecondary}>
+              <Play width={13} height={13} />
+              Voir la démo
+            </Link>
           </div>
         </div>
       </div>
 
       <div className="wrap">
         <div className={s.footTop}>
-          {/* Marque + contact + réassurance + réseaux */}
+          {/* Marque + tagline + réassurance */}
           <div className={s.footBrand} data-rv-footcol>
             <Link href="/" className={s.footLogo} aria-label="MediCare Pro — accueil">
-              <BrandLogo size={34} variant="light" />
+              <BrandLogo size={30} variant="light" />
             </Link>
             <p className={s.footTagline}>{footer.tagline}</p>
             <div className={s.footContact}>
-              <span>
-                <span className={s.fc}>
-                  <MapPin width={16} height={16} />
-                </span>
-                {contact.address}
-              </span>
-              <a href={contact.phoneHref}>
-                <span className={s.fc}>
-                  <Phone width={16} height={16} />
-                </span>
-                {contact.phone}
-              </a>
-              <a href={`mailto:${contact.email}`}>
-                <span className={s.fc}>
-                  <Mail width={16} height={16} />
-                </span>
-                {contact.email}
-              </a>
+              <span>{contact.address}</span>
+              <a href={contact.phoneHref}>{contact.phone}</a>
+              <a href={`mailto:${contact.email}`}>{contact.email}</a>
             </div>
             <div className={s.footBadges}>
               {footer.badges.map((badge) => {
@@ -226,7 +170,7 @@ export default function Footer({
                 return (
                   <span className={s.footBadge} key={badge.label}>
                     {Icon ? (
-                      <Icon width={14} height={14} />
+                      <Icon width={13} height={13} />
                     ) : (
                       <span className={s.footDot} aria-hidden="true" />
                     )}
@@ -235,47 +179,30 @@ export default function Footer({
                 );
               })}
             </div>
-            <div className={s.footSocialInline}>
-              <span>{footer.followLabel}</span>
-              <div className={s.footSocialRow}>
-                {socials.map((social) => {
-                  const Icon =
-                    SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
-                  const size = social.icon === "XSocial" ? 15 : 16;
-                  const external = social.href.startsWith("http");
-                  return (
-                    <a
-                      href={social.href}
-                      aria-label={social.label}
-                      key={social.label}
-                      {...(external
-                        ? { target: "_blank", rel: "noopener noreferrer" }
-                        : {})}
-                    >
-                      <Icon width={size} height={size} />
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
           </div>
 
-          {/* Colonnes de liens équilibrées, avec sous-titre descriptif */}
-          <FootCol
-            heading="Produit"
-            intro="Tout le cabinet, réuni."
-            links={PRODUCT_LINKS}
-          />
-          <FootCol
-            heading="Entreprise"
-            intro="Qui sommes-nous."
-            links={COMPANY_LINKS}
-          />
-          <FootCol
-            heading="Ressources & légal"
-            intro="Aide et conformité."
-            links={[...RESOURCES_LINKS, ...LEGAL_LINKS]}
-          />
+          {/* Colonnes de liens */}
+          <FootCol heading="Produit" intro="Tout le cabinet, réuni." links={PRODUCT_LINKS} />
+          <FootCol heading="Entreprise" intro="Qui sommes-nous." links={COMPANY_LINKS} />
+          <FootCol heading="Ressources" intro="Aide & documentation." links={RESOURCES_LINKS} />
+          <FootCol heading="Légal" intro="Conformité & données." links={LEGAL_LINKS} />
+
+          {/* Newsletter compacte */}
+          <div className={s.footNews} data-rv-footcol>
+            <h4>{footer.newsletter.heading}</h4>
+            <p className={s.footColIntro}>{footer.newsletter.text}</p>
+            {/* TODO(backend) : brancher l'inscription newsletter (Supabase). */}
+            <div className={s.nbox}>
+              <input
+                type="email"
+                placeholder={footer.newsletter.placeholder}
+                aria-label={footer.newsletter.inputLabel}
+              />
+              <button className={s.nbtn} type="button" aria-label={footer.newsletter.buttonLabel}>
+                <ArrowRight width={16} height={16} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -286,7 +213,27 @@ export default function Footer({
             <div className={s.footBottomLinks}>
               <Link href="/mentions-legales">Mentions légales</Link>
               <Link href="/confidentialite">Confidentialité</Link>
+              <Link href="/cookies">Cookies</Link>
               <Link href="/plan-du-site">Plan du site</Link>
+            </div>
+            <div className={s.footSocialRow}>
+              {socials.map((social) => {
+                const Icon = SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
+                const size = social.icon === "XSocial" ? 14 : 15;
+                const external = social.href.startsWith("http");
+                return (
+                  <a
+                    href={social.href}
+                    aria-label={social.label}
+                    key={social.label}
+                    {...(external
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                  >
+                    <Icon width={size} height={size} />
+                  </a>
+                );
+              })}
             </div>
           </div>
         </div>
