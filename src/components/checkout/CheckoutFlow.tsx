@@ -40,6 +40,8 @@ type Props = {
   siteKey?: string;
   /** Identifiant Créancier SEPA — figure sur tous les mandats (donnée publique du créancier). */
   sepaIcs: string;
+  /** Étape « Mandat SEPA » active ? Coupée → tunnel à 5 étapes, aucun mandat. */
+  sepaEnabled: boolean;
   prices: PriceTable;
 };
 
@@ -55,14 +57,32 @@ declare global {
   }
 }
 
-const STEPS = [
-  "Formule",
-  "Cabinet",
-  "Administrateur",
-  "Mandat SEPA",
-  "Documents",
-  "Récapitulatif",
-] as const;
+/* Étapes du tunnel identifiées par CLÉ stable (pas par index) : l'étape
+   « sepa » peut être absente (mandat SEPA coupé), donc tous les index sont
+   dérivés à l'exécution du tableau réellement affiché — aucun décalage
+   possible entre les 5 et 6 étapes. */
+type StepKey = "formule" | "cabinet" | "admin" | "sepa" | "documents" | "recap";
+
+const STEP_LABELS: Record<StepKey, string> = {
+  formule: "Formule",
+  cabinet: "Cabinet",
+  admin: "Administrateur",
+  sepa: "Mandat SEPA",
+  documents: "Documents",
+  recap: "Récapitulatif",
+};
+
+/** Ordre des étapes selon que le mandat SEPA est actif ou non. */
+function stepKeysFor(sepaEnabled: boolean): StepKey[] {
+  return [
+    "formule",
+    "cabinet",
+    "admin",
+    ...(sepaEnabled ? (["sepa"] as StepKey[]) : []),
+    "documents",
+    "recap",
+  ];
+}
 
 const MAX_COLLABS = 20;
 
@@ -71,14 +91,14 @@ const PLAN_LABEL: Record<BillingPlan, string> = {
   ANNUAL: "Offre 12 mois",
 };
 
-/** Détermine l'étape (index) qui porte une erreur donnée, pour y renvoyer l'utilisateur. */
-function stepForErrorKey(key: string): number {
-  if (key.startsWith("cabinet.")) return 1;
-  if (key.startsWith("user.")) return 2;
-  if (key.startsWith("sepa.") || key === "mandateAccepted") return 3;
-  if (key === "termsAccepted") return 4;
-  if (key === "plan" || key === "extraCollaborators") return 0;
-  return 5; // turnstileToken, website…
+/** Clé d'étape qui porte une erreur donnée (l'index concret est résolu ensuite). */
+function stepKeyForErrorKey(key: string): StepKey {
+  if (key.startsWith("cabinet.")) return "cabinet";
+  if (key.startsWith("user.")) return "admin";
+  if (key.startsWith("sepa.") || key === "mandateAccepted") return "sepa";
+  if (key === "termsAccepted") return "documents";
+  if (key === "plan" || key === "extraCollaborators") return "formule";
+  return "recap"; // turnstileToken, website…
 }
 
 /** JSON d'une réponse d'erreur, sans jeter si le corps n'est pas du JSON. */
@@ -213,8 +233,18 @@ export default function CheckoutFlow({
   monthlyEnabled,
   siteKey,
   sepaIcs,
+  sepaEnabled,
   prices,
 }: Props) {
+  /* Étapes réellement affichées (clés + libellés) et helpers d'index —
+     tout est dérivé de sepaEnabled, aucun index en dur ailleurs. */
+  const stepKeys = useMemo(() => stepKeysFor(sepaEnabled), [sepaEnabled]);
+  const STEPS = useMemo(
+    () => stepKeys.map((k) => STEP_LABELS[k]),
+    [stepKeys],
+  );
+  const indexOfStep = (k: StepKey) => stepKeys.indexOf(k);
+
   /* ---- État du dossier ---- */
   const [step, setStep] = useState(0);
   const [plan, setPlan] = useState<BillingPlan>(initialPlan);
@@ -338,16 +368,16 @@ export default function CheckoutFlow({
 
   /* Pré-remplit le titulaire du compte avec le nom du cabinet à l'arrivée sur l'étape SEPA. */
   useEffect(() => {
-    if (step === 3) {
+    if (sepaEnabled && stepKeys[step] === "sepa") {
       setSepa((p) =>
         p.accountHolder.trim() === "" ? { ...p, accountHolder: cabinet.name } : p,
       );
     }
-  }, [step, cabinet.name]);
+  }, [step, cabinet.name, sepaEnabled, stepKeys]);
 
   /* Rend le widget Turnstile à l'arrivée sur le récapitulatif (rendu explicite). */
   useEffect(() => {
-    if (step !== 5 || !siteKey || !turnstileReady) return;
+    if (stepKeys[step] !== "recap" || !siteKey || !turnstileReady) return;
     const api = window.turnstile;
     const host = turnstileHost.current;
     if (!api || !host || turnstileWidgetId.current !== null) return;
@@ -370,7 +400,7 @@ export default function CheckoutFlow({
         setTurnstileToken("");
       }
     };
-  }, [step, siteKey, turnstileReady]);
+  }, [step, siteKey, turnstileReady, stepKeys]);
 
   function resetTurnstile() {
     if (turnstileWidgetId.current !== null) {
@@ -400,40 +430,41 @@ export default function CheckoutFlow({
     [sepaIcs, cabinet, sepa.accountHolder, sepa.iban, ibanValid],
   );
 
-  /* ---- Validation par étape ---- */
+  /* ---- Validation par étape (identifiée par sa CLÉ, pas son index) ---- */
   function validateStep(index: number): Record<string, string> {
     const errs: Record<string, string> = {};
-    if (index === 1) {
+    const key = stepKeys[index];
+    if (key === "cabinet") {
       const parsed = CabinetSchema.safeParse(cabinet);
       if (!parsed.success) {
         for (const issue of parsed.error.issues) {
-          const key = `cabinet.${issue.path.join(".")}`;
-          if (!errs[key]) errs[key] = issue.message;
+          const k = `cabinet.${issue.path.join(".")}`;
+          if (!errs[k]) errs[k] = issue.message;
         }
       }
-    } else if (index === 2) {
+    } else if (key === "admin") {
       const parsed = UserSchema.safeParse(user);
       if (!parsed.success) {
         for (const issue of parsed.error.issues) {
-          const key = `user.${issue.path.join(".")}`;
-          if (!errs[key]) errs[key] = issue.message;
+          const k = `user.${issue.path.join(".")}`;
+          if (!errs[k]) errs[k] = issue.message;
         }
       }
       if (user.password !== passwordConfirm) {
         errs["user.passwordConfirm"] = "Les deux mots de passe ne correspondent pas";
       }
-    } else if (index === 3) {
+    } else if (key === "sepa") {
       const parsed = SepaSchema.safeParse(sepa);
       if (!parsed.success) {
         for (const issue of parsed.error.issues) {
-          const key = `sepa.${issue.path.join(".")}`;
-          if (!errs[key]) errs[key] = issue.message;
+          const k = `sepa.${issue.path.join(".")}`;
+          if (!errs[k]) errs[k] = issue.message;
         }
       }
       if (!mandateAccepted) {
         errs["mandateAccepted"] = "Vous devez accepter le mandat de prélèvement";
       }
-    } else if (index === 4) {
+    } else if (key === "documents") {
       if (!termsAccepted) {
         errs["termsAccepted"] =
           "Vous devez accepter les conditions contractuelles";
@@ -492,18 +523,26 @@ export default function CheckoutFlow({
     }
     if (Object.keys(errs).length === 0) return false;
     setErrors(errs);
-    setStep(Math.min(...Object.keys(errs).map(stepForErrorKey)));
+    setStep(firstStepWithErrors(errs));
     return true;
+  }
+
+  /** Index de la 1re étape affichée portant une des erreurs (clés → index réels). */
+  function firstStepWithErrors(errs: Record<string, string>): number {
+    const indices = Object.keys(errs)
+      .map((k) => indexOfStep(stepKeyForErrorKey(k)))
+      .filter((i) => i >= 0);
+    return indices.length > 0 ? Math.min(...indices) : step;
   }
 
   /* ---- Soumission finale → POST /api/checkout ---- */
   async function submit() {
-    // Filet de sécurité : la case contractuelle se coche à l'étape 5.
+    // Filet de sécurité : la case contractuelle se coche à l'étape Documents.
     if (!termsAccepted) {
       setErrors({
         termsAccepted: "Vous devez accepter les conditions contractuelles",
       });
-      setStep(4);
+      setStep(indexOfStep("documents"));
       return;
     }
     if (!turnstileToken) {
@@ -513,14 +552,15 @@ export default function CheckoutFlow({
       return;
     }
 
+    // Quand le mandat SEPA est coupé, on n'envoie ni IBAN ni acceptation
+    // de mandat — le serveur (autorité) applique le même flag d'env.
     const parsed = CheckoutSchema.safeParse({
       plan,
       extraCollaborators: extra,
       cabinet,
       user,
-      sepa,
+      ...(sepaEnabled ? { sepa, mandateAccepted } : {}),
       termsAccepted,
-      mandateAccepted,
       turnstileToken,
       website,
     });
@@ -531,7 +571,7 @@ export default function CheckoutFlow({
         if (!localErrs[key]) localErrs[key] = issue.message;
       }
       setErrors(localErrs);
-      setStep(Math.min(...Object.keys(localErrs).map(stepForErrorKey)));
+      setStep(firstStepWithErrors(localErrs));
       return;
     }
 
@@ -574,7 +614,9 @@ export default function CheckoutFlow({
         );
       } else if (res.status === 429) {
         setBanner(
-          "Trop de tentatives. Patientez quelques minutes avant de réessayer.",
+          typeof data?.error === "string"
+            ? data.error
+            : "Trop de tentatives. Réessayez dans une heure.",
         );
       } else if (res.status === 502 || res.status === 503) {
         setBanner(
@@ -604,32 +646,33 @@ export default function CheckoutFlow({
     );
   }
 
-  const cardTitles: Record<number, { title: string; desc: string }> = {
-    0: {
+  const cardTitles: Record<StepKey, { title: string; desc: string }> = {
+    formule: {
       title: "Choisissez votre formule",
       desc: "Sans frais d'installation. Résiliable selon les CGV.",
     },
-    1: {
+    cabinet: {
       title: "Votre cabinet",
       desc: "Ces informations figureront sur vos factures.",
     },
-    2: {
+    admin: {
       title: "Compte administrateur",
       desc: "Le praticien titulaire — il gérera le cabinet dans MediCare Pro.",
     },
-    3: {
+    sepa: {
       title: "Mandat de prélèvement SEPA",
       desc: "Pour le renouvellement automatique de votre abonnement. Aucun prélèvement sans prénotification par email.",
     },
-    4: {
+    documents: {
       title: "Documents contractuels",
       desc: "Les documents qui encadrent votre abonnement — consultables et téléchargeables à tout moment.",
     },
-    5: {
+    recap: {
       title: "Récapitulatif",
       desc: "Vérifiez votre dossier avant de procéder au paiement.",
     },
   };
+  const currentCard = cardTitles[stepKeys[step]];
 
   return (
     <div className={s.shell}>
@@ -690,9 +733,9 @@ export default function CheckoutFlow({
       <div className={s.card}>
         <div className={s.cardHead}>
           <h2 className={s.cardTitle} ref={cardTitleRef} tabIndex={-1}>
-            {cardTitles[step].title}
+            {currentCard.title}
           </h2>
-          <p className={s.cardDesc}>{cardTitles[step].desc}</p>
+          <p className={s.cardDesc}>{currentCard.desc}</p>
         </div>
 
         <div className={s.cardBody}>
@@ -813,15 +856,17 @@ export default function CheckoutFlow({
                 <IconAlert />
                 <span>
                   Le premier règlement s&apos;effectue par carte bancaire
-                  (Monetico&nbsp;— CIC). Les renouvellements seront prélevés par
-                  mandat SEPA, mis en place à l&apos;étape&nbsp;4.
+                  (Monetico&nbsp;— CIC).
+                  {sepaEnabled
+                    ? " Les renouvellements seront prélevés par mandat SEPA, mis en place à l'étape suivante."
+                    : ""}
                 </span>
               </div>
             </div>
           )}
 
           {/* ================= Étape 2 — Cabinet ================= */}
-          {step === 1 && (
+          {stepKeys[step] === "cabinet" && (
             <div className={s.grid2}>
               {/* SIRET en premier (exigence client) : il pré-remplit le
                   reste du formulaire depuis l'annuaire des entreprises. */}
@@ -907,6 +952,7 @@ export default function CheckoutFlow({
               <Field
                 id="cab-phone"
                 label="Téléphone fixe"
+                optional
                 type="tel"
                 value={cabinet.phone}
                 onChange={(v) => setCabinet((p) => ({ ...p, phone: v }))}
@@ -985,7 +1031,7 @@ export default function CheckoutFlow({
           )}
 
           {/* ================= Étape 3 — Administrateur ================= */}
-          {step === 2 && (
+          {stepKeys[step] === "admin" && (
             <div className={s.grid2}>
               <Field
                 id="usr-firstname"
@@ -1077,8 +1123,8 @@ export default function CheckoutFlow({
             </div>
           )}
 
-          {/* ================= Étape 4 — Mandat SEPA ================= */}
-          {step === 3 && (
+          {/* ============= Étape 4 — Mandat SEPA (masquable) ============= */}
+          {sepaEnabled && stepKeys[step] === "sepa" && (
             <div className={s.sectionGap}>
               <div className={s.alert}>
                 <IconAlert />
@@ -1209,8 +1255,8 @@ export default function CheckoutFlow({
             </div>
           )}
 
-          {/* ============ Étape 5 — Documents contractuels ============ */}
-          {step === 4 && (
+          {/* ============ Étape — Documents contractuels ============ */}
+          {stepKeys[step] === "documents" && (
             <div className={s.sectionGap}>
               <div className={s.alert}>
                 <IconAlert />
@@ -1319,8 +1365,8 @@ export default function CheckoutFlow({
             </div>
           )}
 
-          {/* ================= Étape 6 — Récapitulatif ================= */}
-          {step === 5 && (
+          {/* ================= Étape — Récapitulatif ================= */}
+          {stepKeys[step] === "recap" && (
             <div className={s.sectionGap}>
               <div className={s.recap}>
                 <div className={s.recapBlock}>
@@ -1395,24 +1441,28 @@ export default function CheckoutFlow({
                   </div>
                 </div>
 
-                <div className={s.recapBlock}>
-                  <div className={s.recapHeadRow}>
-                    <h3>Prélèvement SEPA (renouvellement)</h3>
-                    <button
-                      type="button"
-                      className={s.editBtn}
-                      onClick={() => goTo(3)}
-                    >
-                      Modifier
-                    </button>
+                {sepaEnabled && (
+                  <div className={s.recapBlock}>
+                    <div className={s.recapHeadRow}>
+                      <h3>Prélèvement SEPA (renouvellement)</h3>
+                      <button
+                        type="button"
+                        className={s.editBtn}
+                        onClick={() => goTo(indexOfStep("sepa"))}
+                      >
+                        Modifier
+                      </button>
+                    </div>
+                    <div className={s.recapList}>
+                      <span>
+                        <b>{sepa.accountHolder}</b>
+                      </span>
+                      <span>
+                        {ibanValid ? maskIban(sepa.iban) : "IBAN à valider"}
+                      </span>
+                    </div>
                   </div>
-                  <div className={s.recapList}>
-                    <span>
-                      <b>{sepa.accountHolder}</b>
-                    </span>
-                    <span>{ibanValid ? maskIban(sepa.iban) : "IBAN à valider"}</span>
-                  </div>
-                </div>
+                )}
 
                 <div className={s.recapBlock}>
                   <div className={s.recapHeadRow}>
@@ -1420,7 +1470,7 @@ export default function CheckoutFlow({
                     <button
                       type="button"
                       className={s.editBtn}
-                      onClick={() => goTo(4)}
+                      onClick={() => goTo(indexOfStep("documents"))}
                     >
                       Modifier
                     </button>

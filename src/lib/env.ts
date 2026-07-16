@@ -81,6 +81,15 @@ const EnvSchema = z.object({
   /* Plans vendables : 'annual' tant que le cycle SEPA (BILLING-2)
      n'est pas livré — une échéance MONTHLY arrive à J+30. */
   CHECKOUT_PLANS: z.enum(["annual", "all"]).default("annual"),
+
+  /* Étape « Mandat SEPA » du tunnel. Coupée par défaut (renouvellements
+     par empreinte carte à confirmer avec le CIC) : l'étape 4 disparaît,
+     aucun mandat/RUM n'est créé, et SEPA_ICS n'est plus exigé. Repasser
+     à `true` réactive tout le circuit SEPA sans autre changement. */
+  CHECKOUT_SEPA_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -148,14 +157,16 @@ const BILLING_REQUIRED = [
   "PROVISIONING_API_URL",
   "PROVISIONING_API_KEY",
   "ENCRYPTION_KEYS",
-  "SEPA_ICS",
   "TURNSTILE_SECRET_KEY",
 ] as const;
 
 /** Variables billing manquantes ([] si tout est prêt). */
 export function missingBillingEnv(): string[] {
   const e = env();
-  return BILLING_REQUIRED.filter(
+  const required = [...BILLING_REQUIRED];
+  // SEPA_ICS n'est indispensable que si l'étape mandat SEPA est active.
+  if (e.CHECKOUT_SEPA_ENABLED) required.push("SEPA_ICS" as never);
+  return required.filter(
     (key) => !e[key as keyof Env],
   ) as unknown as string[];
 }
@@ -172,8 +183,11 @@ export type BillingEnv = {
   moneticoMode: "test" | "production";
   provisioningApiUrl: string;
   provisioningApiKey: string;
+  /** ICS créancier — chaîne vide si l'étape SEPA est coupée. */
   sepaIcs: string;
   sepaPrenotifyDays: number;
+  /** Étape mandat SEPA active dans le tunnel ? */
+  sepaEnabled: boolean;
   billingAlertsTo: string;
   turnstileSecretKey: string;
   checkoutPlans: "annual" | "all";
@@ -198,8 +212,9 @@ export function billingEnv(): BillingEnv {
     moneticoMode: e.MONETICO_MODE,
     provisioningApiUrl: e.PROVISIONING_API_URL!,
     provisioningApiKey: e.PROVISIONING_API_KEY!,
-    sepaIcs: e.SEPA_ICS!,
+    sepaIcs: e.SEPA_ICS ?? "",
     sepaPrenotifyDays: e.SEPA_PRENOTIFY_DAYS,
+    sepaEnabled: e.CHECKOUT_SEPA_ENABLED,
     billingAlertsTo: e.BILLING_ALERTS_TO,
     turnstileSecretKey: e.TURNSTILE_SECRET_KEY!,
     checkoutPlans: e.CHECKOUT_PLANS,

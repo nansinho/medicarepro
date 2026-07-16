@@ -173,6 +173,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Contrôle d'autorité du mandat SEPA : requis seulement si l'étape est
+  // active. Un client qui l'enverrait alors qu'elle est coupée est ignoré ;
+  // s'il manque alors qu'elle est active, on refuse.
+  if (billing.sepaEnabled && (!input.sepa || input.mandateAccepted !== true)) {
+    return Response.json(
+      {
+        error: "Mandat de prélèvement SEPA requis.",
+        issues: [{ path: ["mandateAccepted"], message: "Mandat SEPA requis" }],
+      },
+      { status: 422 },
+    );
+  }
+
   // Plans vendables : MONTHLY fermé tant que le cycle SEPA n'est pas livré.
   if (billing.checkoutPlans === "annual" && input.plan === "MONTHLY") {
     return Response.json(
@@ -238,41 +251,51 @@ export async function POST(request: NextRequest) {
 
   const amountCents = checkoutAmountCents(input.plan, input.extraCollaborators);
   const reference = newMoneticoReference();
+  const nowIso = new Date().toISOString();
 
-  // RUM réservée dès maintenant : le texte du mandat (hashé, versionné)
-  // doit être exactement celui présenté/consenti au checkout.
-  const { data: rumData, error: rumError } = await supabase.rpc("next_sepa_rum");
-  if (rumError || typeof rumData !== "string") {
-    return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
+  /* --- Mandat SEPA (seulement si l'étape est active) : RUM réservée +
+     texte hashé/versionné + payload IBAN chiffré. Coupé → tout reste null,
+     aucun numéro RUM consommé, aucun mandat créé au provisioning. */
+  let reservedRum: string | null = null;
+  let mandateSha: string | null = null;
+  let sepaPayloadEnc: string | null = null;
+  let mandateAcceptedAt: string | null = null;
+
+  if (billing.sepaEnabled && sepa) {
+    const { data: rumData, error: rumError } =
+      await supabase.rpc("next_sepa_rum");
+    if (rumError || typeof rumData !== "string") {
+      return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
+    }
+    reservedRum = rumData;
+
+    const debtorAddress = `${cabinet.address}, ${cabinet.postalCode} ${cabinet.city}`;
+    mandateSha = mandateTextSha256(
+      mandateText({
+        rum: reservedRum,
+        ics: billing.sepaIcs,
+        debtorName: cabinet.name,
+        accountHolder: sepa.accountHolder,
+        debtorAddress,
+        ibanMasked: maskIban(sepa.iban),
+      }),
+    );
+    sepaPayloadEnc = encryptSecret(
+      JSON.stringify({
+        iban: sepa.iban,
+        bic: sepa.bic,
+        accountHolder: sepa.accountHolder,
+        consentAt: nowIso,
+      }),
+      reference,
+    );
+    mandateAcceptedAt = nowIso;
   }
-  const reservedRum = rumData;
-
-  const debtorAddress = `${cabinet.address}, ${cabinet.postalCode} ${cabinet.city}`;
-  const mandateSha = mandateTextSha256(
-    mandateText({
-      rum: reservedRum,
-      ics: billing.sepaIcs,
-      debtorName: cabinet.name,
-      accountHolder: sepa.accountHolder,
-      debtorAddress,
-      ibanMasked: maskIban(sepa.iban),
-    }),
-  );
 
   // Secrets chiffrés au repos, liés au dossier (AAD = référence Monetico).
   const id = randomUUID();
   const statusToken = randomBytes(16).toString("hex");
-  const nowIso = new Date().toISOString();
   const passwordEnc = encryptSecret(user.password, reference);
-  const sepaPayloadEnc = encryptSecret(
-    JSON.stringify({
-      iban: sepa.iban,
-      bic: sepa.bic,
-      accountHolder: sepa.accountHolder,
-      consentAt: nowIso,
-    }),
-    reference,
-  );
   const userAgent = (request.headers.get("user-agent") ?? "").slice(0, 400);
 
   /* --- Préfixe de facturation : pour chaque candidat, disponibilité
@@ -346,10 +369,10 @@ export async function POST(request: NextRequest) {
       password_enc: passwordEnc,
       sepa_payload_enc: sepaPayloadEnc,
       reserved_rum: reservedRum,
-      mandate_text_version: MANDATE_TEXT_VERSION,
+      mandate_text_version: sepaPayloadEnc ? MANDATE_TEXT_VERSION : null,
       mandate_text_sha256: mandateSha,
       cgv_accepted_at: nowIso,
-      mandate_accepted_at: nowIso,
+      mandate_accepted_at: mandateAcceptedAt,
       client_ip: ip,
       user_agent: userAgent,
       status_token: statusToken,

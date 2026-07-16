@@ -109,9 +109,23 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
 
   it("accepte un dossier complet et normalise l'IBAN", () => {
     const parsed = CheckoutSchema.parse(valid);
-    expect(parsed.sepa.iban).toBe("FR7630006000011234567890189"); // espaces retirés
+    expect(parsed.sepa?.iban).toBe("FR7630006000011234567890189"); // espaces retirés
     expect(parsed.cabinet.siretNumber).toBe("73282932000074");
     expect(parsed.website).toBe("");
+  });
+
+  it("accepte un dossier SANS bloc SEPA (étape mandat coupée)", () => {
+    const { sepa: _sepa, mandateAccepted: _m, ...noSepa } = valid;
+    const parsed = CheckoutSchema.safeParse(noSepa);
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepte un téléphone fixe vide (facultatif)", () => {
+    const parsed = CheckoutSchema.safeParse({
+      ...valid,
+      cabinet: { ...valid.cabinet, phone: "" },
+    });
+    expect(parsed.success).toBe(true);
   });
 
   it("rejette mot de passe faible, CP invalide, SIRET invalide, IBAN invalide", () => {
@@ -168,12 +182,17 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
     }
   });
 
-  it("exige les deux consentements distincts", () => {
+  it("exige toujours le consentement contractuel (termsAccepted)", () => {
     expect(
       CheckoutSchema.safeParse({ ...valid, termsAccepted: false }).success,
     ).toBe(false);
+  });
+
+  it("mandateAccepted est optionnel au niveau schéma (validé par la route selon le flag SEPA)", () => {
+    // Le schéma accepte l'absence : c'est la route qui exige le mandat
+    // uniquement quand CHECKOUT_SEPA_ENABLED est actif.
     expect(
       CheckoutSchema.safeParse({ ...valid, mandateAccepted: false }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 });

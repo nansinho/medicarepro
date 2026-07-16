@@ -315,7 +315,8 @@ async function finalizeSuccess(
 ): Promise<void> {
   const cabinet = row.cabinet;
   const user = row.user_info;
-  const rum = row.reserved_rum as string; // vérifié avant l'appel
+  // RUM présent uniquement si le dossier porte un mandat SEPA (étape active).
+  const rum = row.reserved_rum;
 
   let subscriptionId: string | null = null;
   let sepaPayload: SepaPayload | null = null;
@@ -371,44 +372,48 @@ async function finalizeSuccess(
     }
     subscriptionId = sub.id as string;
 
-    // 3. Mandat SEPA « signed » (dossier de preuve du consentement checkout).
+    // 3. Mandat SEPA « signed » — seulement si le dossier en porte un
+    //    (étape SEPA active au checkout). Sans payload : pas de mandat,
+    //    les renouvellements passeront par un autre moyen (empreinte carte).
     //    L'IBAN est RE-chiffré avec le RUM comme AAD (contrat crypto).
-    sepaPayload = JSON.parse(
-      decryptSecret(row.sepa_payload_enc as string, row.monetico_reference),
-    ) as SepaPayload;
+    if (row.sepa_payload_enc && rum) {
+      sepaPayload = JSON.parse(
+        decryptSecret(row.sepa_payload_enc, row.monetico_reference),
+      ) as SepaPayload;
 
-    const { data: mandate, error: e3 } = await supabase
-      .from("sepa_mandates")
-      .insert({
-        rum,
-        subscription_id: subscriptionId,
-        status: "signed",
-        scheme: "CORE",
-        account_holder: sepaPayload.accountHolder,
-        debtor_name: cabinet.name,
-        debtor_email: user.email,
-        debtor_address: fullAddress(cabinet),
-        iban_encrypted: encryptSecret(sepaPayload.iban, rum),
-        iban_last4: ibanLast4(sepaPayload.iban),
-        bic: sepaPayload.bic ?? null,
-        mandate_text_version: row.mandate_text_version,
-        mandate_text_sha256: row.mandate_text_sha256,
-        signed_at: row.mandate_accepted_at,
-        signature_method: "checkbox",
-        signature_ip: row.client_ip,
-        signature_user_agent: row.user_agent,
-      })
-      .select("id")
-      .single();
-    if (e3 || !mandate) {
-      throw new Error(`insert sepa_mandates : ${e3?.message ?? "aucune ligne"}`);
+      const { data: mandate, error: e3 } = await supabase
+        .from("sepa_mandates")
+        .insert({
+          rum,
+          subscription_id: subscriptionId,
+          status: "signed",
+          scheme: "CORE",
+          account_holder: sepaPayload.accountHolder,
+          debtor_name: cabinet.name,
+          debtor_email: user.email,
+          debtor_address: fullAddress(cabinet),
+          iban_encrypted: encryptSecret(sepaPayload.iban, rum),
+          iban_last4: ibanLast4(sepaPayload.iban),
+          bic: sepaPayload.bic ?? null,
+          mandate_text_version: row.mandate_text_version,
+          mandate_text_sha256: row.mandate_text_sha256,
+          signed_at: row.mandate_accepted_at,
+          signature_method: "checkbox",
+          signature_ip: row.client_ip,
+          signature_user_agent: row.user_agent,
+        })
+        .select("id")
+        .single();
+      if (e3 || !mandate) {
+        throw new Error(`insert sepa_mandates : ${e3?.message ?? "aucune ligne"}`);
+      }
+      mandateCreated = true;
+
+      await supabase
+        .from("subscriptions")
+        .update({ sepa_mandate_id: mandate.id as string })
+        .eq("id", subscriptionId);
     }
-    mandateCreated = true;
-
-    await supabase
-      .from("subscriptions")
-      .update({ sepa_mandate_id: mandate.id as string })
-      .eq("id", subscriptionId);
 
     // 4. Pièce comptable (append-only, survit à toutes les purges).
     const { error: e4 } = await supabase.from("billing_ledger").insert({
@@ -456,8 +461,10 @@ async function finalizeSuccess(
     });
   }
 
-  /* --- Best-effort (chaque étape isolée : un échec ne bloque pas la suite). */
-  if (criticalOk && subscriptionId && sepaPayload) {
+  /* --- Best-effort (chaque étape isolée : un échec ne bloque pas la suite).
+     Facture, reçu et alerte partent TOUJOURS ; les pièces liées au mandat
+     (PDF, copie) uniquement si un mandat SEPA a été créé (sepaPayload). */
+  if (criticalOk && subscriptionId) {
     const label = planLabel(row.plan, row.extra_collaborators);
     let invoiceNumber: string | undefined;
 
@@ -499,55 +506,58 @@ async function finalizeSuccess(
       console.error("[billing-worker] échec email reçu :", errMessage(err));
     }
 
-    // PDF du mandat → bucket privé 'sepa' + empreinte sur la ligne.
-    try {
-      const ibanMasked = maskIban(sepaPayload.iban);
-      const text = mandateText({
-        rum,
-        ics: billingEnv().sepaIcs,
-        debtorName: cabinet.name,
-        accountHolder: sepaPayload.accountHolder,
-        debtorAddress: fullAddress(cabinet),
-        ibanMasked,
-      });
-      const pdf = await buildMandatePdf({
-        rum,
-        ics: billingEnv().sepaIcs,
-        scheme: "CORE",
-        debtorName: cabinet.name,
-        accountHolder: sepaPayload.accountHolder,
-        debtorAddress: fullAddress(cabinet),
-        debtorEmail: user.email,
-        ibanMasked,
-        signedAtLabel: frDateTime(row.mandate_accepted_at),
-        signatureIp: row.client_ip ?? "",
-        signatureMethod: "Case à cocher en ligne (tunnel d'inscription)",
-        mandateText: text,
-      });
-      const path = `mandates/${rum}/mandat.pdf`;
-      const { error: upErr } = await supabase.storage
-        .from("sepa")
-        .upload(path, pdf, { contentType: "application/pdf", upsert: true });
-      if (upErr) throw new Error(upErr.message);
-      await supabase
-        .from("sepa_mandates")
-        .update({ pdf_path: path, pdf_sha256: sha256Hex(pdf) })
-        .eq("rum", rum);
-    } catch (err) {
-      console.error("[billing-worker] échec PDF mandat :", errMessage(err));
-    }
+    // Pièces liées au mandat SEPA — uniquement si un mandat a été créé.
+    if (sepaPayload && rum) {
+      // PDF du mandat → bucket privé 'sepa' + empreinte sur la ligne.
+      try {
+        const ibanMasked = maskIban(sepaPayload.iban);
+        const text = mandateText({
+          rum,
+          ics: billingEnv().sepaIcs,
+          debtorName: cabinet.name,
+          accountHolder: sepaPayload.accountHolder,
+          debtorAddress: fullAddress(cabinet),
+          ibanMasked,
+        });
+        const pdf = await buildMandatePdf({
+          rum,
+          ics: billingEnv().sepaIcs,
+          scheme: "CORE",
+          debtorName: cabinet.name,
+          accountHolder: sepaPayload.accountHolder,
+          debtorAddress: fullAddress(cabinet),
+          debtorEmail: user.email,
+          ibanMasked,
+          signedAtLabel: frDateTime(row.mandate_accepted_at),
+          signatureIp: row.client_ip ?? "",
+          signatureMethod: "Case à cocher en ligne (tunnel d'inscription)",
+          mandateText: text,
+        });
+        const path = `mandates/${rum}/mandat.pdf`;
+        const { error: upErr } = await supabase.storage
+          .from("sepa")
+          .upload(path, pdf, { contentType: "application/pdf", upsert: true });
+        if (upErr) throw new Error(upErr.message);
+        await supabase
+          .from("sepa_mandates")
+          .update({ pdf_path: path, pdf_sha256: sha256Hex(pdf) })
+          .eq("rum", rum);
+      } catch (err) {
+        console.error("[billing-worker] échec PDF mandat :", errMessage(err));
+      }
 
-    // Copie du mandat au client (obligation SEPA Core).
-    try {
-      const copy = sepaMandateCopyEmail({
-        adminFirstName: user.firstName,
-        cabinetName: cabinet.name,
-        rum,
-        ibanMasked: maskIban(sepaPayload.iban),
-      });
-      await sendMail({ to: user.email, ...copy });
-    } catch (err) {
-      console.error("[billing-worker] échec email copie mandat :", errMessage(err));
+      // Copie du mandat au client (obligation SEPA Core).
+      try {
+        const copy = sepaMandateCopyEmail({
+          adminFirstName: user.firstName,
+          cabinetName: cabinet.name,
+          rum,
+          ibanMasked: maskIban(sepaPayload.iban),
+        });
+        await sendMail({ to: user.email, ...copy });
+      } catch (err) {
+        console.error("[billing-worker] échec email copie mandat :", errMessage(err));
+      }
     }
 
     // Alerte interne : nouvelle souscription.
@@ -556,7 +566,7 @@ async function finalizeSuccess(
       `Offre : ${label}`,
       `1er paiement : ${formatEuros(row.amount_cents)} (référence ${row.monetico_reference})`,
       `Renouvellement : ${formatEuros(renewalAmountCents(row.plan, row.extra_collaborators))}`,
-      `Mandat SEPA : ${rum}`,
+      rum ? `Mandat SEPA : ${rum}` : "Renouvellement : hors SEPA (empreinte carte)",
     ]);
 
     await logAudit({
@@ -640,8 +650,13 @@ export async function provisionPendingSignup(
 
   const attempts = row.provision_attempts + 1;
 
-  // 3. Intégrité du dossier avant appel.
-  if (!row.password_enc || !row.sepa_payload_enc || !row.reserved_rum) {
+  // 3. Intégrité du dossier avant appel. Le mot de passe est toujours requis ;
+  //    le mandat SEPA est optionnel (étape coupée), mais s'il y a un payload
+  //    SEPA il DOIT être accompagné de son RUM (cohérence du dossier).
+  if (
+    !row.password_enc ||
+    (row.sepa_payload_enc && !row.reserved_rum)
+  ) {
     await failManual(
       supabase,
       row,

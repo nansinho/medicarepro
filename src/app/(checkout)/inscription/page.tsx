@@ -33,7 +33,7 @@ export default async function InscriptionPage({
   // Tunnel fermé : le layout affiche déjà l'écran d'indisponibilité.
   if (!hasBilling()) return null;
 
-  const { checkoutPlans, sepaIcs } = billingEnv();
+  const { checkoutPlans, sepaIcs, sepaEnabled } = billingEnv();
   const monthlyEnabled = checkoutPlans === "all";
 
   const sp = await searchParams;
@@ -59,6 +59,7 @@ export default async function InscriptionPage({
       monthlyEnabled={monthlyEnabled}
       siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
       sepaIcs={sepaIcs}
+      sepaEnabled={sepaEnabled}
       prices={prices}
     />
   );

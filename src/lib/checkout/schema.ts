@@ -24,7 +24,14 @@ export const PasswordSchema = z
 export const CabinetSchema = z.object({
   name: z.string().trim().min(1, "Nom du cabinet requis").max(200),
   email: z.email("Email du cabinet invalide").max(180),
-  phone: z.string().trim().min(1, "Téléphone fixe requis").max(30),
+  /* Téléphone fixe facultatif (le portable reste requis) — le contrat
+     dev B §6 n'exige pas le fixe. */
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   mobilePhone: z.string().trim().min(1, "Téléphone portable requis").max(30),
   address: z.string().trim().min(1, "Adresse requise").max(300),
   city: z.string().trim().min(1, "Ville requise").max(120),
@@ -72,15 +79,16 @@ export const CheckoutSchema = z.object({
   extraCollaborators: z.coerce.number().int().min(0).max(20).default(0),
   cabinet: CabinetSchema,
   user: UserSchema,
-  sepa: SepaSchema,
+  /** Mandat SEPA : présent uniquement si l'étape SEPA est active (flag
+      CHECKOUT_SEPA_ENABLED). La route exige sa présence en conséquence. */
+  sepa: SepaSchema.optional(),
   /** Case contractuelle unique (CGV + CGU + DPA + grille tarifaire) — obligatoire, non pré-cochée. */
   termsAccepted: z.literal(true, {
     error: "Vous devez accepter les conditions contractuelles",
   }),
-  /** Case mandat SEPA — obligatoire et distincte des CGV. */
-  mandateAccepted: z.literal(true, {
-    error: "Vous devez accepter le mandat de prélèvement",
-  }),
+  /** Case mandat SEPA — requise seulement quand l'étape SEPA est active
+      (contrôle d'autorité dans la route selon le flag d'env). */
+  mandateAccepted: z.boolean().optional(),
   /** Jeton Cloudflare Turnstile (anti-bot). */
   turnstileToken: z.string().min(1, "Vérification anti-robot requise"),
   /** Honeypot : rempli uniquement par les bots (doit rester vide). */

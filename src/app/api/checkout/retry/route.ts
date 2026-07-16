@@ -190,7 +190,11 @@ export async function POST(request: NextRequest) {
       { status: 409 },
     );
   }
-  if (!old.password_enc || !old.sepa_payload_enc) {
+  // Le mandat SEPA n'est requis que si le dossier d'origine en portait un
+  // (créé quand l'étape SEPA était active). Sans SEPA, seul le mot de passe
+  // doit être présent.
+  const hadSepa = Boolean(old.sepa_payload_enc);
+  if (!old.password_enc) {
     // Secrets purgés (dossier trop ancien) : repasser par le formulaire.
     return Response.json(
       { error: "Ce dossier a expiré. Recommencez votre inscription." },
@@ -206,39 +210,50 @@ export async function POST(request: NextRequest) {
   // change, donc on déchiffre avec l'ancienne et on rechiffre avec la nouvelle.
   const newReference = newMoneticoReference();
   let passwordEnc: string;
-  let sepaPayloadEnc: string;
-  let sepaPayload: { iban: string; bic?: string; accountHolder: string };
+  let sepaPayloadEnc: string | null = null;
+  let reservedRum: string | null = null;
+  let mandateSha: string | null = null;
   try {
     const password = decryptSecret(old.password_enc, old.monetico_reference);
-    const sepaJson = decryptSecret(old.sepa_payload_enc, old.monetico_reference);
-    sepaPayload = JSON.parse(sepaJson) as typeof sepaPayload;
     passwordEnc = encryptSecret(password, newReference);
-    sepaPayloadEnc = encryptSecret(sepaJson, newReference);
+    if (hadSepa) {
+      const sepaJson = decryptSecret(
+        old.sepa_payload_enc!,
+        old.monetico_reference,
+      );
+      const sepaPayload = JSON.parse(sepaJson) as {
+        iban: string;
+        bic?: string;
+        accountHolder: string;
+      };
+      sepaPayloadEnc = encryptSecret(sepaJson, newReference);
+
+      // Nouveau RUM : le texte du mandat (donc son empreinte) en dépend.
+      const { data: rumData, error: rumError } =
+        await supabase.rpc("next_sepa_rum");
+      if (rumError || typeof rumData !== "string") {
+        return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
+      }
+      reservedRum = rumData;
+
+      const debtorAddress = `${cabinet.address}, ${cabinet.postalCode} ${cabinet.city}`;
+      mandateSha = mandateTextSha256(
+        mandateText({
+          rum: reservedRum,
+          ics: billing.sepaIcs,
+          debtorName: cabinet.name,
+          accountHolder: sepaPayload.accountHolder,
+          debtorAddress,
+          ibanMasked: maskIban(sepaPayload.iban),
+        }),
+      );
+    }
   } catch {
     return Response.json(
       { error: "Ce dossier a expiré. Recommencez votre inscription." },
       { status: 409 },
     );
   }
-
-  // Nouveau RUM : le texte du mandat (donc son empreinte) en dépend.
-  const { data: rumData, error: rumError } = await supabase.rpc("next_sepa_rum");
-  if (rumError || typeof rumData !== "string") {
-    return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
-  }
-  const reservedRum = rumData;
-
-  const debtorAddress = `${cabinet.address}, ${cabinet.postalCode} ${cabinet.city}`;
-  const mandateSha = mandateTextSha256(
-    mandateText({
-      rum: reservedRum,
-      ics: billing.sepaIcs,
-      debtorName: cabinet.name,
-      accountHolder: sepaPayload.accountHolder,
-      debtorAddress,
-      ibanMasked: maskIban(sepaPayload.iban),
-    }),
-  );
 
   const newId = randomUUID();
   const statusToken = randomBytes(16).toString("hex");
@@ -301,7 +316,7 @@ export async function POST(request: NextRequest) {
       password_enc: passwordEnc,
       sepa_payload_enc: sepaPayloadEnc,
       reserved_rum: reservedRum,
-      mandate_text_version: MANDATE_TEXT_VERSION,
+      mandate_text_version: sepaPayloadEnc ? MANDATE_TEXT_VERSION : null,
       mandate_text_sha256: mandateSha,
       // Consentements : ceux réellement donnés au checkout d'origine
       // (l'IP/UA de preuve restent ceux du moment du consentement).
