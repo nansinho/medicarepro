@@ -38,6 +38,22 @@
   transform: scale(1.12);
 }
 
+/* Pictogramme de marque dans l'onglet « je m'abonne » : pastille blanche
+   pour que le logo (multicolore) ressorte sur le fond bleu. */
+.logo {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  background: #fff;
+  border-radius: 7px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 0.3s var(--ease);
+}
+.tab:hover .logo {
+  transform: scale(1.12);
+}
+
 /* ---- Onglet gauche : « Laissez un avis » (vert) ---- */
 .left {
   left: 0;
@@ -142,6 +158,13 @@
   .right .ico {
     width: 16px;
     height: 16px;
+  }
+
+  /* Pictogramme de marque dans la pill flottante. */
+  .right .logo {
+    width: 22px;
+    height: 22px;
+    padding: 3px;
   }
 
   /* Neutralise le décalage de padding au hover (aucun sens en pill tactile). */

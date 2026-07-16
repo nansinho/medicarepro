@@ -132,7 +132,7 @@ export const PAGE_FONCTIONNALITES = {
         type: "cta_panel",
         kicker: "Prêt à gagner du temps ?",
         title: "Tout votre cabinet, réuni dans une seule application",
-        lead: "Facturation, bilans, agenda, comptabilité et signature électronique — à partir de 24,84 €/mois, tout inclus.",
+        lead: "Facturation, bilans, agenda, comptabilité et signature électronique, à partir de 24,84 €/mois, tout inclus.",
         primary: { label: "Je m'abonne", href: "app:register:annual" },
         secondary: { label: "Demander une démo", href: "/contact" },
       },

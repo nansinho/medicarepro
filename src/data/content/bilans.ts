@@ -227,7 +227,7 @@ export const PAGE_BILANS = {
         type: "cta_panel",
         kicker: "Tout inclus, sans option",
         title: "Les 13 bilans inclus dans votre abonnement",
-        lead: "Scores calculés, grilles validées et suivi patient — à partir de 24,84 €/mois, sans supplément ni option payante.",
+        lead: "Scores calculés, grilles validées et suivi patient, à partir de 24,84 €/mois, sans supplément ni option payante.",
         primary: { label: "Commencer maintenant", href: "app:register:annual" },
         secondary: { label: "Voir les tarifs", href: "/tarifs" },
       },

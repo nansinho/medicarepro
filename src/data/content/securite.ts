@@ -57,7 +57,7 @@ export const PAGE_SECURITE = {
         icon: "Globe",
         kicker: "Hébergeur",
         title: "Hébergé chez OVHcloud, datacenters en France",
-        text: "Nous nous appuyons sur OVHcloud, leader européen du cloud et hébergeur certifié HDS. Les données de votre patientèle sont stockées dans ses datacenters français, sous souveraineté européenne — à l'abri des législations extra-européennes.",
+        text: "Nous nous appuyons sur OVHcloud, leader européen du cloud et hébergeur certifié HDS. Les données de votre patientèle sont stockées dans ses datacenters français, sous souveraineté européenne, à l'abri des législations extra-européennes.",
         points: [
           "OVHcloud : hébergeur certifié HDS et souveraineté européenne",
           "Datacenters Tier III+ en France, sécurisés 24h/24",
@@ -167,7 +167,7 @@ export const PAGE_SECURITE = {
         text: "MediCare Pro s'appuie sur OVHcloud, leader européen du cloud et acteur reconnu de l'hébergement de données de santé. Vos données patients restent en France, sous protection européenne.",
         points: [
           "Hébergeur agréé pour les données de santé (HDS)",
-          "Souveraineté européenne — hors Cloud Act",
+          "Souveraineté européenne, hors Cloud Act",
           "Datacenters français sécurisés en continu",
         ],
         logoCaption: "Hébergeur certifié HDS",
@@ -185,7 +185,7 @@ export const PAGE_SECURITE = {
           {
             icon: "FileText",
             title: "Toutes les fonctionnalités",
-            text: "Facturation, signature, comptabilité, agenda, bilans et application mobile — tout votre cabinet réuni.",
+            text: "Facturation, signature, comptabilité, agenda, bilans et application mobile : tout votre cabinet réuni.",
             href: "/fonctionnalites",
           },
           {
@@ -210,7 +210,7 @@ export const PAGE_SECURITE = {
         type: "cta_panel",
         kicker: "Vos patients méritent le meilleur",
         title: "Vos données patients, entre de bonnes mains",
-        lead: "Hébergement HDS en France, chiffrement de bout en bout et conformité RGPD — tout est inclus, à partir de 24,84 €/mois.",
+        lead: "Hébergement HDS en France, chiffrement de bout en bout et conformité RGPD : tout est inclus, à partir de 24,84 €/mois.",
         primary: { label: "Je m'abonne", href: "app:register:annual" },
         secondary: { label: "Demander une démo", href: "/contact" },
       },

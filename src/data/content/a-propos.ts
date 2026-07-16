@@ -34,8 +34,8 @@ export const PAGE_A_PROPOS = {
         kicker: "Notre histoire",
         title: "Né dans un cabinet, pas dans un open space.",
         paragraphs: [
-          "MediCare Pro est parti d'un constat simple : un podologue jongle en moyenne avec **quatre logiciels** — patients, agenda, facturation, comptabilité — pour près de **285 € par mois**. Des outils qui ne se parlent pas, et des heures d'administratif qui s'accumulent le soir.",
-          "Nous avons donc construit l'outil que nous aurions voulu trouver : **une seule application**, du dossier patient à la comptabilité, pensée pour les journées réelles d'un cabinet — pas pour une plaquette commerciale.",
+          "MediCare Pro est parti d'un constat simple : un podologue jongle en moyenne avec **quatre logiciels** (patients, agenda, facturation, comptabilité) pour près de **285 € par mois**. Des outils qui ne se parlent pas, et des heures d'administratif qui s'accumulent le soir.",
+          "Nous avons donc construit l'outil que nous aurions voulu trouver : **une seule application**, du dossier patient à la comptabilité, pensée pour les journées réelles d'un cabinet, pas pour une plaquette commerciale.",
           "Chaque fonctionnalité est née d'une demande de praticien ; c'est encore comme ça que MediCare Pro évolue aujourd'hui.",
         ],
         signature: "L'équipe MediCare Pro",
@@ -57,7 +57,7 @@ export const PAGE_A_PROPOS = {
           },
           {
             title: "Le produit",
-            text: "Dossiers patients, 13 bilans normés, facturation, agenda et comptabilité prennent forme — testés en cabinet, pas en salle de réunion.",
+            text: "Dossiers patients, 13 bilans normés, facturation, agenda et comptabilité prennent forme, testés en cabinet, pas en salle de réunion.",
           },
           {
             title: "Aujourd'hui",

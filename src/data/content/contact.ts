@@ -33,7 +33,7 @@ export const PAGE_CONTACT = {
         type: "contact_channels",
         kicker: "Nous écrire",
         title: "Une équipe qui connaît vos journées",
-        text: "Une question sur les tarifs, la migration de vos données ou la conformité HDS ? Choisissez le canal qui vous arrange — on vous répond vite, et sans jargon.",
+        text: "Une question sur les tarifs, la migration de vos données ou la conformité HDS ? Choisissez le canal qui vous arrange, on vous répond vite, et sans jargon.",
         channels: [
           {
             icon: "Mail",

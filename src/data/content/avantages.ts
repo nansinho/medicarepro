@@ -16,7 +16,7 @@ export const PAGE_AVANTAGES = {
         type: "page_hero",
         kicker: "Avantages",
         title: "Un seul logiciel, **tout votre cabinet simplifié.**",
-        lead: "Tout-en-un, simple, rapide et économique : voici pourquoi les podologues choisissent MediCare Pro pour gérer leur cabinet au quotidien — à partir de 24,84 €/mois, tout inclus.",
+        lead: "Tout-en-un, simple, rapide et économique : voici pourquoi les podologues choisissent MediCare Pro pour gérer leur cabinet au quotidien, à partir de 24,84 €/mois, tout inclus.",
         trust: [
           { icon: "Layers", label: "Tout-en-un" },
           { icon: "Sparkles", label: "Simple à prendre en main" },
@@ -257,7 +257,7 @@ export const PAGE_AVANTAGES = {
           {
             icon: "Layers",
             title: "Toutes les fonctionnalités",
-            text: "Facturation, signature, comptabilité, agenda, bilans et application mobile — le détail de tout ce qui est inclus.",
+            text: "Facturation, signature, comptabilité, agenda, bilans et application mobile : le détail de tout ce qui est inclus.",
             href: "/fonctionnalites",
             stat: "10 fonctionnalités",
           },
@@ -285,7 +285,7 @@ export const PAGE_AVANTAGES = {
         type: "cta_panel",
         kicker: "Prêt à simplifier votre cabinet ?",
         title: "Tout votre cabinet réuni, pour 24,84 €/mois",
-        lead: "Tout-en-un, sans option cachée — et plus de 3 000 € économisés par an en moyenne face aux outils séparés.",
+        lead: "Tout-en-un, sans option cachée, et plus de 3 000 € économisés par an en moyenne face aux outils séparés.",
         primary: { label: "Je m'abonne", href: "app:register:annual" },
         secondary: { label: "Demander une démo", href: "/contact" },
         trust: [

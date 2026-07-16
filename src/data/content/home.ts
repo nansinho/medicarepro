@@ -111,7 +111,7 @@ export const PAGE_HOME = {
         type: "manifesto",
         kicker: "Notre mission",
         title: "Moins d'administratif.\nPlus de podologie.",
-        text: "MediCare Pro est né dans un cabinet, pas dans un open space. Chaque fonctionnalité répond à un vrai besoin du quotidien — conçu par des podologues, pour des podologues.",
+        text: "MediCare Pro est né dans un cabinet, pas dans un open space. Chaque fonctionnalité répond à un vrai besoin du quotidien, conçue par des podologues, pour des podologues.",
         link: { label: "Découvrir notre histoire", href: "/a-propos" },
       },
     },
@@ -136,7 +136,7 @@ export const PAGE_HOME = {
         type: "cta_panel",
         kicker: "Prêt à simplifier votre cabinet ?",
         title: "Tout votre cabinet réuni, pour 24,84 €/mois",
-        lead: "Tout-en-un, sans option cachée — et plus de 3 000 € économisés par an en moyenne face aux outils séparés.",
+        lead: "Tout-en-un, sans option cachée, et plus de 3 000 € économisés par an en moyenne face aux outils séparés.",
         primary: { label: "Je m'abonne", href: "app:register:annual" },
         secondary: { label: "Demander une démo", href: "/contact" },
         trust: [

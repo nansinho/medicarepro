@@ -101,7 +101,7 @@ export const PRICING_PLANS = [
     sub: "Engagement 12 mois ferme",
     price: 24.84,
     unit: "TTC/mois",
-    secondary: "soit 20,70 € HT/mois — 298,08 € TTC/an",
+    secondary: "soit 20,70 € HT/mois, ou 298,08 € TTC/an",
     featured: true,
     badge: "−17 % recommandé",
     features: [

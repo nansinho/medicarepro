@@ -164,8 +164,16 @@ export default function Footer({
                 const Icon =
                   SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
                 const size = social.icon === "XSocial" ? 16 : 17;
+                const external = social.href.startsWith("http");
                 return (
-                  <a href={social.href} aria-label={social.label} key={social.label}>
+                  <a
+                    href={social.href}
+                    aria-label={social.label}
+                    key={social.label}
+                    {...(external
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                  >
                     <Icon width={size} height={size} />
                   </a>
                 );

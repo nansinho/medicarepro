@@ -1,11 +1,12 @@
 "use client";
 
-import { Star, ShieldPlus } from "./icons";
+import { Star } from "./icons";
 import { resolveHref } from "@/lib/appLinks";
 import s from "./SideTabs.module.css";
 
-/* Icônes des onglets (clés string des réglages CMS). */
-const ICONS = { Star, ShieldPlus } as const;
+/* Icône de l'onglet « avis » (clé string des réglages CMS).
+   L'onglet « je m'abonne » utilise le pictogramme de marque (voir plus bas). */
+const ICONS = { Star } as const;
 
 /** Un onglet latéral (réglage `sideTabs` de site_settings). */
 type SideTab = { label: string; href: string; icon: string };
@@ -21,7 +22,6 @@ export default function SideTabs({
   tabs: { review: SideTab; subscribe: SideTab };
 }) {
   const ReviewIcon = ICONS[tabs.review.icon as keyof typeof ICONS];
-  const SubscribeIcon = ICONS[tabs.subscribe.icon as keyof typeof ICONS];
   return (
     <>
       <a
@@ -40,7 +40,15 @@ export default function SideTabs({
         className={`${s.tab} ${s.right}`}
         aria-label={tabs.subscribe.label}
       >
-        <SubscribeIcon className={s.ico} width={18} height={18} />
+        {/* Pictogramme officiel MediCare Pro (pastille blanche pour ressortir sur le bleu). */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- SVG statique : next/image ne l'optimiserait pas */}
+        <img
+          src="/logo-icon.svg?v=7"
+          alt=""
+          width={22}
+          height={22}
+          className={s.logo}
+        />
         <span className={s.label}>{tabs.subscribe.label}</span>
       </a>
     </>

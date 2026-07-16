@@ -75,7 +75,7 @@ export const SETTINGS = {
     { label: "Facebook", icon: "Facebook", href: "#" },
     { label: "LinkedIn", icon: "LinkedIn", href: "#" },
     { label: "X", icon: "XSocial", href: "#" },
-    { label: "Instagram", icon: "Instagram", href: "#" },
+    { label: "Instagram", icon: "Instagram", href: "https://www.instagram.com/medicarepro.fr/" },
   ] satisfies SocialLink[],
 
   /** Header + panneau latéral (drawer). */
@@ -86,7 +86,7 @@ export const SETTINGS = {
       title: "Votre partenaire pour la\nsanté du cabinet",
       followLabel: "Suivez-nous",
       socials: [
-        { label: "Instagram", icon: "Instagram", href: "#" },
+        { label: "Instagram", icon: "Instagram", href: "https://www.instagram.com/medicarepro.fr/" },
       ] satisfies SocialLink[],
     },
   },

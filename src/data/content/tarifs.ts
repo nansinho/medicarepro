@@ -75,7 +75,7 @@ export const PAGE_TARIFS = {
         stats: [
           { value: "−260 €", label: "par mois face aux outils séparés" },
           { value: "−17 %", label: "sur l'offre 12 mois (60,48 €/an)" },
-          { value: "0 €", label: "d'option cachée — tout est inclus" },
+          { value: "0 €", label: "d'option cachée, tout est inclus" },
         ],
       },
     },

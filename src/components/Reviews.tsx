@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { EASE, useIsReduced } from "@/components/motion/motion";
-import Reveal from "@/components/motion/Reveal";
 import StaggerGroup from "@/components/motion/StaggerGroup";
 import StaggerItem from "@/components/motion/StaggerItem";
 import { Quote, Star } from "./icons";
@@ -41,25 +40,8 @@ export default function Reviews({
           <div className={`kicker ${s.kickerUnder}`}>{content.kicker}</div>
         </div>
 
-        {/* Bandeau de preuve sociale : mini-avatars + note moyenne */}
-        <Reveal variant="up" className={s.proofBar}>
-          <div className={s.proofAvatars}>
-            {people.slice(0, 5).map((p) => (
-              <span className={s.proofAva} key={p.name}>
-                <Image src={p.avatar.path} alt={p.name} fill sizes="46px" />
-              </span>
-            ))}
-          </div>
-          <div className={s.proofText}>
-            <strong>{content.rating.value}</strong>
-            <span className={s.proofStars}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} width={16} height={16} />
-              ))}
-            </span>
-            <small>{content.rating.label}</small>
-          </div>
-        </Reveal>
+        {/* Bandeau de preuve sociale retiré (avatars « podologues » peu flatteurs).
+           À remplacer plus tard par les logos partenaires (école de Marseille, Xfeet). */}
 
         <div className={s.revGrid} ref={gridRef}>
           <StaggerGroup className={s.revPeople}>

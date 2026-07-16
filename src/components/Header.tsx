@@ -285,8 +285,16 @@ export default function Header({
             <div className={styles.ds}>
               {header.drawer.socials.map((social) => {
                 const Icon = SOCIAL_ICONS[social.icon as keyof typeof SOCIAL_ICONS];
+                const external = social.href.startsWith("http");
                 return (
-                  <a href={social.href} aria-label={social.label} key={social.label}>
+                  <a
+                    href={social.href}
+                    aria-label={social.label}
+                    key={social.label}
+                    {...(external
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                  >
                     <Icon width={17} height={17} />
                   </a>
                 );

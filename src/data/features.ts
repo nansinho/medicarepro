@@ -129,7 +129,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "Star",
     kicker: "Intelligence artificielle",
     title: "Comptes-rendus cliniques assistés par IA",
-    text: "Dictez ou saisissez vos observations — hyperkératose, appui pronateur — et l'IA rédige un compte-rendu clinique clair et structuré en quelques secondes. Vous gardez la main, vous gagnez du temps.",
+    text: "Dictez ou saisissez vos observations (hyperkératose, appui pronateur) et l'IA rédige un compte-rendu clinique clair et structuré en quelques secondes. Vous gardez la main, vous gagnez du temps.",
     points: [
       "Rédaction clinique structurée",
       "Gain de temps à chaque consultation",
@@ -155,7 +155,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
     icon: "Monitor",
     kicker: "Pilotage",
     title: "Statistiques, traçabilité & multi-cabinet",
-    text: "Pilotez votre activité — consultations, semelles, chiffre d'affaires — avec des statistiques claires, assurez la traçabilité de vos appareillages (matériovigilance) et gérez plusieurs cabinets et collaborateurs depuis un seul compte.",
+    text: "Pilotez votre activité (consultations, semelles, chiffre d'affaires) avec des statistiques claires, assurez la traçabilité de vos appareillages (matériovigilance) et gérez plusieurs cabinets et collaborateurs depuis un seul compte.",
     points: [
       "Tableau de bord statistiques",
       "Traçabilité & matériovigilance",
