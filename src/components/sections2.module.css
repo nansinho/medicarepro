@@ -12,93 +12,54 @@
 .kickerUnder {
   margin-top: var(--space-3xs);
 }
-.revGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
+/* ---------- CARROUSEL D'AVIS (cards défilantes avec avatar) ---------- */
+.revCarousel {
+  display: flex;
   align-items: center;
-  /* Largeur canonique : alignée sur les autres sections. */
+  gap: 20px;
   max-width: var(--content-max);
-  margin: 20px auto 0;
+  margin: 28px auto 0;
 }
-.revPeople {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-.revPerson {
+/* Scène : contient la card active. overflow masqué pour l'entrée/sortie. */
+.revStage {
   position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px;
+  margin: -8px; /* laisse respirer l'ombre des cards sans rogner */
+}
+/* Card d'avis surélevée : avatar + citation dans la même carte. */
+.revCard {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 38px 40px 44px;
+}
+.revCardHead {
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 12px 18px 16px;
-  border-radius: 18px;
-  cursor: pointer;
-  transition: 0.25s;
-  background: transparent;
-  border: none;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
+  margin-bottom: 22px;
 }
-
-/* Barre de progression du défilement automatique (sous le témoin actif).
-   La fin de son animation déclenche l'avis suivant (onAnimationEnd) ;
-   le survol de la grille la met en pause → lecture sans interruption. */
-.revProgress {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 7px;
-  height: 3px;
-  border-radius: 3px;
-  background: var(--color-light-2);
-  overflow: hidden;
-}
-.revProgressFill {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: var(--grad-btn);
-  transform-origin: left;
-  transform: scaleX(0);
-  animation: revFill 5.5s linear forwards;
-}
-.revGrid:hover .revProgressFill {
-  animation-play-state: paused;
-}
-@keyframes revFill {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-.revPerson.active {
-  background: #fff;
-  box-shadow: var(--shadow);
-}
-/* Avatar = vraie photo ronde (next/image fill). */
-.revPerson .ava {
+/* Avatar rond, anneau bleu pulsé (rappel de l'ancien témoin actif). */
+.revCardAva {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   overflow: hidden;
   border: 2px solid #fff;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 3px var(--color-shield);
   flex: none;
 }
-.revPerson .ava img {
+.revCardAva img {
   object-fit: cover;
 }
-/* Anneau bleu de sélection sur l'avatar actif (pulsé en continu). */
-.revPerson.active .ava {
-  box-shadow: 0 0 0 3px var(--color-shield);
-}
 @media (prefers-reduced-motion: no-preference) {
-  .revPerson.active .ava {
+  .revCardAva {
     animation: avaPulse 2.6s ease-in-out infinite;
   }
 }
@@ -113,110 +74,123 @@
       0 0 0 12px rgba(121, 176, 234, 0);
   }
 }
-.revPersonInfo {
+.revCardWho {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
-.revPerson h4 {
+.revCardWho h4 {
   font-family: var(--font-head);
   font-weight: 700;
   color: var(--color-navy);
   letter-spacing: 0.02em;
 }
-.revPerson small {
+.revCardWho small {
   color: var(--color-body);
 }
-
-/* Bandeau de preuve sociale : mini-avatars chevauchés + note. */
-.proofBar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
-  flex-wrap: wrap;
-  margin: 28px 0 8px;
-}
-.proofAvatars {
-  display: flex;
-}
-.proofAva {
-  position: relative;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid #fff;
-  box-shadow: var(--shadow-sm);
-  margin-left: -14px;
-}
-.proofAva:first-child {
-  margin-left: 0;
-}
-.proofAva img {
-  object-fit: cover;
-}
-.proofText {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.proofText strong {
-  font-family: var(--font-head);
-  font-weight: 800;
-  font-size: 1.5rem;
-  color: var(--color-navy);
-  line-height: 1;
-}
-.proofStars {
-  display: inline-flex;
-  gap: 2px;
+/* Guillemet décoratif calé à droite de l'en-tête. */
+.revCardQuote {
+  margin-left: auto;
   color: var(--color-primary);
-}
-.proofText small {
-  color: var(--color-muted);
-  font-size: 0.9rem;
-}
-
-/* Carte citation surélevée. */
-.revQuote {
-  position: relative;
-  background: #fff;
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 40px;
-}
-.qm {
-  color: var(--color-primary);
-  margin-bottom: 14px;
   opacity: 0.85;
+  flex: none;
 }
-.revQuote p {
+.revCardText {
   font-size: 1.18rem;
   color: var(--color-navy);
   line-height: 1.55;
-  min-height: 132px;
+  min-height: 116px;
 }
-.revQuoteFoot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 22px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border-soft);
-}
-.stars {
+.revCardStars {
   display: flex;
   gap: 4px;
+  margin-top: 22px;
   color: var(--color-primary);
 }
-.revAuthor {
-  font-family: var(--font-head);
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--color-navy-soft);
+
+/* Barre de progression du défilement automatique, en pied de card.
+   La fin de son animation déclenche l'avis suivant (onAnimationEnd) ;
+   le survol du carrousel la met en pause → lecture sans interruption. */
+.revCardProgress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--color-light-2);
+  overflow: hidden;
+}
+.revCardProgressFill {
+  display: block;
+  height: 100%;
+  background: var(--grad-btn);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: revFill 5.5s linear forwards;
+}
+.revCarousel:hover .revCardProgressFill {
+  animation-play-state: paused;
+}
+@keyframes revFill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Flèches de navigation rondes. */
+.revNav {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-soft);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  color: var(--color-navy);
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease),
+    background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.revNav span {
+  transform: translateY(-2px);
+}
+.revNav:hover {
+  background: var(--grad-btn);
+  color: #fff;
+  box-shadow: var(--shadow);
+  transform: scale(1.06);
+}
+
+/* Points de navigation sous le carrousel. */
+.revDots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 26px;
+}
+.revDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--color-light-2);
+  transition: width 0.25s var(--ease), background 0.25s var(--ease);
+}
+.revDotOn {
+  width: 26px;
+  border-radius: 6px;
+  background: var(--grad-btn);
 }
 
 /* ---------- CTA BANNER ---------- */
@@ -352,9 +326,6 @@
   }
 }
 @media (max-width: 760px) {
-  .revGrid {
-    grid-template-columns: 1fr;
-  }
   .priceList {
     grid-template-columns: 1fr;
   }
@@ -372,77 +343,36 @@
 }
 
 /* ============================================================
-   MOBILE (≤760) — Reviews : citation d'abord + rail de témoins
-   horizontal ; bandeau CTA compacté.
+   MOBILE (≤760) — Reviews : carrousel compacté (flèches masquées,
+   navigation aux points) ; bandeau CTA compacté.
    (Blocs appendés en fin de fichier : à spécificité égale,
    le dernier déclaré gagne.)
    ============================================================ */
 @media (max-width: 760px) {
-  /* Citation en premier : .revQuote est enfant direct de la grille
-     .revGrid (1 colonne à ≤760), order fonctionne donc dessus. */
-  .revGrid {
-    gap: 24px;
-  }
-  .revQuote {
-    order: -1;
-    padding: 26px 22px;
-  }
-  .qm svg {
-    width: 36px;
-    height: 36px;
-  }
-  /* Le min-height 132px desktop (anti-saut entre citations)
-     creuserait un trou inutile sur mobile. */
-  .revQuote p {
-    min-height: 0;
-    font-size: 1.05rem;
-  }
-
-  /* Rail horizontal de témoins : chips scrollables, full-bleed
-     (le padding latéral mobile de .wrap est 22px).
-     Les enfants directs de .revPeople sont les wrappers <StaggerItem>
-     (sans classe) : flex/snap se posent dessus, la chip .revPerson
-     vit à l'intérieur. */
-  .revPeople {
-    flex-direction: row;
-    gap: 10px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    margin: 0 -22px;
-    padding: 4px 22px 10px;
-    scrollbar-width: none;
-  }
-  .revPeople::-webkit-scrollbar {
+  /* Flèches masquées : sur mobile on navigue aux points / au swipe. */
+  .revNav {
     display: none;
   }
-  .revPeople > * {
-    flex: none;
-    scroll-snap-align: center;
+  .revCard {
+    padding: 26px 22px 32px;
   }
-  .revPerson {
-    width: auto;
-    gap: 12px;
-    padding: 8px 16px 12px;
-    border-radius: 50px;
-    background: #fff;
-    border: 1px solid var(--color-border-soft);
+  .revCardAva {
+    width: 58px;
+    height: 58px;
   }
-  /* Chip = une seule ligne par texte, sinon la largeur max-content
-     du rail ferait plier noms et rôles n'importe comment. */
-  .revPerson h4,
-  .revPerson small {
-    white-space: nowrap;
+  .revCardHead {
+    gap: 14px;
+    margin-bottom: 18px;
   }
-  .revPerson .ava {
-    width: 44px;
-    height: 44px;
+  .revCardQuote svg {
+    width: 32px;
+    height: 32px;
   }
-  /* Barre de progression du défilement auto, recalée dans la chip
-     (l'anneau pulsé de l'avatar actif reste inchangé). */
-  .revProgress {
-    left: 16px;
-    right: 16px;
-    bottom: 5px;
+  /* Le min-height desktop (anti-saut entre citations) creuserait
+     un trou inutile sur mobile. */
+  .revCardText {
+    min-height: 0;
+    font-size: 1.05rem;
   }
 
   /* Bandeau CTA : bouclier compacté. clip-path: path() utilise des
@@ -458,22 +388,5 @@
   .ctaShield svg {
     width: 42px;
     height: 42px;
-  }
-}
-
-/* En-tête de note (« 4,9/5 ★★★★★ · légende ») : à 320-480px la légende
-   s'écrasait en colonne latérale de 4 lignes — elle passe dessous, centrée. */
-@media (max-width: 480px) {
-  .proofBar {
-    flex-direction: column;
-    gap: 12px;
-  }
-  .proofText {
-    flex-wrap: wrap;
-    justify-content: center;
-    text-align: center;
-  }
-  .proofText small {
-    flex-basis: 100%;
   }
 }

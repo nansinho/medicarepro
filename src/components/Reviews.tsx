@@ -2,10 +2,8 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { motion, useInView } from "framer-motion";
+import { AnimatePresence, motion, useInView } from "framer-motion";
 import { EASE, useIsReduced } from "@/components/motion/motion";
-import StaggerGroup from "@/components/motion/StaggerGroup";
-import StaggerItem from "@/components/motion/StaggerItem";
 import { Quote, Star } from "./icons";
 import type { SectionContentOf, Testimonial } from "@/lib/cms/sections.schema";
 import s from "./sections2.module.css";
@@ -22,15 +20,17 @@ export default function Reviews({
   const toneCls =
     tone === "soft" ? "tone-soft" : tone === "medium" ? "tone-medium" : "tone-white";
 
-  /* Défilement automatique des avis : piloté par la fin de l'animation CSS de
-     la barre de progression (onAnimationEnd) → la pause au survol (CSS
+  /* Carrousel d'avis : une card active mise en avant, les autres en aperçu
+     autour. Défilement automatique piloté par la fin de l'animation CSS de la
+     barre de progression (onAnimationEnd) → la pause au survol (CSS
      animation-play-state) et le passage à l'avis suivant restent synchrones.
      Actif uniquement quand la section est visible, désactivé en reduced-motion. */
-  const gridRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
   const reduced = useIsReduced();
-  const inView = useInView(gridRef, { amount: 0.35 });
-  const autoplay = inView && !reduced;
-  const next = () => setActive((a) => (a + 1) % people.length);
+  const inView = useInView(railRef, { amount: 0.35 });
+  const autoplay = inView && !reduced && people.length > 1;
+  const go = (i: number) => setActive(((i % people.length) + people.length) % people.length);
+  const next = () => go(active + 1);
 
   return (
     <section className={`${s.reviews} ${toneCls}`}>
@@ -40,64 +40,92 @@ export default function Reviews({
           <div className={`kicker ${s.kickerUnder}`}>{content.kicker}</div>
         </div>
 
-        {/* Bandeau de preuve sociale retiré (avatars « podologues » peu flatteurs).
-           À remplacer plus tard par les logos partenaires (école de Marseille, Xfeet). */}
+        {/* Carrousel de cards : chaque card porte l'avatar + le témoignage.
+           À terme, le bandeau logos partenaires (école de Marseille, Xfeet)
+           viendra au-dessus. */}
+        <div className={s.revCarousel} ref={railRef}>
+          <button
+            type="button"
+            className={`${s.revNav} ${s.revNavPrev}`}
+            onClick={() => go(active - 1)}
+            aria-label="Avis précédent"
+          >
+            <span aria-hidden="true">‹</span>
+          </button>
 
-        <div className={s.revGrid} ref={gridRef}>
-          <StaggerGroup className={s.revPeople}>
-            {people.map((p, i) => (
-              <StaggerItem key={p.name} variant="left">
-                <button
-                  className={`${s.revPerson} ${i === active ? s.active : ""}`}
-                  onClick={() => setActive(i)}
-                  aria-pressed={i === active}
-                >
-                  <span className={s.ava}>
-                    <Image src={p.avatar.path} alt={p.name} fill sizes="64px" />
+          <div className={s.revStage}>
+            <AnimatePresence initial={false} mode="popLayout">
+              <motion.article
+                key={active}
+                className={s.revCard}
+                initial={reduced ? false : { opacity: 0, x: 40, scale: 0.96 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={reduced ? { opacity: 0 } : { opacity: 0, x: -40, scale: 0.96 }}
+                transition={{ duration: 0.5, ease: EASE }}
+              >
+                <div className={s.revCardHead}>
+                  <span className={s.revCardAva}>
+                    <Image
+                      src={people[active].avatar.path}
+                      alt={people[active].name}
+                      fill
+                      sizes="72px"
+                    />
                   </span>
-                  <span className={s.revPersonInfo}>
-                    <h4>{p.name}</h4>
-                    <small>{p.role}</small>
+                  <span className={s.revCardWho}>
+                    <h4>{people[active].name}</h4>
+                    <small>{people[active].role}</small>
                   </span>
-                  {/* Barre de progression du défilement automatique */}
-                  {i === active && autoplay && (
-                    <span className={s.revProgress} aria-hidden="true">
-                      <span
-                        key={active}
-                        className={s.revProgressFill}
-                        onAnimationEnd={next}
-                      />
-                    </span>
-                  )}
-                </button>
-              </StaggerItem>
-            ))}
-          </StaggerGroup>
+                  <span className={s.revCardQuote} aria-hidden="true">
+                    <Quote width={40} height={40} />
+                  </span>
+                </div>
 
-          <div className={s.revQuote}>
-            <div className={s.qm}>
-              <Quote width={48} height={48} />
-            </div>
-            {/* Citation + auteur glissent ensemble à chaque changement */}
-            <motion.div
-              key={active}
-              initial={reduced ? false : { opacity: 0, x: 28 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.45, ease: EASE }}
-            >
-              <p>{people[active].quote}</p>
-              <div className={s.revQuoteFoot}>
-                <div className={s.stars}>
+                <p className={s.revCardText}>{people[active].quote}</p>
+
+                <div className={s.revCardStars} aria-label="Note : 5 sur 5">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} width={22} height={22} />
+                    <Star key={i} width={20} height={20} />
                   ))}
                 </div>
-                <span className={s.revAuthor}>
-                  {people[active].name} — {people[active].role}
-                </span>
-              </div>
-            </motion.div>
+
+                {/* Barre de progression du défilement automatique */}
+                {autoplay && (
+                  <span className={s.revCardProgress} aria-hidden="true">
+                    <span
+                      key={active}
+                      className={s.revCardProgressFill}
+                      onAnimationEnd={next}
+                    />
+                  </span>
+                )}
+              </motion.article>
+            </AnimatePresence>
           </div>
+
+          <button
+            type="button"
+            className={`${s.revNav} ${s.revNavNext}`}
+            onClick={() => go(active + 1)}
+            aria-label="Avis suivant"
+          >
+            <span aria-hidden="true">›</span>
+          </button>
+        </div>
+
+        {/* Points de navigation */}
+        <div className={s.revDots} role="tablist" aria-label="Choisir un avis">
+          {people.map((p, i) => (
+            <button
+              key={p.name}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              aria-label={`Avis de ${p.name}`}
+              className={`${s.revDot} ${i === active ? s.revDotOn : ""}`}
+              onClick={() => go(i)}
+            />
+          ))}
         </div>
       </div>
     </section>
