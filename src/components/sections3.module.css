@@ -239,14 +239,75 @@
   border-color: rgba(255, 255, 255, 0.35);
 }
 
+/* ---- Bande newsletter (container dédié, au-dessus des colonnes) ---- */
+.footNews {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  flex-wrap: wrap;
+  max-width: var(--content-max);
+  margin: 56px auto 0;
+  padding: 40px 46px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.footNewsCopy {
+  max-width: 520px;
+}
+.footNewsTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-shield);
+  margin-bottom: 12px;
+}
+.footNewsHeading {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.footNewsText {
+  margin-top: 8px;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: rgba(224, 237, 250, 0.78);
+}
+.footNewsForm {
+  flex: 1;
+  min-width: 320px;
+  max-width: 460px;
+}
+.footNewsFine {
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: rgba(224, 237, 250, 0.5);
+}
+
 .footTop {
   position: relative;
   display: grid;
-  grid-template-columns: 1.7fr 1fr 1fr 1.05fr 1.4fr;
-  gap: 48px;
-  padding: 72px 0 64px;
+  grid-template-columns: 1.9fr 1fr 1fr 1.15fr;
+  gap: 40px 64px;
+  padding: 80px 0 72px;
   max-width: var(--content-max);
   margin: 0 auto;
+}
+/* Sous-titre descriptif sous l'intitulé de colonne. */
+.footColIntro {
+  margin: -12px 0 20px;
+  font-size: 0.9rem;
+  color: rgba(224, 237, 250, 0.55);
 }
 /* Intitulés de colonnes : style kicker clair sur fond sombre. */
 .footTop h4 {
@@ -376,7 +437,6 @@
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50px;
   padding: 6px 6px 6px 22px;
-  margin-top: 20px;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .nbox:focus-within {
@@ -523,19 +583,21 @@
 
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 1080px) {
-  /* Marque + newsletter sur toute la largeur, les 3 colonnes de liens dessous. */
+  /* Marque sur toute la largeur, les 3 colonnes de liens dessous. */
   .footTop {
     grid-template-columns: 1fr 1fr 1fr;
     gap: 44px 40px;
+    padding: 60px 0 56px;
   }
   .footBrand {
     grid-column: 1 / -1;
   }
-  .news {
-    grid-column: 1 / -1;
-  }
   .footCtaInner {
     padding: 44px 0;
+  }
+  /* Bande newsletter : titre au-dessus du formulaire. */
+  .footNews {
+    padding: 34px 32px;
   }
 }
 @media (max-width: 760px) {
@@ -563,20 +625,32 @@
     padding: 0 18px 22px;
   }
 
-  /* Footer : les 2 colonnes de liens côte à côte, marque/contact et
-     newsletter en pleine largeur. (.footBrand / .news existent dans le TSX ;
-     les définir ici les fait enfin résoudre dans le module.) */
+  /* Footer : les 2 colonnes de liens côte à côte, marque en pleine largeur. */
   .footTop {
     grid-template-columns: 1fr 1fr;
-    gap: 32px 20px;
-    padding: 52px 0 40px;
+    gap: 34px 22px;
+    padding: 44px 0 36px;
   }
-  .footBrand,
-  .news {
+  .footBrand {
     grid-column: 1 / -1;
   }
   .footTop h4 {
-    margin-bottom: 14px;
+    margin-bottom: 10px;
+  }
+  .footColIntro {
+    margin: -6px 0 16px;
+  }
+  /* Bande newsletter : empilée. */
+  .footNews {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 28px 24px;
+  }
+  .footNewsForm {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
   }
 
   /* Halos décoratifs réduits, offsets ramenés à l'échelle (même proportion

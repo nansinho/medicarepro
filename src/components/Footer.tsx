@@ -54,17 +54,20 @@ function FootLink({ href, label }: { href: string; label: string }) {
   return <a href={href}>{label}</a>;
 }
 
-/** Une colonne de liens du footer. */
+/** Une colonne de liens du footer, avec sous-titre descriptif optionnel. */
 function FootCol({
   heading,
+  intro,
   links,
 }: {
   heading: string;
+  intro?: string;
   links: { href: string; label: string }[];
 }) {
   return (
     <div data-rv-footcol>
       <h4>{heading}</h4>
+      {intro && <p className={s.footColIntro}>{intro}</p>}
       <div className={s.footLinks}>
         {links.map((l) => (
           <FootLink key={l.label} href={l.href} label={l.label} />
@@ -157,9 +160,39 @@ export default function Footer({
         </div>
       </div>
 
+      {/* ---- Bande newsletter (container dédié, pleine largeur) ---- */}
+      <div className="wrap">
+        <div className={s.footNews}>
+          <div className={s.footNewsCopy}>
+            <span className={s.footNewsTag}>
+              <Mail width={15} height={15} />
+              Newsletter
+            </span>
+            <h3 className={s.footNewsHeading}>{footer.newsletter.heading}</h3>
+            <p className={s.footNewsText}>{footer.newsletter.text}</p>
+          </div>
+          <div className={s.footNewsForm}>
+            {/* TODO(backend) : brancher l'inscription newsletter (Supabase). */}
+            <div className={s.nbox}>
+              <input
+                type="email"
+                placeholder={footer.newsletter.placeholder}
+                aria-label={footer.newsletter.inputLabel}
+              />
+              <button className={`btn ${s.nbtn}`} type="button">
+                {footer.newsletter.buttonLabel} <ArrowRight className="ico ar" />
+              </button>
+            </div>
+            <p className={s.footNewsFine}>
+              Sans spam, désinscription en un clic. Vos données restent en France.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="wrap">
         <div className={s.footTop}>
-          {/* Marque + contact + réassurance */}
+          {/* Marque + contact + réassurance + réseaux */}
           <div className={s.footBrand} data-rv-footcol>
             <Link href="/" className={s.footLogo} aria-label="MediCare Pro — accueil">
               <BrandLogo size={34} variant="light" />
@@ -202,28 +235,6 @@ export default function Footer({
                 );
               })}
             </div>
-          </div>
-
-          {/* Colonnes de liens équilibrées */}
-          <FootCol heading="Produit" links={PRODUCT_LINKS} />
-          <FootCol heading="Entreprise" links={COMPANY_LINKS} />
-          <FootCol heading="Ressources" links={[...RESOURCES_LINKS, ...LEGAL_LINKS]} />
-
-          {/* Newsletter */}
-          <div className={s.news} data-rv-footcol>
-            <h4>{footer.newsletter.heading}</h4>
-            <p>{footer.newsletter.text}</p>
-            {/* TODO(backend) : brancher l'inscription newsletter (Supabase). */}
-            <div className={s.nbox}>
-              <input
-                type="email"
-                placeholder={footer.newsletter.placeholder}
-                aria-label={footer.newsletter.inputLabel}
-              />
-              <button className={`btn ${s.nbtn}`} type="button">
-                {footer.newsletter.buttonLabel} <ArrowRight className="ico ar" />
-              </button>
-            </div>
             <div className={s.footSocialInline}>
               <span>{footer.followLabel}</span>
               <div className={s.footSocialRow}>
@@ -248,6 +259,23 @@ export default function Footer({
               </div>
             </div>
           </div>
+
+          {/* Colonnes de liens équilibrées, avec sous-titre descriptif */}
+          <FootCol
+            heading="Produit"
+            intro="Tout le cabinet, réuni."
+            links={PRODUCT_LINKS}
+          />
+          <FootCol
+            heading="Entreprise"
+            intro="Qui sommes-nous."
+            links={COMPANY_LINKS}
+          />
+          <FootCol
+            heading="Ressources & légal"
+            intro="Aide et conformité."
+            links={[...RESOURCES_LINKS, ...LEGAL_LINKS]}
+          />
         </div>
       </div>
 
