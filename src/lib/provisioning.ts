@@ -71,13 +71,13 @@ export type ProvisionPayload = {
   cabinet: {
     name: string;
     email: string;
-    phone: string;
+    phone?: string;
     mobilePhone: string;
     address: string;
     city: string;
     postalCode: string;
     siretNumber?: string;
-    rppsNumber: string;
+    rppsNumber?: string;
     invoicePrefix: string;
   };
   user: {

@@ -311,6 +311,31 @@ export default function CheckoutFlow({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
+  /* Revalidation LIVE : dès que des erreurs sont affichées sur l'étape
+     courante, on les recalcule à chaque frappe et on retire celles qui
+     sont corrigées — sinon un message rouge (« SIRET : 14 chiffres »,
+     « Téléphone portable requis »…) resterait figé après correction.
+     On ne fait apparaître aucune NOUVELLE erreur ici (pas de rouge tant
+     qu'on n'a pas cliqué « Continuer ») : on ne fait qu'en effacer. */
+  useEffect(() => {
+    setErrors((prev) => {
+      const shown = Object.keys(prev);
+      if (shown.length === 0) return prev;
+      const stillInvalid = validateStep(step);
+      let changed = false;
+      const next: Record<string, string> = {};
+      for (const key of shown) {
+        if (stillInvalid[key]) {
+          next[key] = prev[key]; // toujours invalide → on garde le message
+        } else {
+          changed = true; // corrigé → on retire
+        }
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cabinet, user, passwordConfirm, sepa, mandateAccepted, termsAccepted]);
+
   /* SIRET complet (14 chiffres) → interrogation de l'annuaire des
      entreprises et pré-remplissage des champs ENCORE VIDES uniquement
      (on n'écrase jamais une saisie). Service de confort : toute erreur
@@ -1014,6 +1039,7 @@ export default function CheckoutFlow({
               <Field
                 id="cab-rpps"
                 label="Numéro RPPS"
+                optional
                 value={cabinet.rppsNumber}
                 onChange={(v) =>
                   setCabinet((p) => ({
@@ -1022,7 +1048,7 @@ export default function CheckoutFlow({
                   }))
                 }
                 error={errors["cabinet.rppsNumber"]}
-                hint="11 chiffres — identifiant du titulaire au répertoire national des professionnels de santé."
+                hint="11 chiffres — vous pourrez le compléter plus tard depuis votre espace si vous ne l'avez pas sous la main."
                 inputMode="numeric"
                 placeholder="11 chiffres"
                 maxLength={11}
@@ -1415,7 +1441,8 @@ export default function CheckoutFlow({
                       {cabinet.address}, {cabinet.postalCode} {cabinet.city}
                     </span>
                     <span>
-                      SIRET {cabinet.siretNumber} · RPPS {cabinet.rppsNumber}
+                      SIRET {cabinet.siretNumber}
+                      {cabinet.rppsNumber && ` · RPPS ${cabinet.rppsNumber}`}
                     </span>
                   </div>
                 </div>

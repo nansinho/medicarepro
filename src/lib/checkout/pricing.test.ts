@@ -171,7 +171,15 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
     ).toBe(false);
   });
 
-  it("RPPS : exactement 11 chiffres", () => {
+  it("RPPS : facultatif, mais 11 chiffres si renseigné", () => {
+    // Vide → accepté (facultatif).
+    expect(
+      CheckoutSchema.safeParse({
+        ...valid,
+        cabinet: { ...valid.cabinet, rppsNumber: "" },
+      }).success,
+    ).toBe(true);
+    // Renseigné mais mal formé → refusé.
     for (const bad of ["123", "123456789012", "1234567890A"]) {
       expect(
         CheckoutSchema.safeParse({

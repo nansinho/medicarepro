@@ -57,13 +57,13 @@ const ALERT_AFTER_ATTEMPTS = 8;
 type ContractCabinet = {
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
   mobilePhone: string;
   address: string;
   city: string;
   postalCode: string;
   siretNumber?: string;
-  rppsNumber: string;
+  rppsNumber?: string;
 };
 
 type ContractUser = { firstName: string; lastName: string; email: string };

@@ -45,11 +45,14 @@ export const CabinetSchema = z.object({
     .trim()
     .regex(/^\d{14}$/, "SIRET : 14 chiffres")
     .refine(isValidSiret, "SIRET invalide — vérifiez votre saisie"),
-  /** Identifiant RPPS : 11 chiffres (répertoire national des PS). */
+  /** Identifiant RPPS : FACULTATIF (le praticien peut le compléter plus
+     tard) — mais s'il est renseigné, il doit faire 11 chiffres. */
   rppsNumber: z
     .string()
     .trim()
-    .regex(/^\d{11}$/, "Numéro RPPS : 11 chiffres"),
+    .regex(/^\d{11}$/, "Numéro RPPS : 11 chiffres")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
 });
 
 export const UserSchema = z.object({

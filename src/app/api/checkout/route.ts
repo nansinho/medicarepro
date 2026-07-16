@@ -231,9 +231,13 @@ export async function POST(request: NextRequest) {
 
   const { cabinet, user, sepa } = input;
 
-  // RPPS contre l'Annuaire Santé — bloquant UNIQUEMENT sur un
-  // « introuvable » certain ; panne ou clé absente = on laisse passer.
-  if ((await verifyRppsOnline(cabinet.rppsNumber)) === "not_found") {
+  // RPPS contre l'Annuaire Santé — SEULEMENT s'il est renseigné (facultatif),
+  // et bloquant UNIQUEMENT sur un « introuvable » certain ; panne ou clé
+  // absente = on laisse passer.
+  if (
+    cabinet.rppsNumber &&
+    (await verifyRppsOnline(cabinet.rppsNumber)) === "not_found"
+  ) {
     return Response.json(
       {
         error: "Numéro RPPS introuvable dans l'Annuaire Santé.",
