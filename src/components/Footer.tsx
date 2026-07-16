@@ -2,6 +2,7 @@ import Link from "next/link";
 import BrandLogo from "./BrandLogo";
 import {
   ShieldCheck,
+  ShieldPlus,
   MapPin,
   Phone,
   Mail,
@@ -11,6 +12,7 @@ import {
   XSocial,
   Instagram,
 } from "./icons";
+import { resolveHref } from "@/lib/appLinks";
 import type { MenuItem } from "@/data/content/site";
 import s from "./sections3.module.css";
 
@@ -78,6 +80,16 @@ export default function Footer({
               <BrandLogo size={34} variant="light" />
             </Link>
             <p className={s.footTagline}>{footer.tagline}</p>
+            <a
+              href={resolveHref("app:register")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={s.footCta}
+            >
+              <ShieldPlus width={17} height={17} />
+              Je m&apos;abonne
+              <ArrowRight width={16} height={16} className={s.footCtaArrow} />
+            </a>
             <div className={s.footContact}>
               <span>
                 <span className={s.fc}>

@@ -46,6 +46,7 @@ export const MENUS = {
     { label: "À propos", href: "/a-propos" },
     { label: "Blog", href: "/blog" },
     { label: "FAQ", href: "/tarifs" },
+    { label: "Plan du site", href: "/plan-du-site" },
     { label: "Confidentialité", href: "/confidentialite" },
     { label: "CGU", href: "/cgu" },
     { label: "CGV", href: "/cgv" },
@@ -273,6 +274,14 @@ export const SEO_DEFAULTS = {
     canonical: "/cookies",
     sitemapPriority: 0.2,
     sitemapChangefreq: "yearly",
+  },
+  "/plan-du-site": {
+    title: "Plan du site",
+    description:
+      "Toutes les pages de MediCare Pro en un coup d'œil : fonctionnalités, bilans podologiques, sécurité, tarifs, blog et informations légales.",
+    canonical: "/plan-du-site",
+    sitemapPriority: 0.3,
+    sitemapChangefreq: "monthly",
   },
 } satisfies Record<string, SeoDefault>;
 

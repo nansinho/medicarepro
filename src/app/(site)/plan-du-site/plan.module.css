@@ -1,0 +1,100 @@
+/* ============================================================
+   PLAN DU SITE — grille de groupes de liens en cartes.
+   Aligné sur le design system (navy, shield, ombres, radius).
+   ============================================================ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 26px;
+  max-width: var(--content-max);
+  margin: 48px auto 0;
+}
+
+.group {
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 30px 30px 20px;
+}
+.groupTitle {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.list li + li {
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 6px;
+  color: var(--color-navy);
+  transition: color 0.22s var(--ease), padding 0.22s var(--ease);
+}
+.item:hover {
+  color: var(--color-primary);
+  padding-left: 12px;
+}
+.itemMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.itemLabel {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 1.02rem;
+}
+.itemNote {
+  font-size: 0.88rem;
+  color: var(--color-muted);
+}
+.itemArrow {
+  margin-left: auto;
+  flex: none;
+  color: var(--color-shield);
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.22s var(--ease), transform 0.22s var(--ease);
+}
+.item:hover .itemArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.xmlNote {
+  max-width: var(--content-max);
+  margin: 40px auto 0;
+  font-size: 0.95rem;
+  color: var(--color-muted);
+}
+.xmlNote a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    margin-top: 32px;
+  }
+  .group {
+    padding: 24px 22px 14px;
+  }
+}

@@ -197,6 +197,32 @@
   margin-top: 18px;
   max-width: 360px;
 }
+/* CTA d'abonnement dans la colonne marque : conversion + réassurance. */
+.footCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 12px 22px;
+  border-radius: 50px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: #fff;
+  background: var(--grad-btn);
+  box-shadow: 0 12px 26px rgba(8, 24, 48, 0.45);
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.footCta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(46, 134, 230, 0.4);
+}
+.footCtaArrow {
+  transition: transform 0.25s var(--ease);
+}
+.footCta:hover .footCtaArrow {
+  transform: translateX(3px);
+}
 .footContact {
   display: flex;
   flex-direction: column;
