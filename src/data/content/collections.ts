@@ -22,50 +22,10 @@ export { FAQ_ITEMS } from "@/data/faq";
 /* Témoignages (PEOPLE de src/components/Reviews.tsx)                   */
 /* ------------------------------------------------------------------ */
 
-export const TESTIMONIALS = [
-  {
-    name: "Camille Besson",
-    role: "Podologue · Lyon",
-    avatar: { mediaId: null, path: "/images/avatars/av1.jpg", alt: "Camille Besson" },
-    quote:
-      "J'ai enfin un seul outil pour tout : dossiers, bilans, factures. La facturation automatisée me fait gagner un temps fou, et savoir que tout est hébergé en HDS me rassure vraiment.",
-  },
-  {
-    name: "Antoine Rivière",
-    role: "Pédicure-podologue · Bordeaux",
-    avatar: { mediaId: null, path: "/images/avatars/av2.jpg", alt: "Antoine Rivière" },
-    quote:
-      "La signature électronique et la comptabilité intégrée ont supprimé mes allers-retours entre logiciels. Tout est centralisé, c'est limpide.",
-  },
-  {
-    name: "Sarah Lemoine",
-    role: "Podologue · Lille",
-    avatar: { mediaId: null, path: "/images/avatars/av3.jpg", alt: "Sarah Lemoine" },
-    quote:
-      "Les bilans avec scores calculés automatiquement sont un vrai plus pour le suivi. Et le prix unique sans option cachée, ça change tout.",
-  },
-  {
-    name: "Julien Moreau",
-    role: "Podologue · Nantes",
-    avatar: { mediaId: null, path: "/images/avatars/av4.jpg", alt: "Julien Moreau" },
-    quote:
-      "Je suis passé de quatre logiciels à un seul. Mes soirées de paperasse ont tout simplement disparu.",
-  },
-  {
-    name: "Léa Fontaine",
-    role: "Pédicure-podologue · Toulouse",
-    avatar: { mediaId: null, path: "/images/avatars/av5.jpg", alt: "Léa Fontaine" },
-    quote:
-      "L'agenda en ligne a divisé mes appels par deux : les patients réservent seuls, je me concentre sur les soins.",
-  },
-  {
-    name: "Marc Dubois",
-    role: "Podologue · Strasbourg",
-    avatar: { mediaId: null, path: "/images/avatars/av6.jpg", alt: "Marc Dubois" },
-    quote:
-      "Hébergement HDS en France et prix unique transparent : exactement ce que je cherchais pour mon cabinet.",
-  },
-] satisfies Testimonial[];
+/* Avis clients : aucun avis réel pour l'instant (les témoignages fictifs ont
+   été retirés). La section affiche un état « Bientôt les avis » tant que ce
+   tableau et la table `testimonials` sont vides. */
+export const TESTIMONIALS: Testimonial[] = [];
 
 /** Preuve sociale affichée dans le bandeau des avis (note moyenne). */
 export const TESTIMONIALS_RATING = {

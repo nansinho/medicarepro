@@ -339,11 +339,14 @@ export const ReviewsSchema = z.object({
   kicker: z.string(),
   title: z.string(),
   tone: ToneSchema.optional(),
-  /** Bandeau de preuve sociale : note moyenne. */
-  rating: z.object({
-    value: z.string(),
-    label: z.string(),
-  }),
+  /** Bandeau de preuve sociale : note moyenne (optionnel — non affiché tant
+   *  qu'il n'y a pas de vrais avis). */
+  rating: z
+    .object({
+      value: z.string(),
+      label: z.string(),
+    })
+    .optional(),
 });
 
 /** FAQ (accordéon) — questions = collection faq_items. */

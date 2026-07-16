@@ -29,8 +29,37 @@ export default function Reviews({
   const reduced = useIsReduced();
   const inView = useInView(railRef, { amount: 0.35 });
   const autoplay = inView && !reduced && people.length > 1;
-  const go = (i: number) => setActive(((i % people.length) + people.length) % people.length);
+  const go = (i: number) =>
+    people.length > 0
+      ? setActive(((i % people.length) + people.length) % people.length)
+      : undefined;
   const next = () => go(active + 1);
+
+  /* Aucun avis pour l'instant : on affiche un état « Bientôt les avis »
+     plutôt que le carrousel (les témoignages fictifs ont été retirés).
+     Placé APRÈS les hooks pour respecter les règles des hooks React. */
+  if (people.length === 0) {
+    return (
+      <section className={`${s.reviews} ${toneCls}`}>
+        <div className="wrap">
+          <div className="sec-head">
+            <h2 className="sec-title">{content.title}</h2>
+            <div className={`kicker ${s.kickerUnder}`}>{content.kicker}</div>
+          </div>
+          <div className={s.revEmpty}>
+            <span className={s.revEmptyIcon} aria-hidden="true">
+              <Quote width={34} height={34} />
+            </span>
+            <h3 className={s.revEmptyTitle}>Bientôt, les premiers avis</h3>
+            <p className={s.revEmptyText}>
+              MediCare Pro accueille ses premiers cabinets. Les avis de nos
+              podologues utilisateurs seront publiés ici très prochainement.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={`${s.reviews} ${toneCls}`}>

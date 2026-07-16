@@ -507,9 +507,9 @@ function renderBody(kind: MockupKind) {
           </div>
           <div className={s.pwaList}>
             {[
-              { n: "Camille Besson", d: "Bilan diabétique · 4 docs" },
-              { n: "Antoine Rivière", d: "Suivi semelles · 2 docs" },
-              { n: "Sarah Lemoine", d: "Dossier · 5 docs" },
+              { n: "Patient A.", d: "Bilan diabétique · 4 docs" },
+              { n: "Patient B.", d: "Suivi semelles · 2 docs" },
+              { n: "Patient C.", d: "Dossier · 5 docs" },
             ].map((p, i) => (
               <motion.div
                 key={p.n}

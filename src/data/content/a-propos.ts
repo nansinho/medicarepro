@@ -150,10 +150,6 @@ export const PAGE_A_PROPOS = {
         kicker: "Avis de podologues",
         title: "Ils nous font confiance",
         tone: "white",
-        rating: {
-          value: "4,9/5",
-          label: "note moyenne · podologues abonnés",
-        },
       },
     },
     {
