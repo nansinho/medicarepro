@@ -44,11 +44,24 @@ const EnvSchema = z.object({
      Optionnels au boot du site vitrine ; billingEnv() les EXIGE tous —
      le tunnel /inscription refuse de s'ouvrir tant qu'ils manquent. */
 
-  /* Monetico classique (paiement carte one-shot) */
+  /* Monetico classique (paiement carte one-shot).
+     Deux clés peuvent cohabiter en permanence : MONETICO_KEY_TEST et
+     MONETICO_KEY_PROD. Le site prend celle qui correspond à MONETICO_MODE,
+     donc basculer test↔production = changer seulement MONETICO_MODE.
+     MONETICO_KEY (legacy, sans suffixe) reste acceptée en repli pour ne
+     rien casser pendant la transition. */
   MONETICO_TPE: z.string().min(1).optional(),
   MONETICO_KEY: z
     .string()
     .regex(/^[0-9A-Za-z]{40}$/, "clé Monetico : 40 caractères attendus")
+    .optional(),
+  MONETICO_KEY_TEST: z
+    .string()
+    .regex(/^[0-9A-Za-z]{40}$/, "clé Monetico test : 40 caractères attendus")
+    .optional(),
+  MONETICO_KEY_PROD: z
+    .string()
+    .regex(/^[0-9A-Za-z]{40}$/, "clé Monetico production : 40 caractères attendus")
     .optional(),
   MONETICO_SOCIETE: z.string().min(1).optional(),
   MONETICO_MODE: z.enum(["test", "production"]).default("test"),
@@ -152,7 +165,6 @@ export function hasSmtp(): boolean {
 
 const BILLING_REQUIRED = [
   "MONETICO_TPE",
-  "MONETICO_KEY",
   "MONETICO_SOCIETE",
   "PROVISIONING_API_URL",
   "PROVISIONING_API_KEY",
@@ -160,15 +172,33 @@ const BILLING_REQUIRED = [
   "TURNSTILE_SECRET_KEY",
 ] as const;
 
+/**
+ * Clé Monetico effective pour le mode courant : la clé spécifique au mode
+ * (MONETICO_KEY_TEST/PROD) l'emporte ; à défaut, MONETICO_KEY (legacy).
+ * Renvoie undefined si aucune clé utilisable n'est configurée.
+ */
+export function moneticoKeyForMode(e: Env): string | undefined {
+  const specific =
+    e.MONETICO_MODE === "production" ? e.MONETICO_KEY_PROD : e.MONETICO_KEY_TEST;
+  return specific ?? e.MONETICO_KEY;
+}
+
 /** Variables billing manquantes ([] si tout est prêt). */
 export function missingBillingEnv(): string[] {
   const e = env();
   const required = [...BILLING_REQUIRED];
   // SEPA_ICS n'est indispensable que si l'étape mandat SEPA est active.
   if (e.CHECKOUT_SEPA_ENABLED) required.push("SEPA_ICS" as never);
-  return required.filter(
+  const missing = required.filter(
     (key) => !e[key as keyof Env],
   ) as unknown as string[];
+  // Clé Monetico du mode courant : nommée selon le mode manquant si absente.
+  if (!moneticoKeyForMode(e)) {
+    missing.push(
+      e.MONETICO_MODE === "production" ? "MONETICO_KEY_PROD" : "MONETICO_KEY_TEST",
+    );
+  }
+  return missing;
 }
 
 /** Le tunnel d'inscription peut-il s'ouvrir ? */
@@ -207,7 +237,7 @@ export function billingEnv(): BillingEnv {
   const e = env();
   return {
     moneticoTpe: e.MONETICO_TPE!,
-    moneticoKey: e.MONETICO_KEY!,
+    moneticoKey: moneticoKeyForMode(e)!,
     moneticoSociete: e.MONETICO_SOCIETE!,
     moneticoMode: e.MONETICO_MODE,
     provisioningApiUrl: e.PROVISIONING_API_URL!,
