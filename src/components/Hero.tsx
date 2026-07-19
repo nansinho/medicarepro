@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Check, Play, Phone, Headset, MapPin, ArrowRight } from "./icons";
-import OvhBadge from "@/components/OvhBadge";
 import { useIsMobile } from "@/components/motion/motion";
 import { resolveHref } from "@/lib/appLinks";
 import { lines } from "@/components/cms/inline";
@@ -57,7 +56,7 @@ export default function Hero({
   const photoRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   /* 880 : aligné sur la composition mobile/tablette du CSS (texte d'abord,
-     photo dans le flux, badge OVH en chip sur la photo). */
+     photo dans le flux). */
   const mobile = useIsMobile(880);
 
   // Parallax léger sur la photo + le texte du hero. Desktop uniquement :
@@ -110,15 +109,7 @@ export default function Hero({
               className={styles.duoImg}
             />
           </div>
-          {/* Badge OVH version mobile : chip compact épinglé sur la photo.
-              Instance séparée (l'instance desktop, hors du bleed, ignore le
-              parallaxe et le fondu de la photo), montée seulement ≤760 pour
-              éviter un id SVG dupliqué (#ovhRingPath) sur desktop. */}
-          {mobile && <OvhBadge className={styles.ovhBadgeMobile} />}
         </div>
-
-        {/* Badge OVH flottant (hébergement HDS) */}
-        <OvhBadge className={styles.ovhBadge} />
 
         <div className={styles.heroInner}>
           <div className={styles.heroText} ref={textRef}>

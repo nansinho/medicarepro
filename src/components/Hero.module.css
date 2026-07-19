@@ -382,40 +382,6 @@
   box-shadow: 0 8px 16px rgba(43, 111, 214, 0.4);
 }
 
-/* Placement du badge OVH sur le hero d'accueil (surcharge la position par
-   défaut définie dans security.module.css). Scopé sous .hero pour gagner en
-   spécificité, indépendamment de l'ordre des modules dans le bundle. */
-/* Badge OVH en HAUT À GAUCHE, au-dessus du texte (ne recouvre plus la
-   photo ni le visage). Échelle réduite pour ne pas gêner le titre, et qui
-   « rapetisse » encore aux largeurs intermédiaires (media queries plus bas). */
-.hero .ovhBadge {
-  top: 1.5%;
-  left: 0;
-  right: auto;
-  z-index: 6;
-  transform: scale(0.72);
-  transform-origin: top left;
-}
-/* Largeurs intermédiaires : on rétrécit progressivement le badge pour qu'il
-   reste dans la marge sans chevaucher le h1 quand la colonne texte se réduit. */
-@media (max-width: 1200px) {
-  .hero .ovhBadge {
-    transform: scale(0.62);
-  }
-}
-@media (max-width: 1000px) {
-  .hero .ovhBadge {
-    transform: scale(0.52);
-  }
-}
-/* Instance mobile du badge (rendue DANS .photoBleed, montée seulement ≤760
-   via useIsMobile) : masquée par défaut, affichée en chip compact épinglé
-   sur la photo dans le bloc ≤760 en fin de fichier. Scopé .hero .ovhBadgeMobile
-   pour dominer le display:none ≤1200 de security.module.css. */
-.hero .ovhBadgeMobile {
-  display: none;
-}
-
 /* Intro animée du texte */
 .heroText h1 {
   opacity: 0;
@@ -547,9 +513,6 @@
   .duoImg {
     object-position: bottom center;
   }
-  .hero .ovhBadge {
-    display: none;
-  }
   .heroText {
     max-width: none;
     padding: 30px 0 24px;
@@ -627,18 +590,6 @@
     width: auto; /* l'étirement flex + marges négatives = full-bleed symétrique */
     height: clamp(240px, 34vw, 300px);
     margin: 0 -22px;
-  }
-  /* Badge OVH réintégré en chip compact statique, épinglé en haut à droite
-     de la photo. `scale` (propriété individuelle) plutôt que transform :
-     framer-motion pose un `transform` inline en fin d'intro qui écraserait
-     un transform CSS. */
-  .hero .ovhBadgeMobile {
-    display: grid;
-    top: 14px;
-    right: 14px;
-    scale: 0.82;
-    transform-origin: top right;
-    animation: none;
   }
   .hero h1 {
     font-size: clamp(2.15rem, 8.6vw, 2.7rem);
