@@ -9,7 +9,7 @@ import { join } from "node:path";
  * Le pictogramme officiel est lu depuis public/ et incrusté en data URI.
  */
 export const alt =
-  "MediCare Pro — Tout votre cabinet de podologie dans une seule application";
+  "MediCare Pro | Tout votre cabinet de podologie dans une seule application";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

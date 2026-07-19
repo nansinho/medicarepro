@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /** Web App Manifest : identité de l'app pour mobiles et installation PWA. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MediCare Pro — Logiciel pour podologues",
+    name: "MediCare Pro | Logiciel pour podologues",
     short_name: "MediCare Pro",
     description:
       "Tout votre cabinet de podologie dans une seule application : dossiers patients, facturation, agenda, bilans et comptabilité.",

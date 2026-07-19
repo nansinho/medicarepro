@@ -28,8 +28,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://medicarepro.fr"),
   title: {
-    default: "MediCare Pro — Le logiciel tout-en-un des pédicures-podologues",
-    template: "%s — MediCare Pro",
+    default: "MediCare Pro | Le logiciel tout-en-un des pédicures-podologues",
+    template: "%s | MediCare Pro",
   },
   description:
     "MediCare Pro : logiciel complet de gestion de cabinet pour podologues. Dossiers patients, consultations, facturation automatisée, signature électronique, comptabilité et conformité RGPD. Hébergement HDS en France.",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "MediCare Pro" }],
   openGraph: {
-    title: "MediCare Pro — Le logiciel tout-en-un des pédicures-podologues",
+    title: "MediCare Pro | Le logiciel tout-en-un des pédicures-podologues",
     description:
       "Le logiciel complet de gestion pour podologues : dossiers patients, bilans, facturation automatisée, comptabilité et conformité RGPD. Hébergement HDS en France.",
     locale: "fr_FR",

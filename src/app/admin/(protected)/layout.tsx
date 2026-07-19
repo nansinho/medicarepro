@@ -18,7 +18,7 @@ import s from "@/components/admin/Admin.module.css";
 export const metadata: Metadata = {
   title: {
     default: "Back office",
-    template: "%s — Back office MediCare Pro",
+    template: "%s | Back office MediCare Pro",
   },
   robots: { index: false, follow: false },
 };

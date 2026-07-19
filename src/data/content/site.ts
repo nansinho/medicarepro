@@ -145,7 +145,7 @@ export const SETTINGS = {
 
 export type SeoDefault = {
   title: string;
-  /** true = titre complet sans template « %s — MediCare Pro ». */
+  /** true = titre complet sans template « %s | MediCare Pro ». */
   titleAbsolute?: boolean;
   description: string;
   canonical: string;
@@ -155,7 +155,7 @@ export type SeoDefault = {
 
 export const SEO_DEFAULTS = {
   "/": {
-    title: "MediCare Pro — Logiciel tout-en-un pour podologues",
+    title: "MediCare Pro | Logiciel tout-en-un pour podologues",
     titleAbsolute: true,
     description:
       "Dossiers patients, facturation automatique, agenda, 13 bilans et comptabilité : tout votre cabinet de podologie dans une seule application, dès 24,84 €/mois.",
@@ -172,7 +172,7 @@ export const SEO_DEFAULTS = {
     sitemapChangefreq: "monthly",
   },
   "/bilans": {
-    title: "Logiciel de bilan podologique — 13 bilans spécialisés",
+    title: "Logiciel de bilan podologique : 13 bilans spécialisés",
     description:
       "13 bilans podologiques normés, scores calculés automatiquement : diabétique, chutes, posturologie, pédiatrie et plus. Tout inclus dans l'abonnement.",
     canonical: "/bilans",

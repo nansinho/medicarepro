@@ -129,7 +129,7 @@ export default function AvantagesShowcase({
             >
               <Image
                 src={image ?? ""}
-                alt={alt ?? `${title} — MediCare Pro`}
+                alt={alt ?? `${title} | MediCare Pro`}
                 fill
                 sizes="(max-width: 980px) 100vw, 560px"
               />

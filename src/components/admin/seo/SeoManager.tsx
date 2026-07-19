@@ -371,7 +371,7 @@ export default function SeoManager({
                   name="title_absolute"
                   defaultChecked={editingMeta.titleAbsolute}
                 />
-                Titre absolu (sans « — MediCare Pro »)
+                Titre absolu (sans « | MediCare Pro »)
               </label>
               <label>
                 Description
