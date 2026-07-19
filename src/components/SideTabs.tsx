@@ -1,7 +1,7 @@
 "use client";
 
-import { Star } from "./icons";
-import { resolveHref } from "@/lib/appLinks";
+import { Star, User } from "./icons";
+import { loginUrl, resolveHref } from "@/lib/appLinks";
 import s from "./SideTabs.module.css";
 
 /* Icône de l'onglet « avis » (clé string des réglages CMS).
@@ -15,11 +15,15 @@ type SideTab = { label: string; href: string; icon: string };
  * Onglets latéraux fixes et clignotants, présents sur toute la vitrine :
  * - gauche : « Laissez un avis » (lien Google Avis à brancher plus tard)
  * - droit  : « Je m'abonne » → passerelle vers l'app (app.medicarepro.fr/register)
+ * - mobile : pastille « Connexion » en bas à gauche (≤880px, quand le bouton
+ *   du header disparaît) — libellé partagé avec le header (header.loginLabel)
  */
 export default function SideTabs({
   tabs,
+  loginLabel,
 }: {
   tabs: { review: SideTab; subscribe: SideTab };
+  loginLabel: string;
 }) {
   const ReviewIcon = ICONS[tabs.review.icon as keyof typeof ICONS];
   return (
@@ -50,6 +54,13 @@ export default function SideTabs({
           className={s.logo}
         />
         <span className={s.label}>{tabs.subscribe.label}</span>
+      </a>
+
+      {/* Pastille « Connexion » : mobile uniquement (masquée en CSS au-delà
+          de 880px, le header affiche alors son propre bouton). */}
+      <a href={loginUrl()} className={`${s.tab} ${s.login}`} aria-label={loginLabel}>
+        <User className={s.ico} width={18} height={18} />
+        <span className={s.label}>{loginLabel}</span>
       </a>
     </>
   );

@@ -160,11 +160,10 @@
     height: 16px;
   }
 
-  /* Pictogramme de marque dans la pill flottante. */
+  /* Pictogramme de marque : pas sa place dans la pill mobile (décision
+     client) — il reste sur l'onglet vertical desktop. */
   .right .logo {
-    width: 22px;
-    height: 22px;
-    padding: 3px;
+    display: none;
   }
 
   /* Neutralise le décalage de padding au hover (aucun sens en pill tactile). */
@@ -175,5 +174,70 @@
   /* Retour tactile : légère pression à la place du hover. */
   .right:active {
     transform: scale(0.96);
+  }
+}
+
+/* ============================================================
+   PASTILLE « CONNEXION » (mobile uniquement) — le bouton du header
+   disparaît sous 880px : cette pill blanche prend le relais en bas
+   à GAUCHE. Les deux boutons se partagent la largeur moitié-moitié
+   par ancrage left/right sur le centre (16px de marge extérieure,
+   16px d'écart central : le halo pulsé bleu irradie jusqu'à 12px).
+   PAS de largeur en vw : les vw incluent la scrollbar (~17px sous
+   Windows) et faisaient se chevaucher les deux pills. Blanche et
+   sans halo pulsé : l'abonnement garde la priorité visuelle.
+   ============================================================ */
+.login {
+  display: none;
+}
+
+@media (max-width: 880px) {
+  .login {
+    display: flex;
+    top: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 16px;
+    right: calc(50% + 8px);
+    justify-content: center;
+    transform: none;
+    flex-direction: row;
+    gap: 8px;
+    padding: 13px 10px;
+    min-height: 52px;
+    border-radius: 50px;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    color: var(--color-navy);
+    background: #fff;
+    border: 1px solid rgba(46, 134, 230, 0.35);
+    box-shadow: 0 4px 14px rgba(18, 38, 66, 0.16);
+    transition: transform 0.2s var(--ease), box-shadow 0.3s var(--ease);
+  }
+
+  .login .label {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .login .ico {
+    width: 16px;
+    height: 16px;
+    color: var(--color-primary);
+  }
+
+  .login:active {
+    transform: scale(0.96);
+  }
+
+  /* « Je m'abonne » passe lui aussi en demi-largeur, même gabarit. */
+  .right {
+    left: calc(50% + 8px);
+    right: 16px;
+    justify-content: center;
+    padding: 13px 10px;
+    min-height: 52px;
+  }
+  .right:hover {
+    padding-left: 10px;
   }
 }

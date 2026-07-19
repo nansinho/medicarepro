@@ -15,6 +15,7 @@ import {
   Instagram,
   XSocial,
   Caret,
+  User,
 } from "./icons";
 import { loginUrl } from "@/lib/appLinks";
 import { lines } from "@/components/cms/inline";
@@ -265,6 +266,16 @@ export default function Header({
             );
           })}
         </nav>
+        {/* Accès à l'app depuis le menu : indispensable sur mobile où le
+            bouton connexion du header est masqué (≤880px). */}
+        <a
+          href={loginUrl()}
+          className={styles.drawerLogin}
+          onClick={() => setDrawerOpen(false)}
+        >
+          <User width={17} height={17} />
+          {header.loginLabel}
+        </a>
         <div className={styles.drawerFooter}>
           <div className={styles.drawerContact}>
             <span>

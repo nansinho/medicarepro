@@ -376,6 +376,30 @@
   border-color: var(--color-primary);
 }
 
+/* ---- Bouton connexion du drawer ----
+   Même traitement que le bouton du header (pill dégradée) : sur mobile
+   (≤880px) celui du header est masqué, le menu garde donc un accès. */
+.drawerLogin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 20px;
+  padding: 13px 22px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: #fff;
+  background: var(--grad-btn);
+  box-shadow: 0 8px 20px rgba(33, 72, 126, 0.22);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.drawerLogin:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(33, 72, 126, 0.32);
+}
+
 /* ---- Bloc contact (carte) ---- */
 /* Bloc bas du drawer : poussé en bas, détaché du menu */
 .drawerFooter {

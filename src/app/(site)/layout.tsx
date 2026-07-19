@@ -23,7 +23,7 @@ export default async function SiteLayout({
     <>
       <PromoBanner promo={settings.promoBanner} />
       <Header nav={nav} header={settings.header} contact={settings.contact} />
-      <SideTabs tabs={settings.sideTabs} />
+      <SideTabs tabs={settings.sideTabs} loginLabel={settings.header.loginLabel} />
       <main>{children}</main>
       <Footer
         product={footerProduct}
