@@ -171,16 +171,11 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
     ).toBe(false);
   });
 
-  it("RPPS : facultatif, mais 11 chiffres si renseigné", () => {
-    // Vide → accepté (facultatif).
-    expect(
-      CheckoutSchema.safeParse({
-        ...valid,
-        cabinet: { ...valid.cabinet, rppsNumber: "" },
-      }).success,
-    ).toBe(true);
-    // Renseigné mais mal formé → refusé.
-    for (const bad of ["123", "123456789012", "1234567890A"]) {
+  it("RPPS : obligatoire, 11 chiffres", () => {
+    /* L'API de provisioning le refuse absent (HTTP 400) : l'accepter vide
+       revenait à encaisser un client dont le compte ne pouvait pas être
+       créé. Ce test verrouille la règle côté tunnel. */
+    for (const bad of ["", "123", "123456789012", "1234567890A"]) {
       expect(
         CheckoutSchema.safeParse({
           ...valid,

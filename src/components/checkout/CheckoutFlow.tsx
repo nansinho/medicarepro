@@ -1068,7 +1068,6 @@ export default function CheckoutFlow({
               <Field
                 id="cab-rpps"
                 label="Numéro RPPS"
-                optional
                 value={cabinet.rppsNumber}
                 onChange={(v) =>
                   setCabinet((p) => ({
@@ -1077,7 +1076,7 @@ export default function CheckoutFlow({
                   }))
                 }
                 error={errors["cabinet.rppsNumber"]}
-                hint="11 chiffres — vous pourrez le compléter plus tard depuis votre espace si vous ne l'avez pas sous la main."
+                hint="11 chiffres, figurant sur votre carte CPS ou dans l'Annuaire Santé."
                 inputMode="numeric"
                 placeholder="11 chiffres"
                 maxLength={11}

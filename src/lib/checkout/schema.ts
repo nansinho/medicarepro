@@ -45,14 +45,15 @@ export const CabinetSchema = z.object({
     .trim()
     .regex(/^\d{14}$/, "SIRET : 14 chiffres")
     .refine(isValidSiret, "SIRET invalide — vérifiez votre saisie"),
-  /** Identifiant RPPS : FACULTATIF (le praticien peut le compléter plus
-     tard) — mais s'il est renseigné, il doit faire 11 chiffres. */
+  /** Identifiant RPPS : OBLIGATOIRE. L'API de provisioning de l'app le
+     refuse absent (HTTP 400 « body.cabinet.rppsNumber Required ») : le
+     laisser facultatif revenait à encaisser un client dont le compte ne
+     pouvait pas être créé. À rebasculer en optionnel le jour où l'app
+     l'acceptera vide. */
   rppsNumber: z
     .string()
     .trim()
-    .regex(/^\d{11}$/, "Numéro RPPS : 11 chiffres")
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+    .regex(/^\d{11}$/, "Numéro RPPS : 11 chiffres"),
 });
 
 export const UserSchema = z.object({
