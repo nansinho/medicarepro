@@ -27,9 +27,11 @@ import {
   sepaMandateCopyEmail,
 } from "@/lib/emails/checkout-templates";
 import { mandateText } from "@/lib/sepa/mandate-text";
+import { parseMoneticoDate } from "@/lib/monetico";
 import { maskIban, ibanLast4 } from "@/lib/sepa/iban";
 import { buildMandatePdf } from "@/lib/sepa/mandate-pdf";
 import { issueInvoice } from "@/lib/billing/invoices";
+import { captureLedgerEntry, cancelAuthorization } from "@/lib/billing/capture";
 
 /* ============================================================
    Worker de provisioning — cœur du tunnel d'inscription payante.
@@ -199,6 +201,29 @@ async function markDuplicatePaid(
    Sorties d'erreur du provisioning.
    ------------------------------------------------------------ */
 
+/**
+ * Libère l'autorisation bancaire d'un dossier qui ne sera pas provisionné.
+ * Le TPE récurrent n'ayant qu'AUTORISÉ, annuler évite de laisser une
+ * empreinte immobilisée sur la carte d'un client qui n'aura pas de compte.
+ * Best-effort : ne jette jamais, l'échec est signalé par l'alerte interne.
+ */
+async function releaseAuthorization(row: PendingSignupRow): Promise<void> {
+  try {
+    await cancelAuthorization({
+      reference: row.monetico_reference,
+      orderDate: row.monetico_order_date,
+      amountCents: row.amount_cents,
+      currency: row.currency,
+      cabinetName: row.cabinet.name,
+    });
+  } catch (err) {
+    console.error(
+      "[billing-worker] annulation d'autorisation :",
+      errMessage(err),
+    );
+  }
+}
+
 /** Erreur non rejouable automatiquement : retour 'paid' SANS next_retry_at. */
 async function failManual(
   supabase: SupabaseClient,
@@ -211,11 +236,13 @@ async function failManual(
     .eq("id", row.id)
     .eq("status", "provisioning");
 
+  await releaseAuthorization(row);
+
   await sendBillingAlert("URGENT — Provisioning en échec (intervention requise)", [
     `Dossier ${row.id} (référence ${row.monetico_reference}) — cabinet ${row.cabinet.name}.`,
-    `Montant encaissé : ${formatEuros(row.amount_cents)}.`,
+    `Montant autorisé : ${formatEuros(row.amount_cents)} — l'autorisation a été annulée, le client n'est pas débité.`,
     `Erreur : ${lastError}`,
-    "Aucune re-tentative automatique ne sera faite : diagnostiquer puis relancer manuellement.",
+    "Aucune re-tentative automatique ne sera faite : diagnostiquer puis relancer manuellement (le paiement devra être refait).",
   ]);
 }
 
@@ -237,13 +264,15 @@ async function handleProvisionError(
       .eq("id", row.id)
       .eq("status", "provisioning");
 
+    await releaseAuthorization(row);
+
     await sendBillingAlert(
-      "URGENT — Conflit de provisioning après encaissement",
+      "URGENT — Conflit de provisioning après autorisation",
       [
         `Dossier ${row.id} (référence ${row.monetico_reference}) — cabinet ${row.cabinet.name}.`,
-        `Montant encaissé : ${formatEuros(row.amount_cents)}.`,
+        `Montant autorisé : ${formatEuros(row.amount_cents)} — l'autorisation a été annulée, le client n'est pas débité.`,
         `Conflit : ${errMessage(err)}`,
-        "Le compte n'a PAS été créé. Résolution manuelle obligatoire (remboursement ou création assistée) — ce dossier ne sera jamais rejoué automatiquement.",
+        "Le compte n'a PAS été créé. Résolution manuelle obligatoire — ce dossier ne sera jamais rejoué automatiquement.",
       ],
     );
 
@@ -323,6 +352,8 @@ async function finalizeSuccess(
   let subscriptionId: string | null = null;
   /** Fin de la 1re période — date de la première reconduction annoncée au client. */
   let periodEndDate: Date | null = null;
+  /** Écriture comptable du 1er paiement, à encaisser une fois le compte créé. */
+  let ledgerId: number | null = null;
   let sepaPayload: SepaPayload | null = null;
   let mandateCreated = false;
   let criticalOk = false;
@@ -347,7 +378,17 @@ async function finalizeSuccess(
 
     // 2. Souscription (registre durable de facturation).
     const startedAt = new Date();
-    const periodEnd = addMonthsClamped(startedAt, row.plan === "ANNUAL" ? 12 : 1);
+    /* La période court depuis la DATE DE COMMANDE Monetico, pas depuis
+       l'instant UTC : un paiement à 00h55 heure de Paris est encore la
+       veille en UTC, et notre échéance tombait alors un jour avant celle
+       annoncée par la banque (constaté sur MPB19GK81GC9 : 23/08 chez nous,
+       24/08 chez Monetico). L'abonnement paraissait expiré 24 h durant. */
+    const periodStart =
+      parseMoneticoDate(`${row.monetico_order_date ?? ""}:00:00:00`) ?? startedAt;
+    const periodEnd = addMonthsClamped(
+      periodStart,
+      row.plan === "ANNUAL" ? 12 : 1,
+    );
     periodEndDate = periodEnd;
     const { data: sub, error: e2 } = await supabase
       .from("subscriptions")
@@ -427,16 +468,24 @@ async function finalizeSuccess(
     }
 
     // 4. Pièce comptable (append-only, survit à toutes les purges).
-    const { error: e4 } = await supabase.from("billing_ledger").insert({
-      event_type: "card_payment",
-      amount_cents: row.amount_cents,
-      currency: row.currency,
-      occurred_at: row.paid_at ?? new Date().toISOString(),
-      reference: row.monetico_reference,
-      subscription_id: subscriptionId,
-      cabinet_name: cabinet.name,
-    });
-    if (e4) throw new Error(`insert billing_ledger : ${e4.message}`);
+    //    captured_at reste NULL : à ce stade la banque a AUTORISÉ, pas encaissé.
+    const { data: ledger, error: e4 } = await supabase
+      .from("billing_ledger")
+      .insert({
+        event_type: "card_payment",
+        amount_cents: row.amount_cents,
+        currency: row.currency,
+        occurred_at: row.paid_at ?? new Date().toISOString(),
+        reference: row.monetico_reference,
+        subscription_id: subscriptionId,
+        cabinet_name: cabinet.name,
+      })
+      .select("id")
+      .single();
+    if (e4 || !ledger) {
+      throw new Error(`insert billing_ledger : ${e4?.message ?? "aucune ligne"}`);
+    }
+    ledgerId = ledger.id as number;
 
     // 5. Rattache la preuve de consentement contractuel au contrat durable
     //    (consent_records est lié à la chaîne de checkout par root_id).
@@ -475,6 +524,23 @@ async function finalizeSuccess(
   /* --- Best-effort (chaque étape isolée : un échec ne bloque pas la suite).
      Facture, reçu et alerte partent TOUJOURS ; les pièces liées au mandat
      (PDF, copie) uniquement si un mandat SEPA a été créé (sepaPayload). */
+  /* --- ENCAISSEMENT. Le TPE récurrent autorise mais ne prélève pas : sans
+     cette demande, le compte serait créé et facturé sans qu'un centime ne
+     bouge. On le fait ici, et pas avant, pour que l'ordre soit toujours
+     « compte créé, PUIS argent pris » — une autorisation non capturée
+     expire d'elle-même, ce qui protège le client si quelque chose casse. */
+  if (criticalOk && ledgerId !== null) {
+    try {
+      const capture = await captureLedgerEntry(ledgerId);
+      if (!capture.ok) {
+        console.error("[billing-worker] encaissement refusé :", capture.message);
+      }
+    } catch (err) {
+      // captureLedgerEntry alerte déjà ; le cron de rattrapage réessaiera.
+      console.error("[billing-worker] échec encaissement :", errMessage(err));
+    }
+  }
+
   if (criticalOk && subscriptionId) {
     const label = planLabel(row.plan, row.extra_collaborators);
     let invoiceNumber: string | undefined;

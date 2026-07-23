@@ -4,6 +4,7 @@ import { billingEnv } from "@/lib/env";
 import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { issueInvoice } from "@/lib/billing/invoices";
+import { captureLedgerEntry } from "@/lib/billing/capture";
 import { formatEuros, planLabel, type BillingPlan } from "@/lib/checkout/pricing";
 import {
   renewalReceiptEmail,
@@ -110,6 +111,32 @@ export async function finalizeRenewal(
 
   const sub = data as SubscriptionRow;
   const amountCents = input.amountCents ?? sub.renewal_amount_cents;
+
+  /* ENCAISSEMENT de l'échéance. La banque l'a créée et autorisée, pas
+     prélevée : sans cette demande, on facturerait une reconduction dont
+     l'argent ne bougerait jamais. L'écriture a été posée par la RPC dans la
+     même transaction que le journal IPN, on la retrouve par sa date. */
+  const { data: ledger } = await supabase
+    .from("billing_ledger")
+    .select("id")
+    .eq("reference", input.reference)
+    .eq("event_type", "card_renewal")
+    .eq("occurred_at", input.occurredAt.toISOString())
+    .maybeSingle();
+  if (ledger) {
+    try {
+      const capture = await captureLedgerEntry((ledger as { id: number }).id);
+      if (!capture.ok) {
+        console.error(
+          "[billing-renewals] encaissement refusé :",
+          capture.message,
+        );
+      }
+    } catch (err) {
+      // captureLedgerEntry alerte déjà ; le cron de rattrapage réessaiera.
+      console.error("[billing-renewals] échec encaissement :", errMessage(err));
+    }
+  }
   const label = planLabel(sub.plan, sub.extra_collaborators);
   const firstName = sub.admin_name.trim().split(/\s+/)[0] ?? "";
   const periodEnd = new Date(sub.current_period_end);

@@ -2,6 +2,7 @@ import { env } from "@/lib/env";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { serviceClient } from "@/lib/supabase/service";
 import { processDuePendingSignups } from "@/lib/billing/worker";
+import { captureDueEntries } from "@/lib/billing/capture";
 
 /* ============================================================
    /api/cron/provision-retry — relance périodique du provisioning
@@ -31,7 +32,12 @@ async function handle(request: Request): Promise<Response> {
     return Response.json({ error: "Base non configurée." }, { status: 503 });
   }
   const processed = await processDuePendingSignups(10);
-  return Response.json({ processed });
+  /* Rattrapage des encaissements : le TPE récurrent autorise sans prélever,
+     et une demande de recouvrement a pu échouer (banque injoignable, refus
+     transitoire). Sans ce passage, l'argent resterait indéfiniment autorisé
+     mais jamais encaissé. */
+  const captured = await captureDueEntries(20);
+  return Response.json({ processed, captured });
 }
 
 export async function POST(request: Request) {

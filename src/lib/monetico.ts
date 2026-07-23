@@ -348,17 +348,26 @@ export function filterIpnForStorage(
 }
 
 /* ============================================================
-   Arrêt de récurrence (TPE en Paiement Récurrent).
+   Service de capture (capture_paiement.cgi) — trois usages.
 
-   Il n'existe pas de service dédié : on appelle le service de
-   capture (capture_paiement.cgi) avec stoprecurrence=OUI,
-   montant_a_capturer et montant_restant à 0. En cas de succès,
-   « la commande ne sera plus renouvelée ».
+   Un TPE en Paiement Récurrent N'ENCAISSE PAS tout seul : chaque
+   échéance est créée « Enregistré », autorisée mais non prélevée,
+   et attend une mise en recouvrement. Constaté sur la plateforme
+   de test le 24/07/2026 (référence MPB19GK81GC9, montant restant
+   égal au montant total tant qu'on n'agit pas), conforme à la
+   doc : « seuls les TPE en paiement immédiat ne requièrent aucune
+   action de votre part ».
+
+   Le même service porte les trois opérations, distinguées par les
+   montants :
+   - RECOUVREMENT : montant_a_capturer = ce qu'on encaisse ;
+   - ANNULATION   : les trois montants à 0 (l'autorisation tombe) ;
+   - ARRÊT DE RÉCURRENCE : les trois à 0 + stoprecurrence=OUI.
 
    ⚠️ Le sens de `cdr` est INVERSÉ par rapport à l'acquittement de
-   l'interface Retour : ici cdr=1 signifie ACCEPTÉ (lib=« recurrence
-   stoppee »), cdr=0 signifie refusé. Ne pas confondre avec
-   IPN_ACK_OK (cdr=0) qui, lui, acquitte une notification.
+   l'interface Retour : ici cdr=1 signifie ACCEPTÉ, cdr=0 refusé.
+   Ne pas confondre avec IPN_ACK_OK (cdr=0) qui, lui, acquitte une
+   notification.
    ============================================================ */
 
 /** Date de commande au format Monetico JJ/MM/AAAA (heure de Paris). */
@@ -366,19 +375,25 @@ export function formatMoneticoOrderDate(date: Date): string {
   return formatMoneticoDate(date).slice(0, 10);
 }
 
-export type StopRecurrenceRequest = {
+export type CaptureRequest = {
   /** Référence de la commande initiale (celle du formulaire aller). */
   reference: string;
   /** Date de la commande initiale (champ `date` du formulaire aller). */
   orderDate: Date;
   /** Montant TTC de la commande initiale, en centimes. */
   amountCents: number;
+  /** Montant TTC à encaisser maintenant (0 = annulation). */
+  captureCents: number;
   /**
-   * Montant TTC déjà capturé sur cette commande, en centimes : « doit
-   * correspondre à l'historique de la commande ». À confirmer avec le CIC
-   * pour un abonnement reconduit (l'exemple de la doc utilise 0).
+   * Montant TTC déjà capturé sur cette commande : « doit correspondre à
+   * l'historique de la commande ». L'exemple de la doc utilise pourtant 0
+   * même sur une commande de 100 € — d'où les repli côté appelant.
    */
   alreadyCapturedCents: number;
+  /** Solde restant après cette opération. */
+  remainingCents: number;
+  /** Ajoute stoprecurrence=OUI : plus aucune reconduction ensuite. */
+  stopRecurrence?: boolean;
   currency?: string;
   /** Date de la demande — par défaut maintenant (utile pour les tests). */
   now?: Date;
@@ -391,13 +406,15 @@ export type SealedCaptureRequest = {
   fields: Record<string, string>;
 };
 
-/** Construit la demande d'arrêt de récurrence, scellée. */
-export function buildStopRecurrenceRequest(
-  req: StopRecurrenceRequest,
+/** Construit une demande scellée pour le service de capture. */
+export function buildCaptureRequest(
+  req: CaptureRequest,
   config: MoneticoConfig,
 ): SealedCaptureRequest {
   const currency = req.currency ?? "EUR";
   const zero = `0${currency}`;
+  const amount = (cents: number) =>
+    cents > 0 ? formatMontant(cents, currency) : zero;
 
   const fields: Record<string, string> = {
     TPE: config.tpe,
@@ -405,21 +422,34 @@ export function buildStopRecurrenceRequest(
     date: formatMoneticoDate(req.now ?? new Date()),
     date_commande: formatMoneticoOrderDate(req.orderDate),
     montant: formatMontant(req.amountCents, currency),
-    montant_a_capturer: zero,
-    montant_deja_capture:
-      req.alreadyCapturedCents > 0
-        ? formatMontant(req.alreadyCapturedCents, currency)
-        : zero,
-    montant_restant: zero,
-    stoprecurrence: "OUI",
+    montant_a_capturer: amount(req.captureCents),
+    montant_deja_capture: amount(req.alreadyCapturedCents),
+    montant_restant: amount(req.remainingCents),
     reference: req.reference,
     lgue: "FR",
     societe: config.societe,
   };
+  if (req.stopRecurrence) fields["stoprecurrence"] = "OUI";
 
   fields["MAC"] = sealFields(fields, config.key);
 
   return { url: MONETICO_CAPTURE_URLS[config.mode], fields };
+}
+
+export type StopRecurrenceRequest = Omit<
+  CaptureRequest,
+  "captureCents" | "remainingCents" | "stopRecurrence"
+>;
+
+/** Arrêt de récurrence : les trois montants à 0 + stoprecurrence=OUI. */
+export function buildStopRecurrenceRequest(
+  req: StopRecurrenceRequest,
+  config: MoneticoConfig,
+): SealedCaptureRequest {
+  return buildCaptureRequest(
+    { ...req, captureCents: 0, remainingCents: 0, stopRecurrence: true },
+    config,
+  );
 }
 
 export type CaptureResponse = {

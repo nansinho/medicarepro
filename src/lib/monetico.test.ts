@@ -14,6 +14,7 @@ import {
   parseMoneticoDate,
   parseCaptureResponse,
   buildStopRecurrenceRequest,
+  buildCaptureRequest,
   sealFields,
   verifyIpnSeal,
   type MoneticoConfig,
@@ -343,5 +344,69 @@ describe("parseCaptureResponse", () => {
     );
     expect(res.accepted).toBe(false);
     expect(res.lib).toBe("autorisation refusee");
+  });
+});
+
+describe("buildCaptureRequest", () => {
+  const config: MoneticoConfig = {
+    tpe: "NB8179R",
+    key: "12345678901234567890123456789012345678P0",
+    societe: "medicarepr",
+    mode: "test",
+  };
+  const base = {
+    reference: "MPB19GK81GC9",
+    orderDate: new Date("2026-07-23T22:55:57Z"), // 24/07 à 00h55 à Paris
+    amountCents: 4488,
+    now: new Date("2026-07-24T08:00:00Z"),
+  };
+
+  it("recouvrement : encaisse le montant, solde à zéro", () => {
+    const { fields } = buildCaptureRequest(
+      { ...base, captureCents: 4488, alreadyCapturedCents: 0, remainingCents: 0 },
+      config,
+    );
+    // La date de commande doit être celle vue par la banque (heure de Paris).
+    expect(fields["date_commande"]).toBe("24/07/2026");
+    expect(fields["montant"]).toBe("44.88EUR");
+    expect(fields["montant_a_capturer"]).toBe("44.88EUR");
+    expect(fields["montant_deja_capture"]).toBe("0EUR");
+    expect(fields["montant_restant"]).toBe("0EUR");
+    expect(fields["stoprecurrence"]).toBeUndefined();
+    expect(fields["MAC"]).toBe(computeSeal(buildSealBase(fields), config.key));
+  });
+
+  it("annulation : les trois montants à zéro, sans stoprecurrence", () => {
+    const { fields } = buildCaptureRequest(
+      { ...base, captureCents: 0, alreadyCapturedCents: 0, remainingCents: 0 },
+      config,
+    );
+    expect(fields["montant_a_capturer"]).toBe("0EUR");
+    expect(fields["montant_deja_capture"]).toBe("0EUR");
+    expect(fields["montant_restant"]).toBe("0EUR");
+    expect(fields["stoprecurrence"]).toBeUndefined();
+  });
+
+  it("arrêt de récurrence : mêmes montants, plus stoprecurrence=OUI", () => {
+    const { fields } = buildStopRecurrenceRequest(
+      { ...base, alreadyCapturedCents: 0 },
+      config,
+    );
+    expect(fields["montant_a_capturer"]).toBe("0EUR");
+    expect(fields["montant_restant"]).toBe("0EUR");
+    expect(fields["stoprecurrence"]).toBe("OUI");
+  });
+
+  it("reporte l'historique déjà encaissé sur une reconduction", () => {
+    const { fields } = buildCaptureRequest(
+      {
+        ...base,
+        captureCents: 4488,
+        alreadyCapturedCents: 4488,
+        remainingCents: 0,
+      },
+      config,
+    );
+    expect(fields["montant_deja_capture"]).toBe("44.88EUR");
   });
 });
