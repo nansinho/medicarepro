@@ -19,6 +19,8 @@ const POLL_TIMEOUT_MS = 3 * 60 * 1_000;
 type StatusResponse = {
   status: string;
   paymentRefused: boolean;
+  /** Dossier figé : encaissé, mais plus aucune tentative automatique prévue. */
+  needsReview?: boolean;
   loginUrl: string | null;
 };
 
@@ -115,7 +117,10 @@ export default function ConfirmationPoller({
             setPhase("provisioned");
             return;
           }
-          if (REVIEW_STATUSES.includes(data.status)) {
+          /* needsReview : le dossier est encaissé mais figé (échec non
+             rejouable). Sans ça, l'attente tournait 3 minutes avant de
+             promettre un email qui ne serait jamais parti. */
+          if (data.needsReview || REVIEW_STATUSES.includes(data.status)) {
             setPhase("review");
             return;
           }
@@ -269,8 +274,8 @@ export default function ConfirmationPoller({
           </div>
           <p className={s.centerTitle}>Votre espace est prêt !</p>
           <p className={s.centerText}>
-            Paiement confirmé et cabinet créé. Vous recevrez également vos
-            reçus et la copie de votre mandat SEPA par email.
+            Paiement confirmé et cabinet créé. Votre reçu et votre facture vous
+            sont envoyés par email.
           </p>
           {loginUrl ? (
             <a className={s.btnPrimary} href={loginUrl}>

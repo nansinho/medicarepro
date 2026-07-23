@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("pending_signups")
-    .select("id, status, status_token, code_retour, login_url")
+    .select(
+      "id, status, status_token, code_retour, login_url, next_retry_at, last_error",
+    )
     .eq("monetico_reference", ref)
     .maybeSingle();
   if (error || !data) {
@@ -51,6 +53,8 @@ export async function GET(request: NextRequest) {
     status_token: string;
     code_retour: string | null;
     login_url: string | null;
+    next_retry_at: string | null;
+    last_error: string | null;
   };
 
   if (!timingSafeEqualString(cookieToken, row.status_token)) {
@@ -67,10 +71,22 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Trop de requêtes." }, { status: 429 });
   }
 
+  /* Échec NON rejouable : le worker a rendu la main (retour en 'paid') sans
+     programmer de nouvelle tentative, en consignant l'erreur. Le dossier ne
+     bougera plus sans intervention humaine — le dire tout de suite plutôt que
+     de faire tourner l'attente 3 minutes puis promettre un email qui ne
+     partira jamais. */
+  const stalled =
+    row.status === "paid" &&
+    row.next_retry_at === null &&
+    row.last_error !== null;
+
   return Response.json({
     status: row.status,
     paymentRefused:
       row.status === "payment_pending" && row.code_retour === REFUSED_CODE,
+    // Jamais le détail technique de l'erreur : le client n'en ferait rien.
+    needsReview: stalled,
     loginUrl: row.status === "provisioned" ? row.login_url : null,
   });
 }
