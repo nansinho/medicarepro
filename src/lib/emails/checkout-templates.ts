@@ -229,6 +229,13 @@ export type PaymentReceiptData = {
   reference: string;
   paidAtLabel: string;
   invoiceNumber?: string;
+  /**
+   * Reconduction automatique par carte : montant et périodicité en clair,
+   * rappelés par écrit après l'achat (obligation d'information sur un
+   * abonnement à reconduction tacite). Absents = pas de reconduction
+   * annoncée (renouvellement SEPA, étape mandat active).
+   */
+  renewal?: { amountLabel: string; periodLabel: string; nextDateLabel: string };
 };
 
 export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
@@ -244,6 +251,18 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
   if (d.invoiceNumber) {
     rows.push({ label: "Facture", valueHtml: escHtml(d.invoiceNumber) });
   }
+  if (d.renewal) {
+    rows.push({
+      label: "Reconduction",
+      valueHtml: `${escHtml(d.renewal.amountLabel)} TTC ${escHtml(d.renewal.periodLabel)}, le ${escHtml(d.renewal.nextDateLabel)}`,
+    });
+  }
+
+  const renewalHtml = d.renewal
+    ? callout(
+        `<strong style="color:${NAVY};">Votre abonnement est à reconduction automatique.</strong> Il sera renouvelé ${escHtml(d.renewal.periodLabel)} pour ${escHtml(d.renewal.amountLabel)} TTC, sur la carte utilisée aujourd'hui, à partir du ${escHtml(d.renewal.nextDateLabel)}. Pour l'arrêter, écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a>&nbsp;: votre accès reste ouvert jusqu'au terme de la période déjà réglée.`,
+      )
+    : "";
 
   const bodyHtml =
     heading(
@@ -254,6 +273,7 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
     callout(
       `<strong style="color:${NAVY};">Votre espace est en cours de création.</strong> Vous allez recevoir l'email de bienvenue de l'application MediCare&nbsp;Pro, avec votre lien de connexion et vos identifiants d'accès. Pensez à vérifier vos courriers indésirables s'il n'apparaît pas d'ici quelques minutes.`,
     ) +
+    renewalHtml +
     paragraph(
       `Conservez cet email&nbsp;: il fait office de reçu pour votre comptabilité.`,
     );
@@ -273,6 +293,16 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
     "",
     "Votre espace est en cours de création : vous allez recevoir l'email de",
     "bienvenue de l'application MediCare Pro, avec votre lien de connexion.",
+    ...(d.renewal
+      ? [
+          "",
+          "Abonnement à reconduction automatique : il sera renouvelé",
+          `${d.renewal.periodLabel} pour ${d.renewal.amountLabel} TTC sur la carte utilisée`,
+          `aujourd'hui, à partir du ${d.renewal.nextDateLabel}. Pour l'arrêter, écrivez-nous`,
+          "à contact@medicarepro.fr : votre accès reste ouvert jusqu'au terme de la",
+          "période déjà réglée.",
+        ]
+      : []),
     "",
     "Conservez cet email : il fait office de reçu pour votre comptabilité.",
     "Une question ? contact@medicarepro.fr",
@@ -295,6 +325,87 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
    2. Incident de provisioning (client) — rassurant, SANS détail
    technique : le paiement est enregistré, l'équipe prend le relais.
    ============================================================ */
+
+/* ============================================================
+   Reçu d'échéance — reconduction automatique de l'abonnement.
+   Envoyé à chaque débit rejoué par le TPE récurrent Monetico.
+   Mentions attendues pour un abonnement : ce qui vient d'être
+   prélevé, la période couverte, et comment arrêter.
+   ============================================================ */
+
+export type RenewalReceiptData = {
+  adminFirstName: string;
+  cabinetName: string;
+  planLabel: string;
+  amountLabel: string;
+  reference: string;
+  paidAtLabel: string;
+  /** Fin de la nouvelle période couverte, déjà formatée. */
+  periodEndLabel: string;
+  invoiceNumber?: string;
+};
+
+export function renewalReceiptEmail(d: RenewalReceiptData): EmailContent {
+  const subject = "Votre abonnement est reconduit — MediCare Pro";
+
+  const rows: KvRow[] = [
+    { label: "Cabinet", valueHtml: escHtml(d.cabinetName) },
+    { label: "Formule", valueHtml: escHtml(d.planLabel) },
+    { label: "Montant prélevé TTC", valueHtml: escHtml(d.amountLabel) },
+    { label: "Date du prélèvement", valueHtml: escHtml(d.paidAtLabel) },
+    { label: "Couvert jusqu'au", valueHtml: escHtml(d.periodEndLabel) },
+    { label: "Référence", valueHtml: mono(d.reference) },
+  ];
+  if (d.invoiceNumber) {
+    rows.push({ label: "Facture", valueHtml: escHtml(d.invoiceNumber) });
+  }
+
+  const bodyHtml =
+    heading(
+      "Votre abonnement continue",
+      `Bonjour ${escHtml(d.adminFirstName)}, l'abonnement du cabinet <strong style="color:${NAVY};">${escHtml(d.cabinetName)}</strong> vient d'être reconduit automatiquement. Aucune action de votre part n'est nécessaire.`,
+    ) +
+    kvCard(rows) +
+    callout(
+      `<strong style="color:${NAVY};">Vous gardez la main.</strong> Pour arrêter la reconduction automatique, écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a>&nbsp;: votre accès reste ouvert jusqu'au terme de la période déjà réglée.`,
+    ) +
+    paragraph(
+      `Conservez cet email&nbsp;: il fait office de reçu pour votre comptabilité.`,
+    );
+
+  const text = [
+    "MediCare Pro — Reçu de reconduction",
+    "",
+    `Bonjour ${d.adminFirstName},`,
+    `L'abonnement du cabinet ${d.cabinetName} vient d'être reconduit automatiquement.`,
+    "",
+    `Cabinet              ${d.cabinetName}`,
+    `Formule              ${d.planLabel}`,
+    `Montant prélevé TTC  ${d.amountLabel}`,
+    `Date du prélèvement  ${d.paidAtLabel}`,
+    `Couvert jusqu'au     ${d.periodEndLabel}`,
+    `Référence            ${d.reference}`,
+    ...(d.invoiceNumber ? [`Facture              ${d.invoiceNumber}`] : []),
+    "",
+    "Pour arrêter la reconduction automatique, écrivez-nous à",
+    "contact@medicarepro.fr : votre accès reste ouvert jusqu'au terme de la",
+    "période déjà réglée.",
+    "",
+    "Conservez cet email : il fait office de reçu pour votre comptabilité.",
+  ].join("\n");
+
+  return {
+    subject,
+    text,
+    html: emailShell({
+      title: subject,
+      preheader: `${d.amountLabel} prélevés pour ${d.cabinetName} — couvert jusqu'au ${d.periodEndLabel}.`,
+      badge: "Abonnement reconduit",
+      bodyHtml,
+      footerNoteHtml: CLIENT_FOOTER_NOTE,
+    }),
+  };
+}
 
 export function provisioningIncidentEmailClient(d: {
   adminFirstName: string;

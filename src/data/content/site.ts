@@ -246,7 +246,7 @@ export const SEO_DEFAULTS = {
   "/cgv": {
     title: "Conditions générales de vente",
     description:
-      "Conditions générales de vente de l'abonnement MediCare Pro : tarifs, souscription en ligne, paiement par carte (Monetico), prélèvement SEPA et résiliation.",
+      "Conditions générales de vente de l'abonnement MediCare Pro : tarifs, souscription en ligne, paiement par carte (Monetico), reconduction automatique et résiliation.",
     canonical: "/cgv",
     sitemapPriority: 0.2,
     sitemapChangefreq: "yearly",

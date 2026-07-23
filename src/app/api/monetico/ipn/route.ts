@@ -4,11 +4,13 @@ import { serviceClient } from "@/lib/supabase/service";
 import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import { processDuePendingSignups } from "@/lib/billing/worker";
+import { finalizeRenewal } from "@/lib/billing/renewals";
 import {
   parseIpnBody,
   verifyIpnSeal,
   filterIpnForStorage,
   parseMontant,
+  parseMoneticoDate,
   IPN_ACK_OK,
   IPN_ACK_KO,
 } from "@/lib/monetico";
@@ -73,9 +75,17 @@ export async function POST(request: NextRequest) {
     const codeRetour = fields["code-retour"] ?? "";
     const montant = parseMontant(fields["montant"] ?? "");
 
+    /* Le TPE récurrent renotifie CHAQUE échéance avec la même référence et
+       le même code-retour : seule la date distingue deux débits. Elle sert
+       donc de clé d'événement (idempotence) et d'horodatage comptable. */
+    const eventDate = fields["date"] ?? "";
+    const occurredAt = parseMoneticoDate(eventDate);
+
     const { data, error } = await supabase.rpc("record_monetico_ipn", {
       p_reference: reference,
       p_code_retour: codeRetour,
+      p_event_key: eventDate,
+      p_occurred_at: occurredAt?.toISOString() ?? null,
       p_amount_cents: montant?.cents ?? null,
       p_currency: montant?.currency ?? null,
       p_raw: filterIpnForStorage(fields),
@@ -101,6 +111,25 @@ export async function POST(request: NextRequest) {
           );
         }
       });
+    } else if (outcome === "renewed" || outcome === "renewed_amount_mismatch") {
+      // Échéance de reconduction : la période et l'écriture comptable sont
+      // déjà posées par la RPC ; restent la facture et le reçu client.
+      const mismatch = outcome === "renewed_amount_mismatch";
+      after(async () => {
+        try {
+          await finalizeRenewal({
+            reference,
+            occurredAt: occurredAt ?? new Date(),
+            amountCents: montant?.cents ?? null,
+            amountMismatch: mismatch,
+          });
+        } catch (err) {
+          console.error(
+            "[monetico-ipn] finalisation du renouvellement :",
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+      });
     } else if (outcome === "amount_mismatch") {
       after(() =>
         sendIpnAlert("URGENT — Montant IPN inattendu (amount_mismatch)", [
@@ -120,8 +149,8 @@ export async function POST(request: NextRequest) {
         ]),
       );
     }
-    // 'replay' | 'refused' | 'stale' | 'ignored' : journalisés par la RPC,
-    // aucun effet de bord supplémentaire.
+    // 'replay' | 'refused' | 'stale' | 'ignored' | 'renew_duplicate' :
+    // journalisés par la RPC, aucun effet de bord supplémentaire.
 
     return ackOk();
   } catch (err) {

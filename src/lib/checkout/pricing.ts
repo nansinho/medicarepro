@@ -81,6 +81,20 @@ export function checkoutAmountCents(
 /** Montant du renouvellement — même formule que le 1er paiement. */
 export const renewalAmountCents = checkoutAmountCents;
 
+/**
+ * Libellé commercial de l'offre — utilisé sur les factures, les reçus et
+ * les alertes internes. Source unique : premier paiement ET reconductions.
+ */
+export function planLabel(
+  plan: BillingPlan,
+  extraCollaborators: number,
+): string {
+  const base =
+    plan === "ANNUAL" ? "Offre 12 mois" : "Offre mensuelle sans engagement";
+  if (extraCollaborators === 0) return base;
+  return `${base} + ${extraCollaborators} collaborateur${extraCollaborators > 1 ? "s" : ""}`;
+}
+
 /** "658,08 €" — affichage FR d'un montant en centimes. */
 export function formatEuros(cents: number): string {
   return new Intl.NumberFormat("fr-FR", {

@@ -34,12 +34,20 @@ export default async function InscriptionPage({
   if (!hasBilling()) return null;
 
   const { checkoutPlans, sepaIcs, sepaEnabled } = billingEnv();
-  const monthlyEnabled = checkoutPlans === "all";
+  /* Une formule n'est vendable que si un code site Monetico porte SA
+     fréquence de reconduction (cf. CHECKOUT_PLANS dans lib/env). */
+  const monthlyEnabled = checkoutPlans === "all" || checkoutPlans === "monthly";
+  const annualEnabled = checkoutPlans === "all" || checkoutPlans === "annual";
 
   const sp = await searchParams;
-  const planKey = typeof sp.plan === "string" ? sp.plan : "annual";
+  /* Sans plan explicite, on ouvre sur la formule vendable — les CTA du site
+     pointent majoritairement vers ?plan=annual, qui doit rester atterrissable
+     même quand l'annuel est fermé. */
+  const planKey =
+    typeof sp.plan === "string" ? sp.plan : annualEnabled ? "annual" : "monthly";
   let initialPlan = planFromPlanKey(planKey);
   if (initialPlan === "MONTHLY" && !monthlyEnabled) initialPlan = "ANNUAL";
+  if (initialPlan === "ANNUAL" && !annualEnabled) initialPlan = "MONTHLY";
 
   /* Table de prix pré-calculée (source unique : lib/checkout/pricing) —
      le client n'embarque aucune logique tarifaire. */
@@ -57,6 +65,7 @@ export default async function InscriptionPage({
     <CheckoutFlow
       initialPlan={initialPlan}
       monthlyEnabled={monthlyEnabled}
+      annualEnabled={annualEnabled}
       siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
       sepaIcs={sepaIcs}
       sepaEnabled={sepaEnabled}

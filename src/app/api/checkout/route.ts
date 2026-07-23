@@ -186,12 +186,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Plans vendables : MONTHLY fermé tant que le cycle SEPA n'est pas livré.
+  /* Plans vendables. Garde CRITIQUE : la fréquence de reconduction est celle
+     du code site Monetico, pas de la commande. Encaisser une formule dont
+     aucun code site ne porte le rythme, c'est prélever le client au mauvais
+     intervalle (offre 12 mois sur code site mensuel = 298,08 € par mois). */
   if (billing.checkoutPlans === "annual" && input.plan === "MONTHLY") {
     return Response.json(
       {
         error:
           "L'offre mensuelle sera bientôt disponible — choisissez l'offre 12 mois pour démarrer dès aujourd'hui.",
+      },
+      { status: 422 },
+    );
+  }
+  if (billing.checkoutPlans === "monthly" && input.plan === "ANNUAL") {
+    return Response.json(
+      {
+        error:
+          "L'offre 12 mois sera bientôt disponible — choisissez l'offre mensuelle pour démarrer dès aujourd'hui.",
       },
       { status: 422 },
     );
@@ -452,6 +464,22 @@ export async function POST(request: NextRequest) {
       err instanceof Error ? err.message : String(err),
     );
     return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
+  }
+
+  /* Date de commande figée telle qu'elle vient d'être scellée : le service
+     de capture (arrêt de récurrence) la réclame à l'identique, et la
+     re-dériver de created_at serait faux à cheval sur minuit. */
+  const { error: orderDateError } = await supabase
+    .from("pending_signups")
+    .update({ monetico_order_date: form.fields["date"].slice(0, 10) })
+    .eq("id", id);
+  if (orderDateError) {
+    // Non bloquant : le paiement peut avoir lieu, seule la résiliation
+    // automatique en pâtirait — on la rattrape à la main si besoin.
+    console.error(
+      "[checkout] monetico_order_date :",
+      orderDateError.message,
+    );
   }
 
   await logAudit({

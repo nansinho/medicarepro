@@ -17,6 +17,7 @@ import {
 import {
   renewalAmountCents,
   formatEuros,
+  planLabel,
   type BillingPlan,
 } from "@/lib/checkout/pricing";
 import {
@@ -79,6 +80,7 @@ type PendingSignupRow = {
   id: string;
   root_id: string;
   monetico_reference: string;
+  monetico_order_date: string | null;
   status: string;
   plan: BillingPlan;
   extra_collaborators: number;
@@ -117,17 +119,17 @@ function frDateTime(iso: string | null): string {
   }).format(iso ? new Date(iso) : new Date());
 }
 
+/** "11 juillet 2027" — date seule (première reconduction annoncée). */
+function frDate(date: Date): string {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "long",
+    timeZone: "Europe/Paris",
+  }).format(date);
+}
+
 /** Adresse complète du cabinet — MÊME format qu'au checkout (sceau du mandat). */
 function fullAddress(cabinet: ContractCabinet): string {
   return `${cabinet.address}, ${cabinet.postalCode} ${cabinet.city}`;
-}
-
-/** Libellé humain de l'offre pour les emails/factures. */
-function planLabel(plan: BillingPlan, extraCollaborators: number): string {
-  const base =
-    plan === "ANNUAL" ? "Offre 12 mois" : "Offre mensuelle sans engagement";
-  if (extraCollaborators === 0) return base;
-  return `${base} + ${extraCollaborators} collaborateur${extraCollaborators > 1 ? "s" : ""}`;
 }
 
 /** date + N mois, jour du mois borné (31 janv. + 1 mois = 28/29 févr.). */
@@ -319,6 +321,8 @@ async function finalizeSuccess(
   const rum = row.reserved_rum;
 
   let subscriptionId: string | null = null;
+  /** Fin de la 1re période — date de la première reconduction annoncée au client. */
+  let periodEndDate: Date | null = null;
   let sepaPayload: SepaPayload | null = null;
   let mandateCreated = false;
   let criticalOk = false;
@@ -344,6 +348,7 @@ async function finalizeSuccess(
     // 2. Souscription (registre durable de facturation).
     const startedAt = new Date();
     const periodEnd = addMonthsClamped(startedAt, row.plan === "ANNUAL" ? 12 : 1);
+    periodEndDate = periodEnd;
     const { data: sub, error: e2 } = await supabase
       .from("subscriptions")
       .insert({
@@ -352,6 +357,10 @@ async function finalizeSuccess(
         app_user_id: provision.userId,
         cabinet_name: cabinet.name,
         cabinet_email: cabinet.email,
+        // Adresse figée ici : les factures de reconduction sont émises des
+        // mois plus tard, quand pending_signups.cabinet est déjà anonymisé.
+        cabinet_address: cabinet.address,
+        cabinet_postal_city: `${cabinet.postalCode} ${cabinet.city}`,
         admin_email: user.email,
         admin_name: `${user.firstName} ${user.lastName}`,
         invoice_prefix: row.invoice_prefix,
@@ -364,6 +373,8 @@ async function finalizeSuccess(
         started_at: startedAt.toISOString(),
         current_period_end: periodEnd.toISOString(),
         monetico_reference: row.monetico_reference,
+        // Paramètre obligatoire de l'arrêt de récurrence, des mois plus tard.
+        monetico_order_date: row.monetico_order_date,
       })
       .select("id")
       .single();
@@ -492,6 +503,21 @@ async function finalizeSuccess(
     // n'est PAS joint ; le template mentionne que la facture est disponible
     // sur demande / sera envoyée. À brancher quand sendMail saura joindre.
     try {
+      /* Hors SEPA, le renouvellement passe par la reconduction automatique
+         du TPE récurrent : le client doit en retrouver le montant, le rythme
+         et la date par écrit dans son reçu. */
+      const renewal =
+        billingEnv().sepaEnabled || !periodEndDate
+          ? undefined
+          : {
+              amountLabel: formatEuros(
+                renewalAmountCents(row.plan, row.extra_collaborators),
+              ),
+              periodLabel:
+                row.plan === "ANNUAL" ? "tous les 12 mois" : "chaque mois",
+              nextDateLabel: frDate(periodEndDate),
+            };
+
       const receipt = paymentReceiptEmail({
         adminFirstName: user.firstName,
         cabinetName: cabinet.name,
@@ -500,6 +526,7 @@ async function finalizeSuccess(
         reference: row.monetico_reference,
         paidAtLabel: frDateTime(row.paid_at),
         invoiceNumber,
+        renewal,
       });
       await sendMail({ to: user.email, ...receipt });
     } catch (err) {

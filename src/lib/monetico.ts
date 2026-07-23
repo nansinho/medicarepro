@@ -30,6 +30,12 @@ export const MONETICO_PAYMENT_URLS = {
   production: "https://p.monetico-services.com/paiement.cgi",
 } as const;
 
+/** Service de capture/recouvrement — porte aussi l'arrêt de récurrence. */
+export const MONETICO_CAPTURE_URLS = {
+  test: "https://p.monetico-services.com/test/capture_paiement.cgi",
+  production: "https://p.monetico-services.com/capture_paiement.cgi",
+} as const;
+
 export type MoneticoMode = keyof typeof MONETICO_PAYMENT_URLS;
 
 /** Réponses attendues par Monetico sur l'IPN (corps texte brut, à l'octet près). */
@@ -187,6 +193,69 @@ export function formatMoneticoDate(date: Date): string {
   return `${get("day")}/${get("month")}/${get("year")}:${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
+/* ------------------------------------------------------------
+   Lecture de la date d'une notification.
+   L'interface Retour renvoie « JJ/MM/AAAA_a_HH:MM:SS » (le
+   formulaire aller utilise « JJ/MM/AAAA:HH:MM:SS ») — les deux
+   sont acceptés. L'heure est celle de Paris : on la convertit
+   en instant absolu en mesurant le décalage réel à cette date
+   (l'offset change entre l'hiver et l'été).
+   ------------------------------------------------------------ */
+
+const PARIS_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Paris",
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+/** Décalage Europe/Paris (ms) à l'instant UTC donné. */
+function parisOffsetMs(utcMs: number): number {
+  const parts = PARIS_PARTS.formatToParts(new Date(utcMs));
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value ?? "0");
+  const asIfUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
+  return asIfUtc - utcMs;
+}
+
+/**
+ * Parse la date d'un IPN Monetico (heure de Paris) en instant absolu.
+ * Renvoie null si le format n'est pas reconnu — l'appelant retombe
+ * alors sur l'heure de réception.
+ */
+export function parseMoneticoDate(value: string): Date | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})(?:_a_|:)(\d{2}):(\d{2}):(\d{2})$/.exec(
+    value.trim(),
+  );
+  if (!m) return null;
+  const [, dd, mm, yyyy, hh, mi, ss] = m;
+  const naive = Date.UTC(
+    Number(yyyy),
+    Number(mm) - 1,
+    Number(dd),
+    Number(hh),
+    Number(mi),
+    Number(ss),
+  );
+  // Deux passes : la première estimation suffit sauf au saut d'heure,
+  // la seconde recale sur l'offset effectif de l'instant trouvé.
+  const first = naive - parisOffsetMs(naive);
+  const utc = naive - parisOffsetMs(first);
+  const date = new Date(utc);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export type SealedPaymentForm = {
   /** URL de paiement (test ou production selon le mode). */
   action: string;
@@ -276,4 +345,108 @@ export function filterIpnForStorage(
     if (!IPN_EXCLUDED_FIELDS.has(k)) out[k] = v;
   }
   return out;
+}
+
+/* ============================================================
+   Arrêt de récurrence (TPE en Paiement Récurrent).
+
+   Il n'existe pas de service dédié : on appelle le service de
+   capture (capture_paiement.cgi) avec stoprecurrence=OUI,
+   montant_a_capturer et montant_restant à 0. En cas de succès,
+   « la commande ne sera plus renouvelée ».
+
+   ⚠️ Le sens de `cdr` est INVERSÉ par rapport à l'acquittement de
+   l'interface Retour : ici cdr=1 signifie ACCEPTÉ (lib=« recurrence
+   stoppee »), cdr=0 signifie refusé. Ne pas confondre avec
+   IPN_ACK_OK (cdr=0) qui, lui, acquitte une notification.
+   ============================================================ */
+
+/** Date de commande au format Monetico JJ/MM/AAAA (heure de Paris). */
+export function formatMoneticoOrderDate(date: Date): string {
+  return formatMoneticoDate(date).slice(0, 10);
+}
+
+export type StopRecurrenceRequest = {
+  /** Référence de la commande initiale (celle du formulaire aller). */
+  reference: string;
+  /** Date de la commande initiale (champ `date` du formulaire aller). */
+  orderDate: Date;
+  /** Montant TTC de la commande initiale, en centimes. */
+  amountCents: number;
+  /**
+   * Montant TTC déjà capturé sur cette commande, en centimes : « doit
+   * correspondre à l'historique de la commande ». À confirmer avec le CIC
+   * pour un abonnement reconduit (l'exemple de la doc utilise 0).
+   */
+  alreadyCapturedCents: number;
+  currency?: string;
+  /** Date de la demande — par défaut maintenant (utile pour les tests). */
+  now?: Date;
+};
+
+export type SealedCaptureRequest = {
+  /** URL du service de capture (test ou production selon le mode). */
+  url: string;
+  /** Corps application/x-www-form-urlencoded, MAC inclus. */
+  fields: Record<string, string>;
+};
+
+/** Construit la demande d'arrêt de récurrence, scellée. */
+export function buildStopRecurrenceRequest(
+  req: StopRecurrenceRequest,
+  config: MoneticoConfig,
+): SealedCaptureRequest {
+  const currency = req.currency ?? "EUR";
+  const zero = `0${currency}`;
+
+  const fields: Record<string, string> = {
+    TPE: config.tpe,
+    version: MONETICO_VERSION,
+    date: formatMoneticoDate(req.now ?? new Date()),
+    date_commande: formatMoneticoOrderDate(req.orderDate),
+    montant: formatMontant(req.amountCents, currency),
+    montant_a_capturer: zero,
+    montant_deja_capture:
+      req.alreadyCapturedCents > 0
+        ? formatMontant(req.alreadyCapturedCents, currency)
+        : zero,
+    montant_restant: zero,
+    stoprecurrence: "OUI",
+    reference: req.reference,
+    lgue: "FR",
+    societe: config.societe,
+  };
+
+  fields["MAC"] = sealFields(fields, config.key);
+
+  return { url: MONETICO_CAPTURE_URLS[config.mode], fields };
+}
+
+export type CaptureResponse = {
+  /** « 1 » = demande acceptée, « 0 » = refusée. */
+  cdr: string;
+  /** Libellé bancaire (« recurrence stoppee », « autorisation refusee »…). */
+  lib: string;
+  reference: string;
+  accepted: boolean;
+};
+
+/**
+ * Parse la réponse du service de capture : suite de « clé=valeur »
+ * séparées par des retours à la ligne (ou des espaces selon les gateways).
+ */
+export function parseCaptureResponse(rawBody: string): CaptureResponse {
+  const out: Record<string, string> = {};
+  for (const line of rawBody.split(/[\r\n]+/)) {
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    out[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+  const cdr = out["cdr"] ?? "";
+  return {
+    cdr,
+    lib: out["lib"] ?? "",
+    reference: out["reference"] ?? "",
+    accepted: cdr === "1",
+  };
 }

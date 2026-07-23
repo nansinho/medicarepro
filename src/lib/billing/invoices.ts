@@ -23,7 +23,7 @@ import { serviceClient } from "@/lib/supabase/service";
    (art. L441-9 / D441-5 C. com.), « Escompte : néant ».
    ============================================================ */
 
-export type InvoiceKind = "card_first" | "sdd_renewal";
+export type InvoiceKind = "card_first" | "card_renewal" | "sdd_renewal";
 
 export type IssueInvoiceInput = {
   kind: InvoiceKind;
@@ -83,6 +83,7 @@ const COMPANY_LINES = [
 
 const KIND_LABELS: Record<InvoiceKind, string> = {
   card_first: "Règlement par carte bancaire",
+  card_renewal: "Reconduction automatique par carte bancaire",
   sdd_renewal: "Règlement par prélèvement SEPA",
 };
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
+import { arreterReconduction } from "../actions";
 import s from "@/components/admin/Admin.module.css";
 
 /* ============================================================
@@ -34,6 +35,10 @@ type SubscriptionRow = {
   started_at: string;
   current_period_end: string;
   monetico_reference: string;
+  monetico_order_date: string | null;
+  renewal_count: number;
+  last_renewal_at: string | null;
+  recurrence_stopped_at: string | null;
   sepa_mandate_id: string | null;
   notes: string | null;
   created_at: string;
@@ -113,6 +118,7 @@ const MANDATE_BADGE: Record<string, { label: string; tone: string }> = {
 
 const INVOICE_KIND: Record<string, string> = {
   card_first: "1er paiement carte",
+  card_renewal: "Reconduction carte",
   sdd_renewal: "Renouvellement SEPA",
   credit_note: "Avoir",
 };
@@ -166,7 +172,7 @@ export default async function AbonnementDetailPage({
   const { data: subData } = await service
     .from("subscriptions")
     .select(
-      "id, pending_signup_id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, sepa_mandate_id, notes, created_at",
+      "id, pending_signup_id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, monetico_order_date, renewal_count, last_renewal_at, recurrence_stopped_at, sepa_mandate_id, notes, created_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -254,6 +260,61 @@ export default async function AbonnementDetailPage({
               </>
             )}
           </dl>
+        </section>
+
+        <section className={s.detailCard}>
+          <h2>Reconduction automatique</h2>
+          <dl className={s.detailList}>
+            <dt>État</dt>
+            <dd>
+              {sub.recurrence_stopped_at ? (
+                <span className={`${s.badge} ${s.tGray}`}>Arrêtée</span>
+              ) : (
+                <span className={`${s.badge} ${s.tGreen}`}>Active</span>
+              )}
+            </dd>
+            <dt>Échéances encaissées</dt>
+            <dd>{sub.renewal_count}</dd>
+            <dt>Dernière échéance</dt>
+            <dd>{fmtDateTime(sub.last_renewal_at)}</dd>
+            <dt>Prochaine échéance</dt>
+            <dd>
+              {sub.recurrence_stopped_at
+                ? "—"
+                : fmtDate(sub.current_period_end)}
+            </dd>
+            <dt>Montant reconduit</dt>
+            <dd>{formatEuros(sub.renewal_amount_cents)}</dd>
+            <dt>Date de commande</dt>
+            <dd className={s.mono}>{sub.monetico_order_date ?? "—"}</dd>
+            {sub.recurrence_stopped_at && (
+              <>
+                <dt>Arrêtée le</dt>
+                <dd>{fmtDateTime(sub.recurrence_stopped_at)}</dd>
+              </>
+            )}
+          </dl>
+
+          {!sub.recurrence_stopped_at && (
+            <form action={arreterReconduction} className={s.rowActions}>
+              <input type="hidden" name="id" value={sub.id} />
+              <label className={s.tdSub}>
+                <input type="checkbox" name="confirm" required /> Je confirme
+                l&apos;arrêt définitif de la reconduction
+              </label>
+              <button
+                type="submit"
+                className={`${s.btnSmall} ${s.btnSmallDanger}`}
+              >
+                Arrêter la reconduction
+              </button>
+            </form>
+          )}
+          <p className={s.tdSub}>
+            L&apos;arrêt est envoyé à Monetico et n&apos;est enregistré ici que
+            si la banque l&apos;accuse. L&apos;accès du client reste ouvert
+            jusqu&apos;au terme de la période déjà réglée.
+          </p>
         </section>
 
         <section className={s.detailCard}>

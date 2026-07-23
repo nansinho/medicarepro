@@ -216,7 +216,7 @@ export const PAGE_MENTIONS = {
           ),
           h2("Prestataire de paiement"),
           p(
-            "Paiement sécurisé par carte bancaire : Monetico Paiement (Crédit Industriel et Commercial — CIC / Euro-Information). Prélèvements SEPA opérés via le CIC. Les données de carte bancaire sont saisies exclusivement sur les pages de paiement sécurisées de Monetico et ne transitent jamais par le site medicarepro.fr.",
+            "Paiement sécurisé par carte bancaire : Monetico Paiement (Crédit Industriel et Commercial — CIC / Euro-Information). Les reconductions d'abonnement sont opérées par le CIC sur la carte enregistrée lors de la souscription. Les données de carte bancaire sont saisies exclusivement sur les pages de paiement sécurisées de Monetico et ne transitent jamais par le site medicarepro.fr.",
           ),
           h2("Propriété intellectuelle"),
           p(
@@ -395,7 +395,7 @@ export const PAGE_CGV = {
             ],
             [
               text(
-                "Le renouvellement de l'abonnement par prélèvement SEPA et la gestion du mandat.",
+                "La reconduction automatique de l'abonnement par carte bancaire, son montant, sa périodicité et ses modalités d'arrêt.",
               ),
             ],
             [

@@ -91,9 +91,13 @@ const EnvSchema = z.object({
   /* Nombre de proxys de confiance devant l'app (Traefik/Coolify = 1) */
   TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
 
-  /* Plans vendables : 'annual' tant que le cycle SEPA (BILLING-2)
-     n'est pas livré — une échéance MONTHLY arrive à J+30. */
-  CHECKOUT_PLANS: z.enum(["annual", "all"]).default("annual"),
+  /* Plans vendables. La fréquence de reconduction est portée par le CODE
+     SITE Monetico (champ `societe`), pas par la commande : un code site =
+     une fréquence. Tant qu'il n'y en a qu'un, une seule formule peut être
+     vendue, sinon le client serait débité au mauvais rythme (une offre
+     12 mois sur un code site mensuel = 298,08 € prélevés chaque mois).
+     'all' n'est légitime qu'avec un code site par formule. */
+  CHECKOUT_PLANS: z.enum(["annual", "monthly", "all"]).default("annual"),
 
   /* Étape « Mandat SEPA » du tunnel. Coupée par défaut (renouvellements
      par empreinte carte à confirmer avec le CIC) : l'étape 4 disparaît,
@@ -220,7 +224,7 @@ export type BillingEnv = {
   sepaEnabled: boolean;
   billingAlertsTo: string;
   turnstileSecretKey: string;
-  checkoutPlans: "annual" | "all";
+  checkoutPlans: "annual" | "monthly" | "all";
 };
 
 /**

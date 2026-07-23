@@ -37,6 +37,7 @@ export type PriceTable = Record<BillingPlan, PriceRow[]>;
 type Props = {
   initialPlan: BillingPlan;
   monthlyEnabled: boolean;
+  annualEnabled: boolean;
   siteKey?: string;
   /** Identifiant Créancier SEPA — figure sur tous les mandats (donnée publique du créancier). */
   sepaIcs: string;
@@ -231,6 +232,7 @@ function Field({
 export default function CheckoutFlow({
   initialPlan,
   monthlyEnabled,
+  annualEnabled,
   siteKey,
   sepaIcs,
   sepaEnabled,
@@ -778,18 +780,25 @@ export default function CheckoutFlow({
                   type="button"
                   className={`${s.planCard} ${
                     plan === "ANNUAL" ? s.planCardActive : ""
-                  }`}
-                  onClick={() => setPlan("ANNUAL")}
+                  } ${!annualEnabled ? s.planCardDisabled : ""}`}
+                  onClick={() => annualEnabled && setPlan("ANNUAL")}
+                  disabled={!annualEnabled}
                   aria-pressed={plan === "ANNUAL"}
                 >
-                  <span className={s.planBadge}>2 mois offerts</span>
+                  {annualEnabled ? (
+                    <span className={s.planBadge}>2 mois offerts</span>
+                  ) : (
+                    <span className={s.planSoon}>Bientôt disponible</span>
+                  )}
                   <div className={s.planName}>Offre 12 mois</div>
                   <div className={s.planPrice}>
                     {prices.ANNUAL[0].monthlyLabel}
                     <span className={s.planPriceUnit}> TTC/mois</span>
                   </div>
                   <div className={s.planDesc}>
-                    Facturé {prices.ANNUAL[0].totalLabel} par an, en une fois.
+                    {annualEnabled
+                      ? `Facturé ${prices.ANNUAL[0].totalLabel} par an, en une fois.`
+                      : "Cette formule ouvrira prochainement."}
                   </div>
                 </button>
 
@@ -879,13 +888,33 @@ export default function CheckoutFlow({
 
               <div className={s.alert}>
                 <IconAlert />
-                <span>
-                  Le premier règlement s&apos;effectue par carte bancaire
-                  (Monetico&nbsp;— CIC).
-                  {sepaEnabled
-                    ? " Les renouvellements seront prélevés par mandat SEPA, mis en place à l'étape suivante."
-                    : ""}
-                </span>
+                {sepaEnabled ? (
+                  <span>
+                    Le premier règlement s&apos;effectue par carte bancaire
+                    (Monetico&nbsp;— CIC). Les renouvellements seront prélevés
+                    par mandat SEPA, mis en place à l&apos;étape suivante.
+                  </span>
+                ) : (
+                  /* Abonnement à reconduction tacite : le montant, la
+                     périodicité et les modalités d'arrêt doivent être connus
+                     du client AVANT le paiement. */
+                  <span>
+                    Le règlement s&apos;effectue par carte bancaire
+                    (Monetico&nbsp;— CIC). Votre abonnement est ensuite{" "}
+                    <b>
+                      reconduit automatiquement{" "}
+                      {plan === "ANNUAL" ? "tous les 12 mois" : "chaque mois"}
+                    </b>{" "}
+                    pour {row.totalLabel} TTC, sur la même carte, jusqu&apos;à
+                    ce que vous y mettiez fin. Vous pouvez arrêter la
+                    reconduction à tout moment en nous écrivant à{" "}
+                    <a href="mailto:contact@medicarepro.fr">
+                      contact@medicarepro.fr
+                    </a>
+                    &nbsp;: votre accès reste ouvert jusqu&apos;au terme de la
+                    période déjà réglée.
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -1419,6 +1448,13 @@ export default function CheckoutFlow({
                       Débité aujourd&apos;hui par carte&nbsp;: {row.totalLabel}{" "}
                       TTC {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
                     </span>
+                    {!sepaEnabled && (
+                      <span>
+                        Puis {row.totalLabel} TTC{" "}
+                        {plan === "ANNUAL" ? "tous les 12 mois" : "chaque mois"}
+                        , par reconduction automatique sur la même carte.
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -11,6 +11,9 @@ import {
   IPN_ACK_OK,
   parseIpnBody,
   parseMontant,
+  parseMoneticoDate,
+  parseCaptureResponse,
+  buildStopRecurrenceRequest,
   sealFields,
   verifyIpnSeal,
   type MoneticoConfig,
@@ -243,5 +246,102 @@ describe("formatMoneticoDate", () => {
     expect(formatMoneticoDate(new Date("2026-07-11T08:00:00Z"))).toBe(
       "11/07/2026:10:00:00", // été = UTC+2
     );
+  });
+});
+
+describe("parseMoneticoDate", () => {
+  it("lit le format de l'interface Retour (JJ/MM/AAAA_a_HH:MM:SS)", () => {
+    expect(parseMoneticoDate("15/01/2026_a_14:05:09")?.toISOString()).toBe(
+      "2026-01-15T13:05:09.000Z", // hiver = UTC+1
+    );
+    expect(parseMoneticoDate("11/07/2026_a_10:00:00")?.toISOString()).toBe(
+      "2026-07-11T08:00:00.000Z", // été = UTC+2
+    );
+  });
+
+  it("lit aussi le format du formulaire aller (JJ/MM/AAAA:HH:MM:SS)", () => {
+    expect(parseMoneticoDate("11/07/2026:10:00:00")?.toISOString()).toBe(
+      "2026-07-11T08:00:00.000Z",
+    );
+  });
+
+  it("fait l'aller-retour avec formatMoneticoDate", () => {
+    const date = new Date("2026-03-29T02:30:00Z"); // lendemain du changement d'heure
+    expect(parseMoneticoDate(formatMoneticoDate(date))?.toISOString()).toBe(
+      date.toISOString(),
+    );
+  });
+
+  it("renvoie null sur un format inconnu", () => {
+    expect(parseMoneticoDate("2026-07-11T10:00:00Z")).toBeNull();
+    expect(parseMoneticoDate("")).toBeNull();
+  });
+});
+
+describe("buildStopRecurrenceRequest", () => {
+  const config: MoneticoConfig = {
+    tpe: "1234567",
+    key: "12345678901234567890123456789012345678P0",
+    societe: "monSite1",
+    mode: "test",
+  };
+
+  it("reproduit la chaîne scellée de la doc (annulation de récurrence)", () => {
+    const { url, fields } = buildStopRecurrenceRequest(
+      {
+        reference: "ABERTYP00145",
+        orderDate: new Date("2006-12-05T09:00:00Z"),
+        amountCents: 6200,
+        alreadyCapturedCents: 0,
+        now: new Date("2006-12-05T10:55:23Z"),
+      },
+      config,
+    );
+
+    expect(url).toBe(
+      "https://p.monetico-services.com/test/capture_paiement.cgi",
+    );
+    expect(buildSealBase(fields)).toBe(
+      "TPE=1234567*date=05/12/2006:11:55:23*date_commande=05/12/2006*lgue=FR*" +
+        "montant=62.00EUR*montant_a_capturer=0EUR*montant_deja_capture=0EUR*" +
+        "montant_restant=0EUR*reference=ABERTYP00145*societe=monSite1*" +
+        "stoprecurrence=OUI*version=3.0",
+    );
+    expect(fields["MAC"]).toBe(computeSeal(buildSealBase(fields), config.key));
+  });
+
+  it("reporte le montant déjà capturé quand il est non nul", () => {
+    const { fields } = buildStopRecurrenceRequest(
+      {
+        reference: "MPABCDEF1234",
+        orderDate: new Date("2026-07-11T08:00:00Z"),
+        amountCents: 29808,
+        alreadyCapturedCents: 29808,
+        now: new Date("2027-07-11T08:00:00Z"),
+      },
+      config,
+    );
+    expect(fields["montant_deja_capture"]).toBe("298.08EUR");
+    expect(fields["montant_a_capturer"]).toBe("0EUR");
+    expect(fields["montant_restant"]).toBe("0EUR");
+  });
+});
+
+describe("parseCaptureResponse", () => {
+  it("lit un arrêt de récurrence accepté (cdr=1, sens INVERSE de l'ACK IPN)", () => {
+    const res = parseCaptureResponse(
+      "version=1.0\nreference=000000000145\ncdr=1\nlib=recurrence stoppee\naut=123456\n",
+    );
+    expect(res.accepted).toBe(true);
+    expect(res.lib).toBe("recurrence stoppee");
+    expect(res.reference).toBe("000000000145");
+  });
+
+  it("lit un refus", () => {
+    const res = parseCaptureResponse(
+      "version=1.0\nreference=000000000145\ncdr=0\nlib=autorisation refusee\n",
+    );
+    expect(res.accepted).toBe(false);
+    expect(res.lib).toBe("autorisation refusee");
   });
 });
