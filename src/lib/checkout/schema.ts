@@ -24,8 +24,9 @@ export const PasswordSchema = z
 export const CabinetSchema = z.object({
   name: z.string().trim().min(1, "Nom du cabinet requis").max(200),
   email: z.email("Email du cabinet invalide").max(180),
-  /* Téléphone fixe facultatif (le portable reste requis) — le contrat
-     dev B §6 n'exige pas le fixe. */
+  /* Téléphone fixe facultatif côté tunnel (beaucoup de praticiens n'ont
+     qu'un portable). L'app, elle, EXIGE cabinet.phone : le worker envoie
+     donc le portable en repli quand le fixe est vide (cf. worker.ts). */
   phone: z
     .string()
     .trim()
