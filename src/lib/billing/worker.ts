@@ -8,6 +8,7 @@ import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import {
   provisionCabinet,
+  buildProvisioningCabinet,
   ProvisioningConflictError,
   ProvisioningRequestError,
   ProvisioningUnavailableError,
@@ -772,22 +773,8 @@ export async function provisionPendingSignup(
 
   const payload: ProvisionPayload = {
     idempotencyKey: row.monetico_reference,
-    cabinet: {
-      name: row.cabinet.name,
-      email: row.cabinet.email,
-      // L'app EXIGE cabinet.phone, mais le tunnel laisse le fixe facultatif
-      // (beaucoup de praticiens n'ont qu'un portable). On envoie donc le
-      // portable en repli, sinon la création du compte échoue en 400 après
-      // encaissement (constaté sur MPNQ9JCSHXR0, cabinet Groupe C&co).
-      phone: row.cabinet.phone || row.cabinet.mobilePhone,
-      mobilePhone: row.cabinet.mobilePhone,
-      address: row.cabinet.address,
-      city: row.cabinet.city,
-      postalCode: row.cabinet.postalCode,
-      siretNumber: row.cabinet.siretNumber,
-      rppsNumber: row.cabinet.rppsNumber,
-      invoicePrefix: row.invoice_prefix,
-    },
+    // Correspondance dossier → app centralisée et testée (contrat cabinet).
+    cabinet: buildProvisioningCabinet(row.cabinet, row.invoice_prefix),
     user: {
       firstName: row.user_info.firstName,
       lastName: row.user_info.lastName,

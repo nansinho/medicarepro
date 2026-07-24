@@ -105,6 +105,72 @@ export type ProvisionResult = {
 };
 
 /* ------------------------------------------------------------
+   Contrat cabinet — SOURCE UNIQUE de la correspondance
+   « dossier checkout → payload de provisioning ».
+
+   L'app valide ces champs à la création du compte, APRÈS
+   encaissement : si l'un part vide, le compte échoue en 400 et
+   le client a payé pour rien. Ils DOIVENT donc tous être garantis
+   non vides côté tunnel. Le test provisioning-contract.test.ts
+   échoue si ce n'est plus le cas — c'est le garde-fou.
+
+   Historique des découvertes en prod (chaque champ ajouté ici
+   après un vrai client bloqué) :
+   - rppsNumber : exigé (a931950)
+   - phone      : exigé — repli sur le portable (7411db3)
+   ------------------------------------------------------------ */
+
+/** Champs cabinet que l'app EXIGE non vides. */
+export const APP_REQUIRED_CABINET_FIELDS = [
+  "name",
+  "email",
+  "phone",
+  "mobilePhone",
+  "address",
+  "city",
+  "postalCode",
+  "siretNumber",
+  "rppsNumber",
+  "invoicePrefix",
+] as const;
+
+export type CabinetInput = {
+  name: string;
+  email: string;
+  phone?: string;
+  mobilePhone: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  siretNumber?: string;
+  rppsNumber?: string;
+};
+
+/**
+ * Construit le bloc cabinet du payload de provisioning.
+ * Repli téléphone : l'app exige `phone`, mais le tunnel laisse le fixe
+ * facultatif (beaucoup de praticiens n'ont qu'un portable) — on envoie
+ * donc le portable quand le fixe est vide, l'app reçoit toujours un numéro.
+ */
+export function buildProvisioningCabinet(
+  cabinet: CabinetInput,
+  invoicePrefix: string,
+): ProvisionPayload["cabinet"] {
+  return {
+    name: cabinet.name,
+    email: cabinet.email,
+    phone: cabinet.phone || cabinet.mobilePhone,
+    mobilePhone: cabinet.mobilePhone,
+    address: cabinet.address,
+    city: cabinet.city,
+    postalCode: cabinet.postalCode,
+    siretNumber: cabinet.siretNumber,
+    rppsNumber: cabinet.rppsNumber,
+    invoicePrefix,
+  };
+}
+
+/* ------------------------------------------------------------
    Transport.
    ------------------------------------------------------------ */
 
