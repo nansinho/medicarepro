@@ -462,6 +462,28 @@ export type CaptureResponse = {
 };
 
 /**
+ * Un refus de recouvrement signifie-t-il « il n'y a plus rien à encaisser,
+ * la banque a déjà pris l'argent » (et non un vrai échec) ?
+ *
+ * Le contrat NB8179R est paramétré en recouvrement automatique dès le
+ * renouvellement (confirmé CIC 28/07/2026). Notre appel de capture tombe
+ * alors sur un refus « déjà recouvré / solde nul » qu'il ne faut PAS
+ * confondre avec une carte refusée : le premier est un succès déguisé, le
+ * second une vraie alerte. On ne reconnaît que des formulations SÛRES ;
+ * dans le doute on renvoie false (mieux vaut une fausse alerte URGENT
+ * qu'un impayé masqué).
+ */
+export function isCaptureAlreadyDone(lib: string): boolean {
+  const l = lib.toLowerCase();
+  return (
+    /d[ée]j[àa]/.test(l) || // « déjà recouvré / déjà capturé »
+    /sold[ée]/.test(l) || // « commande soldée »
+    /n[ée]ant/.test(l) || // « solde néant »
+    /recouvr\w*\s+(effectu|termin|complet)/.test(l) // « recouvrement effectué »
+  );
+}
+
+/**
  * Parse la réponse du service de capture : suite de « clé=valeur »
  * séparées par des retours à la ligne (ou des espaces selon les gateways).
  */

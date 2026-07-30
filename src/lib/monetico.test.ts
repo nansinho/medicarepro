@@ -15,6 +15,7 @@ import {
   parseCaptureResponse,
   buildStopRecurrenceRequest,
   buildCaptureRequest,
+  isCaptureAlreadyDone,
   sealFields,
   verifyIpnSeal,
   type MoneticoConfig,
@@ -408,5 +409,31 @@ describe("buildCaptureRequest", () => {
       config,
     );
     expect(fields["montant_deja_capture"]).toBe("44.88EUR");
+  });
+});
+
+describe("isCaptureAlreadyDone", () => {
+  it("reconnaît un refus « déjà encaissé » (succès déguisé)", () => {
+    for (const lib of [
+      "commande deja recouvree",
+      "montant déjà capturé",
+      "commande soldée",
+      "solde néant",
+      "recouvrement deja effectue",
+    ]) {
+      expect(isCaptureAlreadyDone(lib), lib).toBe(true);
+    }
+  });
+
+  it("NE confond PAS avec un vrai refus (reste une alerte)", () => {
+    for (const lib of [
+      "autorisation refusee",
+      "carte invalide",
+      "commande non authentifiee",
+      "montant incorrect",
+      "",
+    ]) {
+      expect(isCaptureAlreadyDone(lib), lib).toBe(false);
+    }
   });
 });

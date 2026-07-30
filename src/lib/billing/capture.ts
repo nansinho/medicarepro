@@ -9,6 +9,7 @@ import {
   buildCaptureRequest,
   parseCaptureResponse,
   parseMoneticoDate,
+  isCaptureAlreadyDone,
   type CaptureResponse,
   type MoneticoConfig,
 } from "@/lib/monetico";
@@ -199,6 +200,30 @@ export async function captureLedgerEntry(
   }
 
   if (!result.accepted) {
+    /* Refus « déjà recouvré / solde nul » : le contrat NB8179R encaisse
+       automatiquement dès le renouvellement (CIC 28/07/2026). La banque a
+       donc déjà pris l'argent — c'est un succès, pas un impayé. On marque
+       l'échéance encaissée SANS alerter, pour ne pas noyer l'équipe sous de
+       fausses alertes URGENT à chaque reconduction. */
+    if (isCaptureAlreadyDone(result.lib)) {
+      await supabase
+        .from("billing_ledger")
+        .update({ captured_at: new Date().toISOString(), capture_error: null })
+        .eq("id", entry.id);
+      await logAudit({
+        action: "billing.capture_auto_by_bank",
+        entityType: "billing_ledger",
+        entityId: String(entry.id),
+        diff: { reference: entry.reference, lib: result.lib },
+      });
+      return {
+        ok: true,
+        lib: result.lib,
+        message: "Déjà encaissé par la banque (recouvrement automatique).",
+      };
+    }
+
+    // Vrai refus (carte refusée, expirée…) : là, il faut agir.
     await supabase
       .from("billing_ledger")
       .update({ capture_error: result.lib || "refus sans libellé" })
