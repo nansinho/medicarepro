@@ -474,14 +474,20 @@ async function finalizeSuccess(
     }
 
     // 4. Pièce comptable (append-only, survit à toutes les purges).
-    //    captured_at reste NULL : à ce stade la banque a AUTORISÉ, pas encaissé.
+    //    RÉCURRENT : captured_at NULL — la banque a AUTORISÉ, pas encore
+    //    encaissé ; la capture (plus bas) le renseignera.
+    //    ANNUEL (TPE immédiat) : encaissé D'OFFICE par la banque → on marque
+    //    tout de suite captured_at, sinon le cron de rattrapage tenterait de
+    //    capturer une échéance déjà prise.
+    const paidAtIso = row.paid_at ?? new Date().toISOString();
     const { data: ledger, error: e4 } = await supabase
       .from("billing_ledger")
       .insert({
         event_type: "card_payment",
         amount_cents: row.amount_cents,
         currency: row.currency,
-        occurred_at: row.paid_at ?? new Date().toISOString(),
+        occurred_at: paidAtIso,
+        captured_at: row.plan === "ANNUAL" ? paidAtIso : null,
         reference: row.monetico_reference,
         subscription_id: subscriptionId,
         cabinet_name: cabinet.name,
