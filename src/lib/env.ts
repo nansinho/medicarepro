@@ -203,11 +203,18 @@ export function moneticoKeyForMode(e: Env): string | undefined {
   return specific ?? e.MONETICO_KEY;
 }
 
-/** Clé du TPE IMMÉDIAT pour le mode courant (aucun repli legacy). */
+/**
+ * Clé du TPE IMMÉDIAT pour le mode courant. Monetico délivre UNE seule clé
+ * par société, partagée par tous les TPE (mail CIC) : à défaut d'une clé
+ * immédiate dédiée, on reprend donc celle du TPE récurrent. Les variables
+ * MONETICO_KEY_IMMEDIATE_* ne servent que si un jour un TPE a sa propre clé.
+ */
 export function moneticoKeyForModeImmediate(e: Env): string | undefined {
-  return e.MONETICO_MODE === "production"
-    ? e.MONETICO_KEY_IMMEDIATE_PROD
-    : e.MONETICO_KEY_IMMEDIATE_TEST;
+  const specific =
+    e.MONETICO_MODE === "production"
+      ? e.MONETICO_KEY_IMMEDIATE_PROD
+      : e.MONETICO_KEY_IMMEDIATE_TEST;
+  return specific ?? moneticoKeyForMode(e);
 }
 
 /** L'offre annuelle est-elle vendable (donc le TPE immédiat requis) ? */
@@ -230,18 +237,11 @@ export function missingBillingEnv(): string[] {
       e.MONETICO_MODE === "production" ? "MONETICO_KEY_PROD" : "MONETICO_KEY_TEST",
     );
   }
-  // Vendre l'annuel EXIGE le TPE immédiat (NB8179I) : on n'encaisse jamais un
-  // annuel qu'on ne pourrait pas sceller. Non requis si l'annuel est fermé.
-  if (annualSellable(e)) {
-    if (!e.MONETICO_TPE_IMMEDIATE) missing.push("MONETICO_TPE_IMMEDIATE");
-    if (!e.MONETICO_SOCIETE_IMMEDIATE) missing.push("MONETICO_SOCIETE_IMMEDIATE");
-    if (!moneticoKeyForModeImmediate(e)) {
-      missing.push(
-        e.MONETICO_MODE === "production"
-          ? "MONETICO_KEY_IMMEDIATE_PROD"
-          : "MONETICO_KEY_IMMEDIATE_TEST",
-      );
-    }
+  // Vendre l'annuel EXIGE de savoir sur QUEL TPE l'encaisser (NB8179I). La
+  // clé et le code site sont partagés par toute la société : ils retombent
+  // automatiquement sur ceux du récurrent, donc rien de plus à exiger ici.
+  if (annualSellable(e) && !e.MONETICO_TPE_IMMEDIATE) {
+    missing.push("MONETICO_TPE_IMMEDIATE");
   }
   return missing;
 }
@@ -290,9 +290,10 @@ export function billingEnv(): BillingEnv {
     moneticoKey: moneticoKeyForMode(e)!,
     moneticoSociete: e.MONETICO_SOCIETE!,
     moneticoMode: e.MONETICO_MODE,
+    // Clé et code site partagés par toute la société : repli sur le récurrent.
     moneticoTpeImmediate: e.MONETICO_TPE_IMMEDIATE ?? "",
     moneticoKeyImmediate: moneticoKeyForModeImmediate(e) ?? "",
-    moneticoSocieteImmediate: e.MONETICO_SOCIETE_IMMEDIATE ?? "",
+    moneticoSocieteImmediate: e.MONETICO_SOCIETE_IMMEDIATE ?? e.MONETICO_SOCIETE ?? "",
     provisioningApiUrl: e.PROVISIONING_API_URL!,
     provisioningApiKey: e.PROVISIONING_API_KEY!,
     sepaIcs: e.SEPA_ICS ?? "",
