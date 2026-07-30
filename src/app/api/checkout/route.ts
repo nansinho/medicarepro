@@ -5,6 +5,7 @@ import { env, hasBilling, billingEnv } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { encryptSecret } from "@/lib/crypto";
 import { buildPaymentForm } from "@/lib/monetico";
+import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
 import { CheckoutSchema } from "@/lib/checkout/schema";
 import { verifyRppsOnline } from "@/lib/checkout/rpps";
 import { checkoutAmountCents } from "@/lib/checkout/pricing";
@@ -451,12 +452,8 @@ export async function POST(request: NextRequest) {
           country: "FR",
         },
       },
-      {
-        tpe: billing.moneticoTpe,
-        key: billing.moneticoKey,
-        societe: billing.moneticoSociete,
-        mode: billing.moneticoMode,
-      },
+      // TPE choisi selon la formule : récurrent (mensuel) ou immédiat (annuel).
+      moneticoConfigForPlan(input.plan),
     );
   } catch (err) {
     console.error(

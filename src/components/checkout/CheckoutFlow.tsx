@@ -894,20 +894,26 @@ export default function CheckoutFlow({
                     (Monetico&nbsp;— CIC). Les renouvellements seront prélevés
                     par mandat SEPA, mis en place à l&apos;étape suivante.
                   </span>
+                ) : plan === "ANNUAL" ? (
+                  /* Offre 12 mois : paiement UNIQUE, sans reconduction. */
+                  <span>
+                    Le règlement s&apos;effectue par carte bancaire
+                    (Monetico&nbsp;— CIC). L&apos;offre 12 mois est un{" "}
+                    <b>paiement unique de {row.totalLabel} TTC</b> qui vous
+                    donne accès pendant 12 mois, <b>sans reconduction
+                    automatique</b>. Nous vous préviendrons par email avant
+                    l&apos;échéance pour renouveler si vous le souhaitez.
+                  </span>
                 ) : (
-                  /* Abonnement à reconduction tacite : le montant, la
-                     périodicité et les modalités d'arrêt doivent être connus
-                     du client AVANT le paiement. */
+                  /* Mensuel : reconduction tacite — montant, périodicité et
+                     modalités d'arrêt connus du client AVANT le paiement. */
                   <span>
                     Le règlement s&apos;effectue par carte bancaire
                     (Monetico&nbsp;— CIC). Votre abonnement est ensuite{" "}
-                    <b>
-                      reconduit automatiquement{" "}
-                      {plan === "ANNUAL" ? "tous les 12 mois" : "chaque mois"}
-                    </b>{" "}
-                    pour {row.totalLabel} TTC, sur la même carte, jusqu&apos;à
-                    ce que vous y mettiez fin. Vous pouvez arrêter la
-                    reconduction à tout moment en nous écrivant à{" "}
+                    <b>reconduit automatiquement chaque mois</b> pour{" "}
+                    {row.totalLabel} TTC, sur la même carte, jusqu&apos;à ce que
+                    vous y mettiez fin. Vous pouvez arrêter la reconduction à
+                    tout moment en nous écrivant à{" "}
                     <a href="mailto:contact@medicarepro.fr">
                       contact@medicarepro.fr
                     </a>
@@ -1447,13 +1453,18 @@ export default function CheckoutFlow({
                       Débité aujourd&apos;hui par carte&nbsp;: {row.totalLabel}{" "}
                       TTC {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
                     </span>
-                    {!sepaEnabled && (
-                      <span>
-                        Puis {row.totalLabel} TTC{" "}
-                        {plan === "ANNUAL" ? "tous les 12 mois" : "chaque mois"}
-                        , par reconduction automatique sur la même carte.
-                      </span>
-                    )}
+                    {!sepaEnabled &&
+                      (plan === "ANNUAL" ? (
+                        <span>
+                          Paiement unique, accès 12 mois — sans reconduction
+                          automatique.
+                        </span>
+                      ) : (
+                        <span>
+                          Puis {row.totalLabel} TTC chaque mois, par
+                          reconduction automatique sur la même carte.
+                        </span>
+                      ))}
                   </div>
                 </div>
 

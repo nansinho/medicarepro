@@ -395,7 +395,7 @@ export const PAGE_CGV = {
             ],
             [
               text(
-                "La reconduction automatique de l'abonnement par carte bancaire, son montant, sa périodicité et ses modalités d'arrêt.",
+                "Le renouvellement de l'abonnement : reconduction automatique mensuelle par carte pour l'offre sans engagement (montant, périodicité, modalités d'arrêt) ; paiement annuel unique, sans reconduction, renouvelé sur rappel pour l'offre 12 mois.",
               ),
             ],
             [

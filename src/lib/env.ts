@@ -66,6 +66,22 @@ const EnvSchema = z.object({
   MONETICO_SOCIETE: z.string().min(1).optional(),
   MONETICO_MODE: z.enum(["test", "production"]).default("test"),
 
+  /* Paiement IMMÉDIAT (TPE NB8179I) — offre annuelle en paiement unique.
+     L'annuel n'est PAS reconduit par carte : il est vendu one-shot sur ce
+     TPE (qui encaisse automatiquement), puis renouvelé sur rappel côté app.
+     Exigé seulement si CHECKOUT_PLANS ouvre l'annuel (cf. missingBillingEnv).
+     Le mensuel, lui, reste sur le TPE récurrent ci-dessus. */
+  MONETICO_TPE_IMMEDIATE: z.string().min(1).optional(),
+  MONETICO_KEY_IMMEDIATE_TEST: z
+    .string()
+    .regex(/^[0-9A-Za-z]{40}$/, "clé Monetico immédiat test : 40 caractères attendus")
+    .optional(),
+  MONETICO_KEY_IMMEDIATE_PROD: z
+    .string()
+    .regex(/^[0-9A-Za-z]{40}$/, "clé Monetico immédiat prod : 40 caractères attendus")
+    .optional(),
+  MONETICO_SOCIETE_IMMEDIATE: z.string().min(1).optional(),
+
   /* API de provisioning de l'app (contrat dev B) */
   PROVISIONING_API_URL: z.url().optional(),
   PROVISIONING_API_KEY: z.string().min(1).optional(),
@@ -187,6 +203,18 @@ export function moneticoKeyForMode(e: Env): string | undefined {
   return specific ?? e.MONETICO_KEY;
 }
 
+/** Clé du TPE IMMÉDIAT pour le mode courant (aucun repli legacy). */
+export function moneticoKeyForModeImmediate(e: Env): string | undefined {
+  return e.MONETICO_MODE === "production"
+    ? e.MONETICO_KEY_IMMEDIATE_PROD
+    : e.MONETICO_KEY_IMMEDIATE_TEST;
+}
+
+/** L'offre annuelle est-elle vendable (donc le TPE immédiat requis) ? */
+function annualSellable(e: Env): boolean {
+  return e.CHECKOUT_PLANS === "all" || e.CHECKOUT_PLANS === "annual";
+}
+
 /** Variables billing manquantes ([] si tout est prêt). */
 export function missingBillingEnv(): string[] {
   const e = env();
@@ -202,6 +230,19 @@ export function missingBillingEnv(): string[] {
       e.MONETICO_MODE === "production" ? "MONETICO_KEY_PROD" : "MONETICO_KEY_TEST",
     );
   }
+  // Vendre l'annuel EXIGE le TPE immédiat (NB8179I) : on n'encaisse jamais un
+  // annuel qu'on ne pourrait pas sceller. Non requis si l'annuel est fermé.
+  if (annualSellable(e)) {
+    if (!e.MONETICO_TPE_IMMEDIATE) missing.push("MONETICO_TPE_IMMEDIATE");
+    if (!e.MONETICO_SOCIETE_IMMEDIATE) missing.push("MONETICO_SOCIETE_IMMEDIATE");
+    if (!moneticoKeyForModeImmediate(e)) {
+      missing.push(
+        e.MONETICO_MODE === "production"
+          ? "MONETICO_KEY_IMMEDIATE_PROD"
+          : "MONETICO_KEY_IMMEDIATE_TEST",
+      );
+    }
+  }
   return missing;
 }
 
@@ -215,6 +256,11 @@ export type BillingEnv = {
   moneticoKey: string;
   moneticoSociete: string;
   moneticoMode: "test" | "production";
+  /* TPE immédiat (offre annuelle one-shot). Chaînes vides si l'annuel est
+     fermé ; garanties non vides dès que CHECKOUT_PLANS ouvre l'annuel. */
+  moneticoTpeImmediate: string;
+  moneticoKeyImmediate: string;
+  moneticoSocieteImmediate: string;
   provisioningApiUrl: string;
   provisioningApiKey: string;
   /** ICS créancier — chaîne vide si l'étape SEPA est coupée. */
@@ -244,6 +290,9 @@ export function billingEnv(): BillingEnv {
     moneticoKey: moneticoKeyForMode(e)!,
     moneticoSociete: e.MONETICO_SOCIETE!,
     moneticoMode: e.MONETICO_MODE,
+    moneticoTpeImmediate: e.MONETICO_TPE_IMMEDIATE ?? "",
+    moneticoKeyImmediate: moneticoKeyForModeImmediate(e) ?? "",
+    moneticoSocieteImmediate: e.MONETICO_SOCIETE_IMMEDIATE ?? "",
     provisioningApiUrl: e.PROVISIONING_API_URL!,
     provisioningApiKey: e.PROVISIONING_API_KEY!,
     sepaIcs: e.SEPA_ICS ?? "",

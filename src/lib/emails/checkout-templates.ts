@@ -236,6 +236,11 @@ export type PaymentReceiptData = {
    * annoncée (renouvellement SEPA, étape mandat active).
    */
   renewal?: { amountLabel: string; periodLabel: string; nextDateLabel: string };
+  /**
+   * Offre annuelle (paiement unique) : date jusqu'à laquelle l'accès est
+   * garanti. Exclusif avec `renewal` — l'annuel n'est PAS reconduit.
+   */
+  accessUntilLabel?: string;
 };
 
 export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
@@ -257,12 +262,22 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
       valueHtml: `${escHtml(d.renewal.amountLabel)} TTC ${escHtml(d.renewal.periodLabel)}, le ${escHtml(d.renewal.nextDateLabel)}`,
     });
   }
+  if (d.accessUntilLabel) {
+    rows.push({
+      label: "Accès garanti jusqu'au",
+      valueHtml: escHtml(d.accessUntilLabel),
+    });
+  }
 
   const renewalHtml = d.renewal
     ? callout(
         `<strong style="color:${NAVY};">Votre abonnement est à reconduction automatique.</strong> Il sera renouvelé ${escHtml(d.renewal.periodLabel)} pour ${escHtml(d.renewal.amountLabel)} TTC, sur la carte utilisée aujourd'hui, à partir du ${escHtml(d.renewal.nextDateLabel)}. Pour l'arrêter, écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a>&nbsp;: votre accès reste ouvert jusqu'au terme de la période déjà réglée.`,
       )
-    : "";
+    : d.accessUntilLabel
+      ? callout(
+          `<strong style="color:${NAVY};">Votre offre 12 mois est un paiement unique.</strong> Votre accès est garanti jusqu'au ${escHtml(d.accessUntilLabel)}, <strong>sans reconduction automatique</strong>. Nous vous préviendrons par email avant l'échéance pour renouveler si vous le souhaitez.`,
+        )
+      : "";
 
   const bodyHtml =
     heading(
@@ -301,6 +316,14 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
           `aujourd'hui, à partir du ${d.renewal.nextDateLabel}. Pour l'arrêter, écrivez-nous`,
           "à contact@medicarepro.fr : votre accès reste ouvert jusqu'au terme de la",
           "période déjà réglée.",
+        ]
+      : []),
+    ...(d.accessUntilLabel
+      ? [
+          "",
+          "Offre 12 mois (paiement unique) : votre accès est garanti jusqu'au",
+          `${d.accessUntilLabel}, sans reconduction automatique. Nous vous`,
+          "préviendrons avant l'échéance pour renouveler si vous le souhaitez.",
         ]
       : []),
     "",

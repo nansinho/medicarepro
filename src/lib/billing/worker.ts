@@ -417,6 +417,11 @@ async function finalizeSuccess(
         monetico_reference: row.monetico_reference,
         // Paramètre obligatoire de l'arrêt de récurrence, des mois plus tard.
         monetico_order_date: row.monetico_order_date,
+        // Annuel = paiement UNIQUE (TPE immédiat) : aucune reconduction carte.
+        // On le marque tout de suite pour que l'admin n'affiche pas une
+        // reconduction « active » et que le renouvellement passe par rappel.
+        recurrence_stopped_at:
+          row.plan === "ANNUAL" ? startedAt.toISOString() : null,
       })
       .select("id")
       .single();
@@ -525,12 +530,14 @@ async function finalizeSuccess(
   /* --- Best-effort (chaque étape isolée : un échec ne bloque pas la suite).
      Facture, reçu et alerte partent TOUJOURS ; les pièces liées au mandat
      (PDF, copie) uniquement si un mandat SEPA a été créé (sepaPayload). */
-  /* --- ENCAISSEMENT. Le TPE récurrent autorise mais ne prélève pas : sans
+  /* --- ENCAISSEMENT. Le TPE RÉCURRENT autorise mais ne prélève pas : sans
      cette demande, le compte serait créé et facturé sans qu'un centime ne
      bouge. On le fait ici, et pas avant, pour que l'ordre soit toujours
      « compte créé, PUIS argent pris » — une autorisation non capturée
-     expire d'elle-même, ce qui protège le client si quelque chose casse. */
-  if (criticalOk && ledgerId !== null) {
+     expire d'elle-même, ce qui protège le client si quelque chose casse.
+     L'ANNUEL passe par le TPE IMMÉDIAT (NB8179I), qui a déjà encaissé
+     d'office : on ne capture donc PAS (sinon refus « déjà recouvré »). */
+  if (criticalOk && ledgerId !== null && row.plan !== "ANNUAL") {
     try {
       const capture = await captureLedgerEntry(ledgerId);
       if (!capture.ok) {
@@ -570,20 +577,24 @@ async function finalizeSuccess(
     // n'est PAS joint ; le template mentionne que la facture est disponible
     // sur demande / sera envoyée. À brancher quand sendMail saura joindre.
     try {
-      /* Hors SEPA, le renouvellement passe par la reconduction automatique
-         du TPE récurrent : le client doit en retrouver le montant, le rythme
-         et la date par écrit dans son reçu. */
+      const isAnnual = row.plan === "ANNUAL";
+
+      /* MENSUEL : reconduction automatique du TPE récurrent — le client
+         retrouve montant, rythme et date dans son reçu.
+         ANNUEL : paiement unique, PAS de reconduction — on annonce plutôt la
+         date jusqu'à laquelle l'accès est garanti (renouvellement sur rappel). */
       const renewal =
-        billingEnv().sepaEnabled || !periodEndDate
+        isAnnual || billingEnv().sepaEnabled || !periodEndDate
           ? undefined
           : {
               amountLabel: formatEuros(
                 renewalAmountCents(row.plan, row.extra_collaborators),
               ),
-              periodLabel:
-                row.plan === "ANNUAL" ? "tous les 12 mois" : "chaque mois",
+              periodLabel: "chaque mois",
               nextDateLabel: frDate(periodEndDate),
             };
+      const accessUntilLabel =
+        isAnnual && periodEndDate ? frDate(periodEndDate) : undefined;
 
       const receipt = paymentReceiptEmail({
         adminFirstName: user.firstName,
@@ -594,6 +605,7 @@ async function finalizeSuccess(
         paidAtLabel: frDateTime(row.paid_at),
         invoiceNumber,
         renewal,
+        accessUntilLabel,
       });
       await sendMail({ to: user.email, ...receipt });
     } catch (err) {

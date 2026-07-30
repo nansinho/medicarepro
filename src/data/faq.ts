@@ -14,7 +14,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "L'abonnement est-il reconduit automatiquement ?",
-    a: "Oui. À l'échéance, votre abonnement est reconduit automatiquement sur la carte bancaire utilisée à la souscription : chaque mois pour l'offre Sans Engagement, tous les 12 mois pour l'offre 12 mois, au même tarif. Vous recevez une facture et un reçu à chaque échéance. Pour arrêter la reconduction, écrivez-nous à contact@medicarepro.fr : votre accès reste ouvert jusqu'au terme de la période déjà réglée.",
+    a: "Cela dépend de la formule. L'offre Sans Engagement est reconduite automatiquement chaque mois sur la carte utilisée à la souscription (facture et reçu à chaque échéance) ; vous pouvez l'arrêter à tout moment en nous écrivant à contact@medicarepro.fr, votre accès restant ouvert jusqu'au terme du mois réglé. L'offre 12 mois, elle, est un paiement unique sans reconduction automatique : votre accès est garanti 12 mois, et nous vous prévenons par email avant l'échéance pour renouveler si vous le souhaitez.",
   },
   {
     q: "Puis-je migrer depuis mon ancien logiciel ?",

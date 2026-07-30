@@ -5,6 +5,7 @@ import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import { processDuePendingSignups } from "@/lib/billing/worker";
 import { finalizeRenewal } from "@/lib/billing/renewals";
+import { moneticoKeyForTpe } from "@/lib/billing/monetico-routing";
 import {
   parseIpnBody,
   verifyIpnSeal,
@@ -65,9 +66,10 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text();
     const fields = parseIpnBody(rawBody);
 
-    // Authenticité : MAC recalculé sur tous les champs reçus (sauf MAC).
-    // Invalide → cdr=1 SANS mutation ni journalisation du payload.
-    if (!verifyIpnSeal(fields, billingEnv().moneticoKey)) {
+    // Authenticité : MAC recalculé sur tous les champs reçus (sauf MAC),
+    // avec la clé du TPE qui a émis l'IPN (récurrent NB8179R ou immédiat
+    // NB8179I pour l'annuel). Invalide → cdr=1 SANS mutation ni journal.
+    if (!verifyIpnSeal(fields, moneticoKeyForTpe(fields["TPE"] ?? ""))) {
       return ackKo();
     }
 
