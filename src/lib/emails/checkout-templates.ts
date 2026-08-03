@@ -430,6 +430,90 @@ export function renewalReceiptEmail(d: RenewalReceiptData): EmailContent {
   };
 }
 
+/* ============================================================
+   Rappel d'échéance — offre annuelle (paiement unique).
+   Envoyé à J-30/15/7/3/0 avant la fin des 12 mois, pour que le
+   client renouvelle avant de perdre l'accès. Le ton se resserre
+   à mesure que l'échéance approche (daysBefore).
+   ============================================================ */
+
+export type RenewalReminderData = {
+  adminFirstName: string;
+  cabinetName: string;
+  /** Date de fin d'accès, déjà formatée. */
+  expiresAtLabel: string;
+  /** Jours restants avant l'échéance (30, 15, 7, 3 ou 0). */
+  daysBefore: number;
+  /** Montant TTC du renouvellement, déjà formaté. */
+  amountLabel: string;
+};
+
+export function renewalReminderEmail(d: RenewalReminderData): EmailContent {
+  const urgent = d.daysBefore <= 3;
+  const whenText =
+    d.daysBefore === 0
+      ? "aujourd'hui"
+      : d.daysBefore === 1
+        ? "demain"
+        : `dans ${d.daysBefore} jours`;
+
+  const subject =
+    d.daysBefore === 0
+      ? "Votre abonnement MediCare Pro expire aujourd'hui"
+      : `Votre abonnement MediCare Pro expire ${whenText}`;
+
+  const rows: KvRow[] = [
+    { label: "Cabinet", valueHtml: escHtml(d.cabinetName) },
+    { label: "Fin d'accès", valueHtml: escHtml(d.expiresAtLabel) },
+    { label: "Renouvellement TTC", valueHtml: escHtml(d.amountLabel) },
+  ];
+
+  const bodyHtml =
+    heading(
+      urgent
+        ? `Votre accès se termine ${whenText}`
+        : "Votre abonnement arrive à échéance",
+      `Bonjour ${escHtml(d.adminFirstName)}, votre offre 12 mois pour le cabinet <strong style="color:${NAVY};">${escHtml(d.cabinetName)}</strong> arrive à son terme le <strong style="color:${NAVY};">${escHtml(d.expiresAtLabel)}</strong>.`,
+    ) +
+    kvCard(rows) +
+    callout(
+      `<strong style="color:${NAVY};">Pour ne pas perdre l'accès à votre cabinet</strong>, renouvelez votre abonnement 12 mois. Écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a> et nous vous transmettons le lien de renouvellement. Vos données restent intactes.`,
+    ) +
+    paragraph(
+      `Si vous avez déjà renouvelé, ignorez ce message — votre accès est prolongé.`,
+    );
+
+  const text = [
+    "MediCare Pro — Échéance de votre abonnement",
+    "",
+    `Bonjour ${d.adminFirstName},`,
+    `Votre offre 12 mois pour le cabinet ${d.cabinetName} arrive à son terme`,
+    `le ${d.expiresAtLabel} (${whenText}).`,
+    "",
+    `Cabinet              ${d.cabinetName}`,
+    `Fin d'accès          ${d.expiresAtLabel}`,
+    `Renouvellement TTC   ${d.amountLabel}`,
+    "",
+    "Pour ne pas perdre l'accès à votre cabinet, renouvelez votre",
+    "abonnement : écrivez-nous à contact@medicarepro.fr et nous vous",
+    "transmettons le lien de renouvellement. Vos données restent intactes.",
+    "",
+    "Si vous avez déjà renouvelé, ignorez ce message.",
+  ].join("\n");
+
+  return {
+    subject,
+    text,
+    html: emailShell({
+      title: subject,
+      preheader: `${d.cabinetName} — accès jusqu'au ${d.expiresAtLabel}. Renouvelez pour continuer.`,
+      badge: urgent ? "Échéance imminente" : "Échéance à venir",
+      bodyHtml,
+      footerNoteHtml: CLIENT_FOOTER_NOTE,
+    }),
+  };
+}
+
 export function provisioningIncidentEmailClient(d: {
   adminFirstName: string;
 }): EmailContent {
