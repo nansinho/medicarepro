@@ -25,5 +25,5 @@ create table if not exists public.subscription_reminders (
 comment on table public.subscription_reminders is
   'Rappels d''échéance envoyés (offre annuelle). Un palier par (souscription, échéance).';
 
-create index subscription_reminders_sub_idx
+create index if not exists subscription_reminders_sub_idx
   on public.subscription_reminders (subscription_id);
