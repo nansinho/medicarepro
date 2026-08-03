@@ -299,3 +299,85 @@ export async function provisionCabinet(
     `provision/cabinet indisponible après ${PROVISION_MAX_ATTEMPTS} tentatives (${lastError}).`,
   );
 }
+
+/* ------------------------------------------------------------
+   subscription/renewal — remontée d'une reconduction encaissée.
+
+   POURQUOI : la vitrine encaisse les reconductions et prolonge
+   `subscriptions.current_period_end` dans SA base. L'app dev B,
+   elle, calcule `subscriptionExpiresAt` une seule fois, au
+   provisioning (achat + 1 mois ou + 1 an) et ne la bouge plus :
+   le praticien y verrait donc une échéance périmée dès sa
+   deuxième période, et le cron d'alerte de dev B préviendrait
+   les super-admins pour rien.
+
+   Cette route n'existe PAS encore côté dev B : contrat demandé
+   dans docs/provisioning-renewal.md. Tant que
+   PROVISIONING_RENEWAL_ENABLED n'est pas à `true`, l'appel est
+   un no-op silencieux.
+
+   BEST-EFFORT : ne jette jamais. Un renouvellement encaissé ne
+   doit pas échouer parce que l'app d'en face est indisponible ;
+   l'appelant journalise et l'échéance reste rattrapable à la
+   main dans le back-office de dev B.
+   ------------------------------------------------------------ */
+
+const RENEWAL_TIMEOUT_MS = 10_000;
+const RENEWAL_MAX_ATTEMPTS = 2;
+
+export type RenewalPayload = {
+  /** Idempotence : référence Monetico + rang de l'échéance (`MPXXX-r3`). */
+  idempotencyKey: string;
+  /** Identifiant du cabinet DANS l'app, renvoyé par le provisioning initial. */
+  cabinetId: string;
+  plan: "MONTHLY" | "ANNUAL";
+  /** Nouvelle fin de période, telle que calculée par la vitrine (ISO 8601). */
+  periodEnd: string;
+  /** Date d'encaissement notifiée par Monetico (ISO 8601). */
+  paidAt: string;
+  amountCents: number;
+  currency: string;
+};
+
+export type RenewalOutcome =
+  | { ok: true; skipped: true } // route désactivée : rien n'a été tenté
+  | { ok: true; skipped: false }
+  | { ok: false; reason: string };
+
+export async function notifyRenewal(
+  payload: RenewalPayload,
+): Promise<RenewalOutcome> {
+  if (!billingEnv().provisioningRenewalEnabled) {
+    return { ok: true, skipped: true };
+  }
+
+  let lastError = "";
+  for (let attempt = 1; attempt <= RENEWAL_MAX_ATTEMPTS; attempt++) {
+    try {
+      const { status, envelope } = await post<{ subscriptionExpiresAt: string }>(
+        "/subscription/renewal",
+        payload,
+        RENEWAL_TIMEOUT_MS,
+      );
+      // 200 = appliqué ou déjà appliqué (idempotent sur idempotencyKey).
+      if (status === 200 && envelope?.success) return { ok: true, skipped: false };
+      if (status === 400 || status === 401 || status === 404) {
+        // Bug d'intégration, clé refusée ou cabinet inconnu : pas de retry.
+        return {
+          ok: false,
+          reason:
+            envelope && !envelope.success
+              ? `HTTP ${status} — ${envelope.error}`
+              : `HTTP ${status}`,
+        };
+      }
+      lastError = `HTTP ${status}`;
+    } catch {
+      lastError = "réseau/timeout";
+    }
+    if (attempt < RENEWAL_MAX_ATTEMPTS) {
+      await sleep(400 * attempt + Math.floor(Math.random() * 200));
+    }
+  }
+  return { ok: false, reason: lastError };
+}

@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { issueInvoice } from "@/lib/billing/invoices";
 import { captureLedgerEntry } from "@/lib/billing/capture";
 import { formatEuros, planLabel, type BillingPlan } from "@/lib/checkout/pricing";
+import { notifyRenewal } from "@/lib/provisioning";
 import {
   renewalReceiptEmail,
   billingAlertEmail,
@@ -28,6 +29,7 @@ import {
 
 type SubscriptionRow = {
   id: string;
+  app_cabinet_id: string;
   cabinet_name: string;
   cabinet_address: string;
   cabinet_postal_city: string;
@@ -97,7 +99,7 @@ export async function finalizeRenewal(
   const { data, error } = await supabase
     .from("subscriptions")
     .select(
-      "id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, plan, extra_collaborators, renewal_amount_cents, currency, current_period_end, renewal_count",
+      "id, app_cabinet_id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, plan, extra_collaborators, renewal_amount_cents, currency, current_period_end, renewal_count",
     )
     .eq("monetico_reference", input.reference)
     .maybeSingle();
@@ -198,6 +200,36 @@ export async function finalizeRenewal(
     await sendMail({ to: sub.admin_email, ...receipt });
   } catch (err) {
     console.error("[billing-renewals] échec email reçu :", errMessage(err));
+  }
+
+  /* Remontée de la nouvelle échéance à l'app dev B, pour que le praticien y
+     voie une date juste. No-op tant que PROVISIONING_RENEWAL_ENABLED est à
+     `false` (route pas encore livrée de leur côté). Best-effort : une échéance
+     encaissée ne doit jamais échouer parce que l'app est injoignable. */
+  try {
+    const sync = await notifyRenewal({
+      idempotencyKey: `${input.reference}-r${sub.renewal_count}`,
+      cabinetId: sub.app_cabinet_id,
+      plan: sub.plan,
+      periodEnd: sub.current_period_end,
+      paidAt: input.occurredAt.toISOString(),
+      amountCents,
+      currency: sub.currency,
+    });
+    if (!sync.ok) {
+      await sendBillingAlert("Échéance non remontée à l'application", [
+        `Cabinet : ${sub.cabinet_name}`,
+        `Référence : ${input.reference}`,
+        `Nouvelle échéance : ${frDate(periodEnd)}`,
+        `Erreur : ${sync.reason}`,
+        "L'encaissement et la facture sont faits. Seule la date affichée dans l'application reste en retard : à corriger dans le back-office de dev B.",
+      ]);
+    }
+  } catch (err) {
+    console.error(
+      "[billing-renewals] échec remontée échéance :",
+      errMessage(err),
+    );
   }
 
   await logAudit({

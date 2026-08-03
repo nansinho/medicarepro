@@ -85,6 +85,15 @@ const EnvSchema = z.object({
   /* API de provisioning de l'app (contrat dev B) */
   PROVISIONING_API_URL: z.url().optional(),
   PROVISIONING_API_KEY: z.string().min(1).optional(),
+  /* Remontée des reconductions vers l'app (POST /subscription/renewal).
+     À `false` tant que dev B n'a pas livré la route : sans elle, la date
+     d'échéance affichée dans l'app reste celle du premier achat. Voir
+     `docs/provisioning-renewal.md` (contrat demandé) et
+     `notifyRenewal()` dans src/lib/provisioning.ts. */
+  PROVISIONING_RENEWAL_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 
   /* Chiffrement des secrets au repos (cf. src/lib/crypto.ts) */
   ENCRYPTION_KEYS: z.string().min(1).optional(),
@@ -263,6 +272,8 @@ export type BillingEnv = {
   moneticoSocieteImmediate: string;
   provisioningApiUrl: string;
   provisioningApiKey: string;
+  /** Remonter les reconductions à l'app dev B (route livrée de leur côté ?). */
+  provisioningRenewalEnabled: boolean;
   /** ICS créancier — chaîne vide si l'étape SEPA est coupée. */
   sepaIcs: string;
   sepaPrenotifyDays: number;
@@ -296,6 +307,7 @@ export function billingEnv(): BillingEnv {
     moneticoSocieteImmediate: e.MONETICO_SOCIETE_IMMEDIATE ?? e.MONETICO_SOCIETE ?? "",
     provisioningApiUrl: e.PROVISIONING_API_URL!,
     provisioningApiKey: e.PROVISIONING_API_KEY!,
+    provisioningRenewalEnabled: e.PROVISIONING_RENEWAL_ENABLED,
     sepaIcs: e.SEPA_ICS ?? "",
     sepaPrenotifyDays: e.SEPA_PRENOTIFY_DAYS,
     sepaEnabled: e.CHECKOUT_SEPA_ENABLED,
