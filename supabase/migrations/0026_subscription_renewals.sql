@@ -39,13 +39,14 @@ create table if not exists public.subscription_renewals (
 comment on table public.subscription_renewals is
   'Paiements de renouvellement de l''offre annuelle (prolongent une souscription existante).';
 
-create index subscription_renewals_sub_idx
+create index if not exists subscription_renewals_sub_idx
   on public.subscription_renewals (subscription_id, created_at desc);
 
 -- Service-role uniquement (comme le reste du billing) : RLS active, sans
 -- policy, donc anon/authenticated n'y accèdent pas ; service_role la contourne.
 alter table public.subscription_renewals enable row level security;
 
-create trigger trg_subscription_renewals_updated_at
+-- create OR REPLACE : ré-exécutable (PG14+).
+create or replace trigger trg_subscription_renewals_updated_at
   before update on public.subscription_renewals
   for each row execute function public.set_updated_at();
