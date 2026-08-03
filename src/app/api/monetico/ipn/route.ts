@@ -5,6 +5,7 @@ import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import { processDuePendingSignups } from "@/lib/billing/worker";
 import { finalizeRenewal } from "@/lib/billing/renewals";
+import { finalizeAnnualRenewal } from "@/lib/billing/renewal-payment";
 import { moneticoKeyForTpe } from "@/lib/billing/monetico-routing";
 import {
   parseIpnBody,
@@ -82,6 +83,36 @@ export async function POST(request: NextRequest) {
        donc de clé d'événement (idempotence) et d'horodatage comptable. */
     const eventDate = fields["date"] ?? "";
     const occurredAt = parseMoneticoDate(eventDate);
+
+    /* Re-paiement de renouvellement annuel (self-service) : routé À PART,
+       hors record_monetico_ipn. Ne concerne QUE les références présentes dans
+       subscription_renewals (table vide tant qu'aucun renouvellement n'est
+       lancé) — donc aucun effet sur le flux d'inscription/reconduction. */
+    if (codeRetour === "paiement" || codeRetour === "payetest") {
+      const { data: renewalRow } = await supabase
+        .from("subscription_renewals")
+        .select("id")
+        .eq("monetico_reference", reference)
+        .maybeSingle();
+      if (renewalRow) {
+        after(async () => {
+          try {
+            await finalizeAnnualRenewal({
+              reference,
+              occurredAt: occurredAt ?? new Date(),
+              amountCents: montant?.cents ?? null,
+              currency: montant?.currency ?? null,
+            });
+          } catch (err) {
+            console.error(
+              "[monetico-ipn] finalisation renouvellement annuel :",
+              err instanceof Error ? err.message : String(err),
+            );
+          }
+        });
+        return ackOk();
+      }
+    }
 
     const { data, error } = await supabase.rpc("record_monetico_ipn", {
       p_reference: reference,

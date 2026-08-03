@@ -4,6 +4,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { sendMail } from "@/lib/email";
 import { renewalReminderEmail } from "@/lib/emails/checkout-templates";
 import { formatEuros } from "@/lib/checkout/pricing";
+import { buildRenewalUrl } from "@/lib/billing/renewal-link";
 
 /* ============================================================
    /api/cron/renewal-reminders — rappels d'échéance de l'offre
@@ -115,6 +116,7 @@ async function handle(request: Request): Promise<Response> {
         expiresAtLabel: frDate(sub.current_period_end),
         daysBefore: d,
         amountLabel: formatEuros(sub.renewal_amount_cents),
+        renewUrl: buildRenewalUrl(sub.id),
       });
       await sendMail({ to: sub.admin_email, ...mail });
       sent += 1;
