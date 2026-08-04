@@ -41,9 +41,19 @@ import { billingAlertEmail } from "@/lib/emails/checkout-templates";
    l'échéance. Toute interface qui déclenche `scheduleChange` doit l'avoir dit
    AVANT, en toutes lettres.
 
-   Rien n'est enregistré si la banque refuse l'arrêt : un changement noté sans
-   arrêt effectif, c'est un client prélevé à l'ancien tarif sur l'ancienne
-   carte, avec une promesse écrite du contraire.
+   SI LA BANQUE REFUSE L'ARRÊT, la demande est enregistrée quand même et
+   l'arrêt passe en tâche manuelle (alerte URGENT, tableau de bord CIC). Ce
+   n'était pas le choix initial — on refusait la demande — mais le refus
+   observé le 05/08/2026 (« commande non authentifiee » sur une requête
+   pourtant conforme à la doc technique v2.0, cf. src/lib/billing/recurrence.ts)
+   enfermait le praticien : ni résiliation, ni changement de formule, sans
+   qu'il y soit pour rien. Son intention est un fait contractuel : elle
+   s'enregistre, et nous nous engageons à l'honorer — au besoin en remboursant
+   un prélèvement que l'arrêt manuel n'aurait pas devancé.
+
+   Comment se relit cet état, sans colonne nouvelle : une demande 'scheduled'
+   alors que subscriptions.recurrence_stopped_at est NULL = arrêt bancaire
+   encore à poser.
    ============================================================ */
 
 export type ChangeKind = "plan_change" | "card_update" | "cancel";
@@ -78,10 +88,15 @@ export type ChangeableSubscription = {
   status: string;
   current_period_end: string;
   recurrence_stopped_at: string | null;
+  /* Identification de la commande a la banque : necessaire pour dire, dans
+     l'alerte, laquelle arreter a la main quand le service refuse. */
+  monetico_reference: string;
+  monetico_order_date: string | null;
+  first_payment_cents: number;
 };
 
 export const CHANGEABLE_SUBSCRIPTION_COLUMNS =
-  "id, app_cabinet_id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, status, current_period_end, recurrence_stopped_at";
+  "id, app_cabinet_id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, status, current_period_end, recurrence_stopped_at, monetico_reference, monetico_order_date, first_payment_cents";
 
 /** États dans lesquels un contrat accepte encore une demande. */
 const OPEN_STATUSES = new Set([
@@ -202,7 +217,10 @@ export type ScheduleInput = {
 };
 
 export type ScheduleOutcome =
-  | { ok: true; change: SubscriptionChange }
+  /* `bankStopPending` : la demande est enregistrée mais la banque n'a pas
+     accusé l'arrêt. L'appelant peut en tenir compte dans ce qu'il affiche ;
+     l'équipe est alertée dans tous les cas. */
+  | { ok: true; change: SubscriptionChange; bankStopPending: boolean }
   | { ok: false; status: number; error: string };
 
 export async function scheduleChange(
@@ -288,12 +306,32 @@ export async function scheduleChange(
      rien à arrêter : son paiement est unique, la reconduction est marquée
      arrêtée dès la souscription. */
   let stopLib: string | null = null;
+  /* Vrai quand la banque n'a PAS accusé l'arrêt : la demande est enregistrée
+     quand même, et l'arrêt reste à poser à la main depuis le tableau de bord
+     CIC. Se relit ailleurs sans colonne nouvelle : une demande active alors
+     que subscriptions.recurrence_stopped_at est vide, c'est exactement ça. */
+  let bankStopPending = false;
+
   if (!sub.recurrence_stopped_at) {
     const outcome = await stopRecurrence(sub.id);
-    if (!outcome.ok) {
-      return { ok: false, status: 502, error: outcome.message };
+    if (outcome.ok) {
+      stopLib = outcome.lib || null;
+    } else {
+      /* REFUS BANCAIRE : on n'abandonne PAS la demande du client.
+         Constaté le 05/08/2026 : « commande non authentifiee » sur toutes nos
+         demandes stoprecurrence, alors que le même service authentifie la même
+         commande pour un recouvrement, et alors que la requête est conforme à
+         la documentation technique v2.0 (jeu de champs, sceau, montants à
+         0EUR, tous vérifiés). En attente du CIC.
+         Faire échouer la demande pour autant, ce serait punir le praticien
+         d'un problème de paramétrage qui ne le regarde pas, et l'enfermer :
+         il ne peut ni résilier ni changer de formule. On enregistre donc son
+         intention — qui est un fait contractuel, indépendant de la banque —,
+         on alerte l'équipe, et un humain pose l'arrêt au CIC. Il y a un mois
+         entier avant la prochaine échéance pour le faire. */
+      bankStopPending = true;
+      stopLib = outcome.lib || outcome.message.slice(0, 200);
     }
-    stopLib = outcome.lib || null;
   }
 
   const effectiveAt = sub.current_period_end;
@@ -338,6 +376,23 @@ export async function scheduleChange(
   }
 
   const change = data as SubscriptionChange;
+
+  /* ARRÊT BANCAIRE NON OBTENU : la demande est enregistrée, mais la banque
+     continuera de prélever tant qu'un humain n'aura pas posé l'arrêt. C'est
+     la seule chose qui puisse encore coûter de l'argent au client, donc
+     l'alerte est nominative et donne le geste exact à faire. */
+  if (bankStopPending) {
+    await sendBillingAlert("URGENT — Arrêt de récurrence à poser À LA MAIN", [
+      `Cabinet : ${sub.cabinet_name}`,
+      `Demande : ${input.kind}`,
+      `Référence Monetico : ${sub.monetico_reference}`,
+      `Date de commande : ${sub.monetico_order_date ?? "(inconnue)"}`,
+      `Montant : ${formatEuros(sub.first_payment_cents)}`,
+      `Réponse de la banque : ${stopLib ?? "(sans libellé)"}`,
+      `Prochaine échéance : ${frDate(effectiveAt)} — c'est le délai pour agir.`,
+      "À FAIRE : arrêter la reconduction de cette commande depuis le tableau de bord CIC. La demande du client EST enregistrée et il a reçu sa confirmation ; sans ce geste, il sera prélevé malgré tout.",
+    ]);
+  }
 
   /* Remontée à l'application. UNIQUEMENT pour la résiliation : c'est le seul
      cas où le contrat s'arrête. Un changement de formule ou de carte n'est pas
@@ -411,7 +466,7 @@ export async function scheduleChange(
     },
   });
 
-  return { ok: true, change };
+  return { ok: true, change, bankStopPending };
 }
 
 /* ------------------------------------------------------------

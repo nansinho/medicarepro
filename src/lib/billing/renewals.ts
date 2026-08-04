@@ -161,6 +161,29 @@ export async function finalizeRenewal(
       `Reconduction arrêtée le : ${sub.recurrence_stopped_at ?? "(non renseigné)"}`,
       "L'échéance est comptabilisée et la période prolongée (aucun débit reçu n'est jamais ignoré). Vérifier l'arrêt de récurrence auprès du CIC et rembourser le client s'il s'agit d'un prélèvement indu.",
     ]);
+  } else {
+    /* --- LE MÊME LITIGE, PAR L'AUTRE PORTE.
+       Quand la banque a refusé l'arrêt, la demande du client est enregistrée
+       mais `recurrence_stopped_at` reste vide : le cas ci-dessus ne voit rien.
+       Or c'est précisément la situation où un prélèvement indu est le plus
+       probable, puisque l'arrêt dépend d'un geste humain au CIC. */
+    const { data: pending } = await supabase
+      .from("subscription_changes")
+      .select("kind, effective_at")
+      .eq("subscription_id", sub.id)
+      .eq("status", "scheduled")
+      .maybeSingle();
+
+    if (pending) {
+      const change = pending as { kind: string; effective_at: string };
+      await sendBillingAlert("URGENT — Prélèvement malgré une demande en cours", [
+        `Cabinet : ${sub.cabinet_name}`,
+        `Référence : ${input.reference}`,
+        `Montant encaissé : ${formatEuros(amountCents)}`,
+        `Demande en attente : ${change.kind}, effet au ${frDate(new Date(change.effective_at))}`,
+        "L'arrêt de reconduction n'avait PAS été accusé par la banque : il devait être posé à la main au CIC, et ne l'a manifestement pas été. Le client a reçu la confirmation de sa demande. Rembourser ce prélèvement et arrêter la commande.",
+      ]);
+    }
   }
 
   /* --- Retour à bonne fin après une série d'impayés : on referme la série.

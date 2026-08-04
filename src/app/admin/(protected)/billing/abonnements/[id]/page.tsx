@@ -373,6 +373,24 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
                 },
               ]}
             />
+            {!sub.recurrence_stopped_at && (
+              /* Une demande enregistrée alors que la reconduction n'est pas
+                 marquée arrêtée : la banque a refusé l'arrêt, il reste à le
+                 poser à la main. Sans ce rappel à l'écran, la tâche ne vit que
+                 dans un email d'alerte, et le client se fait prélever. */
+              <div className="border-t border-border p-4">
+                <Notice tone="bad" title="Arrêt de reconduction à poser au CIC">
+                  La banque n&apos;a pas accusé l&apos;arrêt : la demande du
+                  client est enregistrée et il a reçu sa confirmation, mais la
+                  commande <span className="font-mono">{sub.monetico_reference}</span>{" "}
+                  (commande du {sub.monetico_order_date ?? "?"},{" "}
+                  {formatEuros(sub.first_payment_cents)}) continuera d&apos;être
+                  prélevée tant qu&apos;elle n&apos;aura pas été arrêtée depuis
+                  le tableau de bord CIC. À faire avant le{" "}
+                  {fmtDate(sub.current_period_end)}.
+                </Notice>
+              </div>
+            )}
             <div className="border-t border-border p-4">
               <form action={retirerDemande} className="mb-2 flex flex-wrap items-center gap-3">
                 <input type="hidden" name="id" value={sub.id} />
