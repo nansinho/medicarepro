@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { siteUrl } from "@/lib/http/site-url";
 
 /* ============================================================
    Proxy (convention Next 16, ex-middleware) — périmètre /admin/*.
@@ -57,13 +58,14 @@ export async function proxy(request: NextRequest) {
 
   if (!isStaff && !isPublicAdminPath) {
     return withSessionCookies(
-      NextResponse.redirect(new URL("/admin/login", request.url)),
+      /* Base publique et non request.url : voir lib/http/site-url. */
+      NextResponse.redirect(siteUrl("/admin/login")),
       response,
     );
   }
   if (isStaff && isLogin) {
     return withSessionCookies(
-      NextResponse.redirect(new URL("/admin", request.url)),
+      NextResponse.redirect(siteUrl("/admin")),
       response,
     );
   }

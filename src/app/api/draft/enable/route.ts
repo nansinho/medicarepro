@@ -2,6 +2,7 @@ import { draftMode } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { getStaffUser } from "@/lib/admin/auth";
 import { FALLBACK_PAGES } from "@/lib/cms/fallback";
+import { siteUrl } from "@/lib/http/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const staff = await getStaffUser();
   if (!staff) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return NextResponse.redirect(siteUrl("/admin/login"));
   }
 
   const path = request.nextUrl.searchParams.get("path") ?? "/";
@@ -19,5 +20,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const draft = await draftMode();
   draft.enable();
-  return NextResponse.redirect(new URL(target, request.url));
+  return NextResponse.redirect(siteUrl(target));
 }

@@ -29,26 +29,37 @@ function sessionCookie(value: string): string {
   return `${PORTAL_COOKIE}=${value}; Path=/; Max-Age=${SESSION_TTL_MINUTES * 60}; HttpOnly; SameSite=Lax${secure}`;
 }
 
-function back(request: NextRequest, error: string): Response {
-  const url = new URL("/mon-abonnement", request.nextUrl.origin);
-  url.searchParams.set("e", error);
-  return Response.redirect(url, 303);
+/* ⚠️ REDIRECTIONS RELATIVES, ET C'EST VOLONTAIRE.
+   `request.nextUrl.origin` vaut « https://0.0.0.0:3000 » en production : le
+   serveur standalone construit son URL de base avec HOSTNAME et PORT
+   (Dockerfile) dès lors que `trustHostHeader` est faux, et cette option n'est
+   pas exposée par Next 16. Une redirection absolue dérivée de la requête
+   envoyait donc le praticien sur une adresse injoignable, APRÈS avoir consommé
+   son jeton à usage unique : il se retrouvait dehors sans pouvoir réessayer.
+   Un `Location` relatif est valide depuis la RFC 7231 et n'a besoin d'aucune
+   base — c'est le navigateur qui la résout, correctement. */
+
+function back(error: string): Response {
+  return new Response(null, {
+    status: 303,
+    headers: { location: `/mon-abonnement?e=${encodeURIComponent(error)}` },
+  });
 }
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("t") ?? "";
-  if (!token) return back(request, "lien");
+  if (!token) return back("lien");
 
   const supabase = serviceClient();
-  if (!supabase) return back(request, "indispo");
+  if (!supabase) return back("indispo");
 
   const link = await consumePortalLink(supabase, token);
-  if (!link) return back(request, "lien");
+  if (!link) return back("lien");
 
   return new Response(null, {
     status: 303,
     headers: {
-      location: new URL("/mon-abonnement", request.nextUrl.origin).toString(),
+      location: "/mon-abonnement",
       "set-cookie": sessionCookie(sealSession(sessionFromLink(link))),
     },
   });

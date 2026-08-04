@@ -156,7 +156,6 @@ export async function POST(request: NextRequest) {
       },
       consentRecordId,
       clientIp: ip,
-      origin: request.nextUrl.origin,
       returnPath: "/mon-abonnement/merci",
     });
 

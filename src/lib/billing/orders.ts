@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import { buildPaymentForm, type SealedPaymentForm } from "@/lib/monetico";
 import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
 import type { BillingPlan } from "@/lib/checkout/pricing";
@@ -250,9 +251,17 @@ export type OpenOrderInput = {
   consentRecordId?: string | null;
   clientIp?: string | null;
   createdByAdmin?: string | null;
-  /** Origine des URLs de retour (request.nextUrl.origin). */
-  origin: string;
-  /** Chemin de retour, sans la référence (ex. "/mon-abonnement/merci"). */
+  /**
+   * Chemin de retour après paiement, sans la référence
+   * (ex. "/mon-abonnement/merci").
+   *
+   * VOLONTAIREMENT UN CHEMIN, PAS UNE URL : l'origine est calculée ici, à
+   * partir de NEXT_PUBLIC_SITE_URL. Elle ne doit JAMAIS venir de la requête —
+   * `request.nextUrl.origin` vaut « https://0.0.0.0:3000 » en production (le
+   * serveur standalone se rabat sur HOSTNAME et PORT), et cette URL part
+   * SCELLÉE DANS LE MAC vers Monetico : le client serait débité puis renvoyé
+   * sur une adresse injoignable, sans rattrapage possible.
+   */
   returnPath: string;
 };
 
@@ -287,7 +296,9 @@ export async function openOrder(
   const reference = await newOrderReference(supabase);
   const config = moneticoConfigForPlan(input.plan);
   const { postalCode, city } = splitPostalCity(input.billingSnapshot.cabinetPostalCity);
-  const returnUrl = `${input.origin}${input.returnPath}?ref=${reference}`;
+  /* Même source que le tunnel d'inscription, qui lui fonctionne en production. */
+  const siteUrl = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  const returnUrl = `${siteUrl}${input.returnPath}?ref=${reference}`;
 
   const form = buildPaymentForm(
     {

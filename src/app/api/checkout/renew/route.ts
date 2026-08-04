@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { hasCheckout } from "@/lib/env";
+import { env, hasCheckout } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { clientIpFrom } from "@/lib/http/client-ip";
 import { isSameOriginJsonPost } from "@/lib/http/origin-guard";
@@ -107,6 +107,14 @@ export async function POST(request: NextRequest) {
   const cpCity = sub.cabinet_postal_city.trim();
   const m = /^(\d{5})\s+(.+)$/.exec(cpCity);
 
+  /* URL de retour bâtie sur NEXT_PUBLIC_SITE_URL, comme le tunnel
+     d'inscription — et SURTOUT PAS sur request.nextUrl.origin, qui vaut
+     « https://0.0.0.0:3000 » en production (le serveur standalone se rabat sur
+     HOSTNAME et PORT). Cette URL part SCELLÉE DANS LE MAC vers Monetico : une
+     origine fausse renvoie un client qui vient d'être débité sur une adresse
+     injoignable, sans correction possible après coup. */
+  const returnUrl = `${env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/renouvellement/merci?ref=${reference}`;
+
   let form;
   try {
     form = buildPaymentForm(
@@ -114,8 +122,8 @@ export async function POST(request: NextRequest) {
         reference,
         amountCents,
         email: sub.admin_email,
-        urlRetourOk: `${request.nextUrl.origin}/renouvellement/merci?ref=${reference}`,
-        urlRetourErr: `${request.nextUrl.origin}/renouvellement/merci?ref=${reference}`,
+        urlRetourOk: returnUrl,
+        urlRetourErr: returnUrl,
         billingContext: {
           addressLine1: sub.cabinet_address || "—",
           city: m?.[2] ?? (cpCity || "—"),
