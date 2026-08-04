@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { sendMail } from "@/lib/email";
 import { clientIpFrom } from "@/lib/http/client-ip";
 import { createPortalLink, type PortalCabinet } from "@/lib/billing/portal";
+import { lookupCabinet } from "@/lib/provisioning";
 import { subscribeInviteEmail } from "@/lib/emails/checkout-templates";
 
 /* ============================================================
@@ -31,6 +32,91 @@ export type LinkState =
   | { ok: true; url: string; expiresAt: string; notified: boolean }
   | { ok: false; error: string }
   | null;
+
+/* ------------------------------------------------------------
+   Recherche d'un cabinet dans l'application.
+
+   Remplace la saisie à la main de l'identifiant technique du cabinet, qui
+   était le seul moyen tant que l'application n'exposait aucune route de
+   lecture. Un identifiant mal recopié rattachait l'abonnement — donc le
+   prélèvement — au mauvais cabinet.
+   ------------------------------------------------------------ */
+
+export type FoundCabinet = {
+  id: string;
+  name: string;
+  email: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  invoicePrefix: string;
+  siretNumber: string;
+  adminName: string;
+  adminEmail: string;
+  /** Abonnement déjà connu de l'application, pour prévenir les doublons. */
+  subscriptionPlan: string | null;
+  subscriptionStatus: string | null;
+};
+
+export type SearchState =
+  | { ok: true; cabinet: FoundCabinet }
+  | { ok: false; error: string }
+  | null;
+
+export async function rechercherCabinet(
+  _prev: SearchState,
+  formData: FormData,
+): Promise<SearchState> {
+  try {
+    await requireAdminService();
+
+    const query = String(formData.get("query") ?? "").trim();
+    if (!query) {
+      return { ok: false, error: "Saisissez l'email ou l'identifiant du cabinet." };
+    }
+
+    /* Une adresse email est reconnue à son arobase ; tout le reste est traité
+       comme un identifiant, ce qui laisse le collage direct fonctionner. */
+    const outcome = await lookupCabinet(
+      query.includes("@") ? { email: query } : { id: query },
+    );
+
+    if (!outcome.ok) {
+      return {
+        ok: false,
+        error: outcome.notFound
+          ? "Aucun cabinet ne correspond. Vérifiez l'adresse, ou collez l'identifiant relevé dans le back-office de l'application."
+          : outcome.reason,
+      };
+    }
+
+    const c = outcome.cabinet;
+    const admin = c.admin;
+    return {
+      ok: true,
+      cabinet: {
+        id: c.id,
+        name: c.name ?? "",
+        email: c.email ?? "",
+        address: c.address ?? "",
+        postalCode: c.postalCode ?? "",
+        city: c.city ?? "",
+        invoicePrefix: c.invoicePrefix ?? "",
+        siretNumber: c.siretNumber ?? "",
+        adminName: admin ? `${admin.firstName} ${admin.lastName}`.trim() : "",
+        adminEmail: admin?.email ?? c.email ?? "",
+        subscriptionPlan: c.subscriptionPlan,
+        subscriptionStatus: c.subscriptionStatus,
+      },
+    };
+  } catch (err) {
+    console.error(
+      "[souscriptions] recherche :",
+      err instanceof Error ? err.message : String(err),
+    );
+    return { ok: false, error: "La recherche a échoué. Réessayez." };
+  }
+}
 
 function field(form: FormData, name: string): string {
   return String(form.get(name) ?? "").trim();

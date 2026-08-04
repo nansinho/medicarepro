@@ -411,3 +411,94 @@ export async function notifyRenewal(
   }
   return { ok: false, reason: lastError };
 }
+
+/* ------------------------------------------------------------
+   cabinet — recherche d'un cabinet existant (réconciliation).
+
+   POURQUOI C'EST ARRIVÉ TARD : cette route n'existait pas côté app quand
+   l'écran de souscription a été construit. Il fallait donc coller à la main
+   l'identifiant du cabinet, relevé dans le back-office de l'application —
+   au mieux fastidieux, au pire source d'erreur : un identifiant faux
+   rattache l'abonnement, et donc le prélèvement, au mauvais cabinet.
+
+   La recherche est en LECTURE SEULE et ne renvoie aucune donnée patient.
+   Elle sert à pré-remplir la facturation, jamais à décider d'un prix.
+   ------------------------------------------------------------ */
+
+const LOOKUP_TIMEOUT_MS = 8_000;
+
+export type CabinetLookupResult = {
+  id: string;
+  name: string;
+  email: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  siretNumber: string | null;
+  invoicePrefix: string;
+  status: string;
+  subscriptionPlan: string | null;
+  subscriptionStatus: string | null;
+  subscriptionExpiresAt: string | null;
+  maxAssistants: number | null;
+  admin: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+};
+
+export type CabinetLookupOutcome =
+  | { ok: true; cabinet: CabinetLookupResult }
+  | { ok: false; notFound: true }
+  | { ok: false; notFound: false; reason: string };
+
+/** Recherche par email OU par identifiant. Ne jette jamais. */
+export async function lookupCabinet(input: {
+  email?: string;
+  id?: string;
+}): Promise<CabinetLookupOutcome> {
+  const { provisioningApiUrl, provisioningApiKey } = billingEnv();
+  const params = new URLSearchParams();
+  if (input.id) params.set("id", input.id);
+  else if (input.email) params.set("email", input.email);
+  else return { ok: false, notFound: false, reason: "Aucun critère fourni." };
+
+  const url = `${provisioningApiUrl.replace(/\/$/, "")}/cabinet?${params}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { "x-medicarepro-provision-authorization": provisioningApiKey },
+      signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+      cache: "no-store",
+    });
+  } catch {
+    return {
+      ok: false,
+      notFound: false,
+      reason: "L'application est injoignable.",
+    };
+  }
+
+  if (response.status === 404) return { ok: false, notFound: true };
+  if (response.status === 401) {
+    return { ok: false, notFound: false, reason: "Clé de provisioning refusée." };
+  }
+
+  let envelope: Envelope<CabinetLookupResult> | null = null;
+  try {
+    envelope = (await response.json()) as Envelope<CabinetLookupResult>;
+  } catch {
+    envelope = null;
+  }
+  if (!response.ok || !envelope || !envelope.success) {
+    return {
+      ok: false,
+      notFound: false,
+      reason: `Recherche en erreur (HTTP ${response.status}).`,
+    };
+  }
+  return { ok: true, cabinet: envelope.data };
+}
