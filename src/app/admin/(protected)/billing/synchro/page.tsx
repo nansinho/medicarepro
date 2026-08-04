@@ -4,7 +4,18 @@ import { revalidatePath } from "next/cache";
 import { getStaffUser } from "@/lib/admin/auth";
 import { serviceClient } from "@/lib/supabase/service";
 import { logAudit } from "@/lib/audit";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /* ============================================================
    Synchro app — tâches manuelles vitrine → application (intérim
@@ -28,11 +39,14 @@ type SyncTaskRow = {
   subscription: { cabinet_name: string } | null;
 };
 
-const KIND_BADGE: Record<string, { label: string; tone: string }> = {
-  renewal: { label: "Renouvellement", tone: "tBlue" },
-  suspension: { label: "Suspension", tone: "tRed" },
-  reactivation: { label: "Réactivation", tone: "tGreen" },
-  rollback_renewal: { label: "Annulation renouvellement", tone: "tAmber" },
+const KIND_BADGE: Record<
+  string,
+  { label: string; variant: "blue" | "red" | "green" | "amber" | "gray" }
+> = {
+  renewal: { label: "Renouvellement", variant: "blue" },
+  suspension: { label: "Suspension", variant: "red" },
+  reactivation: { label: "Réactivation", variant: "green" },
+  rollback_renewal: { label: "Annulation renouvellement", variant: "amber" },
 };
 
 const dateTimeFmt = new Intl.DateTimeFormat("fr-FR", {
@@ -101,15 +115,12 @@ export default async function SynchroPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Synchro app</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : les tâches de synchronisation sont
-          indisponibles.
-        </p>
-      </>
+      <div className="flex flex-col gap-4">
+        <PageHeading title="Synchro app" />
+        <Notice tone="warn" title="Supabase non configuré">
+          Les tâches de synchronisation sont indisponibles.
+        </Notice>
+      </div>
     );
   }
 
@@ -135,120 +146,131 @@ export default async function SynchroPage() {
   const doneRows = (done.data ?? []) as unknown as SyncTaskRow[];
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Synchro app</h1>
-        <p className={s.pageDesc}>
-          Tâches à reporter manuellement dans l&apos;application
-          (prolongation d&apos;abonnement, suspension…). Reportez le contenu
-          du payload côté app, puis marquez la tâche « faite ».
-        </p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Synchro app"
+        description="Tâches à reporter manuellement dans l'application (prolongation d'abonnement, suspension…). Reportez le contenu du payload côté app, puis marquez la tâche « faite »."
+      />
 
       {(pending.error ?? done.error) && (
-        <p className={s.banner}>
-          Erreur de lecture : {(pending.error ?? done.error)?.message}
-        </p>
+        <Notice tone="bad" title="Erreur de lecture">
+          {(pending.error ?? done.error)?.message}
+        </Notice>
       )}
 
-      <div className={s.card}>
+      <Card className="overflow-hidden">
         {pendingRows.length === 0 ? (
-          <p className={s.empty}>Aucune tâche en attente. Tout est à jour.</p>
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucune tâche en attente. Tout est à jour.
+          </div>
         ) : (
-          <div className={s.tableWrap}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Cabinet</th>
-                  <th>Payload</th>
-                  <th>Créée le</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[180px]">Type</TableHead>
+                  <TableHead className="min-w-[200px]">Cabinet</TableHead>
+                  <TableHead className="min-w-[280px]">Payload</TableHead>
+                  <TableHead className="w-44 text-right">Créée le</TableHead>
+                  <TableHead className="w-36 text-right" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {pendingRows.map((task) => {
                   const badge = KIND_BADGE[task.kind] ?? {
                     label: task.kind,
-                    tone: "tGray",
+                    variant: "gray" as const,
                   };
                   return (
-                    <tr key={task.id}>
-                      <td>
-                        <span className={`${s.badge} ${s[badge.tone]}`}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td>
+                    <TableRow key={task.id}>
+                      <TableCell>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </TableCell>
+                      <TableCell>
                         <Link
                           href={`/admin/billing/abonnements/${task.subscription_id}`}
-                          className={s.tdMain}
+                          className="font-medium text-foreground hover:text-primary"
                         >
                           {task.subscription?.cabinet_name ?? "—"}
                         </Link>
-                      </td>
-                      <td>
-                        <code className={s.code}>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <pre className="max-w-[460px] overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs tabular-nums text-muted-foreground">
                           {JSON.stringify(task.payload, null, 2)}
-                        </code>
-                      </td>
-                      <td className={s.tdNum}>{fmtDateTime(task.created_at)}</td>
-                      <td>
+                        </pre>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {fmtDateTime(task.created_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
                         <form action={marquerFait}>
                           <input type="hidden" name="id" value={task.id} />
-                          <button type="submit" className={s.btnSmall}>
+                          <Button type="submit" variant="outline" size="sm">
                             Marquer fait
-                          </button>
+                          </Button>
                         </form>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
+      </Card>
 
-      <h2 className={s.sectionTitle}>Faites récemment (20 max)</h2>
-      <div className={s.card}>
-        {doneRows.length === 0 ? (
-          <p className={s.empty}>Aucune tâche traitée pour le moment.</p>
-        ) : (
-          <div className={s.tableWrap}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Cabinet</th>
-                  <th>Créée le</th>
-                  <th>Faite le</th>
-                </tr>
-              </thead>
-              <tbody>
-                {doneRows.map((task) => {
-                  const badge = KIND_BADGE[task.kind] ?? {
-                    label: task.kind,
-                    tone: "tGray",
-                  };
-                  return (
-                    <tr key={task.id}>
-                      <td>
-                        <span className={`${s.badge} ${s[badge.tone]}`}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td>{task.subscription?.cabinet_name ?? "—"}</td>
-                      <td className={s.tdNum}>{fmtDateTime(task.created_at)}</td>
-                      <td className={s.tdNum}>{fmtDateTime(task.done_at)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
+          Faites récemment{" "}
+          <span className="text-[13px] font-normal text-muted-foreground">
+            (20 max)
+          </span>
+        </h2>
+        <Card className="overflow-hidden">
+          {doneRows.length === 0 ? (
+            <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+              Aucune tâche traitée pour le moment.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[180px]">Type</TableHead>
+                    <TableHead className="min-w-[200px]">Cabinet</TableHead>
+                    <TableHead className="w-44 text-right">Créée le</TableHead>
+                    <TableHead className="w-44 text-right">Faite le</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {doneRows.map((task) => {
+                    const badge = KIND_BADGE[task.kind] ?? {
+                      label: task.kind,
+                      variant: "gray" as const,
+                    };
+                    return (
+                      <TableRow key={task.id}>
+                        <TableCell>
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground">
+                          {task.subscription?.cabinet_name ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                          {fmtDateTime(task.created_at)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                          {fmtDateTime(task.done_at)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      </section>
+    </div>
   );
 }

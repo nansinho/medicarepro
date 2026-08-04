@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import {
   searchMedia,
   type MediaRow,
 } from "@/app/admin/(protected)/medias/actions";
-import { Close, Search } from "@/components/icons";
-import m from "./media.module.css";
-import p from "./picker.module.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /* ============================================================
    Sélecteur d'image réutilisable (blog : couverture ; éditeur de
@@ -35,29 +35,32 @@ export default function ImagePicker({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={p.field}>
-      <span className={p.label}>{label}</span>
-      <div className={p.row}>
-        <span className={p.thumb}>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/40 p-2.5">
+        <span className="flex h-14 w-[72px] flex-none items-center justify-center overflow-hidden rounded-md bg-secondary">
           {value.path ? (
             /* eslint-disable-next-line @next/next/no-img-element -- vignette admin */
-            <img src={value.path} alt={value.alt} />
+            <img src={value.path} alt={value.alt} className="h-full w-full object-cover" />
           ) : (
-            <span className={p.thumbEmpty}>vide</span>
+            <span className="text-[11px] text-muted-foreground">vide</span>
           )}
         </span>
-        <div className={p.meta}>
-          <input
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <Input
             type="text"
             value={value.alt}
             placeholder="Texte alternatif (alt)"
             onChange={(e) => onChange({ ...value, alt: e.target.value })}
+            className="h-8"
           />
-          <small>{value.path || "Aucune image sélectionnée"}</small>
+          <small className="truncate text-[11px] text-muted-foreground">
+            {value.path || "Aucune image sélectionnée"}
+          </small>
         </div>
-        <button type="button" className={p.chooseBtn} onClick={() => setOpen(true)}>
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
           Choisir…
-        </button>
+        </Button>
       </div>
 
       {open && (
@@ -107,21 +110,27 @@ export function PickerPanel({
   const pages = Math.max(1, Math.ceil(total / 40));
 
   return (
-    <div className={m.overlay} role="dialog" aria-modal="true">
-      <div className={`${m.panel} ${p.pickerPanel}`}>
-        <button
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-black/50"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="relative flex h-full w-full max-w-xl flex-col gap-4 overflow-y-auto border-l border-border bg-background p-4 shadow-lg duration-300 animate-in slide-in-from-right">
+        <Button
           type="button"
-          className={m.panelClose}
+          variant="ghost"
+          size="icon-sm"
+          className="absolute right-3 top-3"
           onClick={onClose}
           aria-label="Fermer"
         >
-          <Close width={16} height={16} />
-        </button>
-        <h2 className={p.pickerTitle}>Choisir une image</h2>
+          <X />
+        </Button>
+        <h2 className="pr-10 text-base font-semibold text-foreground">Choisir une image</h2>
 
-        <label className={m.search}>
-          <Search width={15} height={15} />
-          <input
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
             type="search"
             placeholder="Rechercher…"
             value={q}
@@ -129,26 +138,38 @@ export function PickerPanel({
               setQ(e.target.value);
               setPage(0);
             }}
+            className="pl-9"
           />
-        </label>
+        </div>
 
         {loading ? (
-          <p className={m.empty}>Chargement…</p>
+          <div className="flex items-center justify-center rounded-lg border border-border bg-card p-10 text-[13px] text-muted-foreground">
+            Chargement…
+          </div>
         ) : (
-          <div className={`${m.grid} ${p.pickerGrid}`}>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
             {rows.map((row) => (
               <button
                 key={row.id}
                 type="button"
-                className={m.card}
                 onClick={() => onPick(row)}
                 title={row.path}
+                className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-colors hover:border-primary/60"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- vignette admin */}
-                <img src={row.url ?? row.path} alt={row.alt} loading="lazy" />
-                <span className={m.cardMeta}>
-                  <b>{row.path.split("/").pop()}</b>
-                  <small>{row.alt || "alt manquant"}</small>
+                <img
+                  src={row.url ?? row.path}
+                  alt={row.alt}
+                  loading="lazy"
+                  className="aspect-square w-full bg-secondary object-cover"
+                />
+                <span className="flex flex-col gap-0.5 px-2.5 py-2">
+                  <b className="truncate text-xs font-semibold text-foreground">
+                    {row.path.split("/").pop()}
+                  </b>
+                  <small className="truncate text-[11px] text-muted-foreground">
+                    {row.alt || "alt manquant"}
+                  </small>
                 </span>
               </button>
             ))}
@@ -156,20 +177,30 @@ export function PickerPanel({
         )}
 
         {pages > 1 && (
-          <div className={m.pager}>
-            <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)}>
-              ←
-            </button>
-            <span>
+          <div className="flex items-center justify-center gap-3 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              disabled={page === 0}
+              onClick={() => setPage(page - 1)}
+              aria-label="Page précédente"
+            >
+              <ChevronLeft />
+            </Button>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
               {page + 1} / {pages}
             </span>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               disabled={page >= pages - 1}
               onClick={() => setPage(page + 1)}
+              aria-label="Page suivante"
             >
-              →
-            </button>
+              <ChevronRight />
+            </Button>
           </div>
         )}
       </div>

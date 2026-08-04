@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
-import { Plus } from "@/components/icons";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Button } from "@/components/ui/button";
 import BlogList, {
   type BlogListRow,
 } from "@/components/admin/blog/BlogList";
-import s from "@/components/admin/Admin.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,12 @@ export default async function AdminBlogListPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Actualités</h1>
-        </header>
-        <p className={s.banner}>Supabase non configuré.</p>
-      </>
+      <div className="flex flex-col gap-4">
+        <PageHeading title="Actualités" description="Articles du blog du site." />
+        <Notice tone="warn" title="Supabase non configuré">
+          La liste des articles est indisponible.
+        </Notice>
+      </div>
     );
   }
 
@@ -45,20 +46,21 @@ export default async function AdminBlogListPage() {
   }));
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <div className={s.pageHeadRow}>
-          <div>
-            <h1 className={s.pageTitle}>Actualités</h1>
-            <p className={s.pageDesc}>Articles du blog du site.</p>
-          </div>
-          <Link href="/admin/blog/nouveau" className={s.primaryBtn}>
-            <Plus width={15} height={15} /> Nouvel article
-          </Link>
-        </div>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Actualités"
+        description="Articles du blog du site."
+        actions={
+          <Button size="sm" asChild>
+            <Link href="/admin/blog/nouveau">
+              <Plus />
+              Nouvel article
+            </Link>
+          </Button>
+        }
+      />
 
       <BlogList rows={rows} />
-    </>
+    </div>
   );
 }

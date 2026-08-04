@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ExternalLink, Play, Sparkles, TriangleAlert } from "lucide-react";
 import {
   publishCities,
   queueGeneration,
@@ -10,9 +11,27 @@ import {
   unpublishCity,
   type VilleActionResult,
 } from "@/app/admin/(protected)/villes/actions";
-import s from "../Admin.module.css";
-import c from "../collections/collections.module.css";
-import vs from "./villes.module.css";
+import { Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /* ============================================================
    Gestion des villes SEO : générer par vague, déclencher le
@@ -31,6 +50,12 @@ export type CityRow = {
 };
 
 const WAVES = [1, 2, 3];
+
+const STATUS_VARIANT: Record<string, "green" | "amber" | "blue" | "gray"> = {
+  approved: "green",
+  needs_review: "amber",
+  generated: "blue",
+};
 
 export default function VillesManager({
   rows,
@@ -58,244 +83,239 @@ export default function VillesManager({
   }
 
   return (
-    <div className={vs.wrap}>
-      {/* Actions par vague */}
-      <section className={vs.waves}>
-        <h2>Génération &amp; publication par vague</h2>
-        <div className={vs.waveGrid}>
-          {WAVES.map((wave) => {
-            const w = waves[wave] ?? { total: 0, published: 0 };
-            return (
-              <div key={wave} className={vs.waveCard}>
-                <b>Vague {wave}</b>
-                <small>
-                  {w.published}/{w.total} publiées
-                </small>
-                <div className={vs.waveActions}>
-                  <button
-                    type="button"
-                    disabled={pending || !aiReady}
-                    onClick={() => {
-                      const fd = new FormData();
-                      fd.set("wave", String(wave));
-                      run(() => queueGeneration(fd));
-                    }}
-                  >
-                    Générer
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      const fd = new FormData();
-                      fd.set("wave", String(wave));
-                      run(() => publishCities(fd));
-                    }}
-                  >
-                    Publier les approuvées
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          className={vs.workerBtn}
-          disabled={pending || !aiReady}
-          onClick={() => run(() => triggerWorker())}
-        >
-          ▶ Lancer la génération maintenant
-        </button>
-        <p className={vs.hint}>
-          La génération tourne en arrière-plan (worker). Sinon, le cron la
-          traite toutes les 5 minutes.
-        </p>
-      </section>
-
+    <div className="flex flex-col gap-4">
       {notice && (
-        <p
-          className={notice.ok ? c.noticeOk : c.noticeErr}
-          role={notice.ok ? "status" : "alert"}
-        >
-          {notice.message ?? (notice.ok ? "OK" : "Erreur")}
-        </p>
+        <Notice tone={notice.ok ? "ok" : "bad"} title={notice.ok ? "Action effectuée" : "Erreur"}>
+          {notice.message ?? (notice.ok ? "OK" : "Une erreur est survenue.")}
+        </Notice>
       )}
 
-      {/* File de revue */}
-      <section>
-        <h2 className={vs.sectionTitle}>À revoir ({rows.length})</h2>
-        <div className={s.tableWrap}>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                <th>Ville</th>
-                <th>Vague</th>
-                <th>Statut</th>
-                <th>À vérifier</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <span className={s.tdMain}>{row.name}</span>
-                    <span className={s.tdSub}>{row.region}</span>
-                  </td>
-                  <td>
-                    <span className={s.tdSub}>{row.wave}</span>
-                  </td>
-                  <td>
-                    <span
-                      className={`${s.badge} ${
-                        row.status === "approved"
-                          ? s.tGreen
-                          : row.status === "needs_review"
-                            ? s.tAmber
-                            : s.tBlue
-                      }`}
+      {/* Actions par vague */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <Sparkles className="size-4 text-muted-foreground" />
+            Génération et publication par vague
+          </CardTitle>
+          <Button size="sm" disabled={pending || !aiReady} onClick={() => run(() => triggerWorker())}>
+            <Play />
+            Lancer la génération
+          </Button>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-2.5 sm:grid-cols-3">
+            {WAVES.map((wave) => {
+              const w = waves[wave] ?? { total: 0, published: 0 };
+              const pct = w.total > 0 ? Math.round((w.published / w.total) * 100) : 0;
+              return (
+                <div key={wave} className="flex flex-col gap-3 rounded-lg border border-border bg-secondary/40 p-3.5">
+                  <div className="flex items-baseline justify-between">
+                    <b className="text-[13px] font-semibold text-foreground">Vague {wave}</b>
+                    <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                      {w.published} / {w.total} publiées
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-border">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={pending || !aiReady}
+                      onClick={() => {
+                        const fd = new FormData();
+                        fd.set("wave", String(wave));
+                        run(() => queueGeneration(fd));
+                      }}
                     >
-                      {row.status}
-                    </span>
-                  </td>
-                  <td>
-                    {row.claims.length > 0 ? (
-                      <span className={`${s.badge} ${s.tAmber}`}>
-                        {row.claims.length} fait(s)
-                      </span>
-                    ) : (
-                      <span className={s.tdSub}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className={s.rowActions}>
-                      <button
-                        type="button"
-                        className={s.btnSmall}
-                        onClick={() => setReviewing(row)}
-                      >
-                        Revoir
-                      </button>
-                      <a
-                        className={s.btnSmall}
-                        href={`/logiciel-podologue/${row.slug}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Aperçu
-                      </a>
+                      <Sparkles />
+                      Générer
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={pending}
+                      onClick={() => {
+                        const fd = new FormData();
+                        fd.set("wave", String(wave));
+                        run(() => publishCities(fd));
+                      }}
+                    >
+                      Publier
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            La génération tourne en arrière-plan (worker). Sinon, le cron la traite toutes les 5 minutes.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* File de revue */}
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle>À revoir</CardTitle>
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">{rows.length}</span>
+        </CardHeader>
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-1 px-4 py-12 text-center">
+            <p className="text-[13px] font-medium text-foreground">Aucune ville en attente de revue</p>
+            <p className="text-xs text-muted-foreground">Les pages générées apparaîtront ici avant approbation.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[220px]">Ville</TableHead>
+                  <TableHead className="w-20 text-right">Vague</TableHead>
+                  <TableHead className="w-36">Statut</TableHead>
+                  <TableHead className="w-28">À vérifier</TableHead>
+                  <TableHead className="w-44 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>
+                      <div className="font-medium text-foreground">{row.name}</div>
+                      <div className="text-xs text-muted-foreground">{row.region}</div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      {row.wave}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANT[row.status] ?? "gray"}>{row.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {row.claims.length > 0 ? (
+                        <Badge variant="amber">{row.claims.length} fait(s)</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setReviewing(row)}>
+                          Revoir
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" asChild aria-label="Aperçu de la page">
+                          <a href={`/logiciel-podologue/${row.slug}`} target="_blank" rel="noreferrer">
+                            <ExternalLink className="size-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
+
+      {/* Panneau de revue (latéral, pas de modal centré) */}
+      <Sheet open={!!reviewing} onOpenChange={(open) => !open && setReviewing(null)}>
+        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
+          {reviewing && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{reviewing.name}</SheetTitle>
+                <SheetDescription>
+                  {reviewing.region} · vague {reviewing.wave} ·{" "}
+                  <Badge variant={STATUS_VARIANT[reviewing.status] ?? "gray"}>{reviewing.status}</Badge>
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                {reviewing.claims.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-[color:var(--warn)]/30 bg-[color:var(--warn)]/8 p-3.5">
+                    <div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-[color:var(--warn)]">
+                      <TriangleAlert className="size-4" />
+                      Faits à vérifier avant d&apos;approuver
                     </div>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={5}>
-                    <span className={s.tdSub}>
-                      Aucune ville en attente de revue.
-                    </span>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    <ul className="flex flex-col gap-1.5 text-[13px] text-muted-foreground">
+                      {reviewing.claims.map((claim, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="text-[color:var(--warn)]">•</span>
+                          {claim}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-      {/* Panneau de revue */}
-      {reviewing && (
-        <div className={vs.overlay} role="dialog" aria-modal="true">
-          <div className={vs.panel}>
-            <button
-              type="button"
-              className={vs.close}
-              onClick={() => setReviewing(null)}
-            >
-              ✕
-            </button>
-            <h2>{reviewing.name}</h2>
-            <p className={vs.reviewSub}>
-              {reviewing.region} · vague {reviewing.wave} · {reviewing.status}
-            </p>
-
-            {reviewing.claims.length > 0 && (
-              <div className={vs.claims}>
-                <h3>⚠️ Faits à vérifier avant d&apos;approuver</h3>
-                <ul>
-                  {reviewing.claims.map((claim, i) => (
-                    <li key={i}>{claim}</li>
-                  ))}
-                </ul>
+                <Button variant="outline" size="sm" asChild className="w-full">
+                  <a href={`/logiciel-podologue/${reviewing.slug}`} target="_blank" rel="noreferrer">
+                    <ExternalLink />
+                    Ouvrir la page rendue
+                  </a>
+                </Button>
               </div>
-            )}
 
-            <a
-              className={vs.previewLink}
-              href={`/logiciel-podologue/${reviewing.slug}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Ouvrir la page rendue ↗
-            </a>
-
-            <div className={vs.reviewActions}>
-              <button
-                type="button"
-                className={vs.approve}
-                disabled={pending}
-                onClick={() => {
-                  if (
-                    reviewing.claims.length > 0 &&
-                    !window.confirm(
-                      "Avez-vous vérifié tous les faits locaux listés ? L'approbation vaut validation.",
+              <SheetFooter className="flex-row gap-2">
+                <Button
+                  className="flex-1"
+                  disabled={pending}
+                  onClick={() => {
+                    if (
+                      reviewing.claims.length > 0 &&
+                      !window.confirm(
+                        "Avez-vous vérifié tous les faits locaux listés ? L'approbation vaut validation.",
+                      )
                     )
-                  ) {
-                    return;
-                  }
-                  const fd = new FormData();
-                  fd.set("cityId", reviewing.id);
-                  fd.set("status", "approved");
-                  run(() => setReviewStatus(fd), true);
-                }}
-              >
-                Approuver
-              </button>
-              <button
-                type="button"
-                className={vs.reject}
-                disabled={pending}
-                onClick={() => {
-                  const fd = new FormData();
-                  fd.set("cityId", reviewing.id);
-                  fd.set("status", "needs_review");
-                  run(() => setReviewStatus(fd), true);
-                }}
-              >
-                À retravailler
-              </button>
-              {reviewing.status === "approved" && (
-                <button
-                  type="button"
-                  className={s.btnSmall}
+                      return;
+                    const fd = new FormData();
+                    fd.set("cityId", reviewing.id);
+                    fd.set("status", "approved");
+                    run(() => setReviewStatus(fd), true);
+                  }}
+                >
+                  Approuver
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
                   disabled={pending}
                   onClick={() => {
                     const fd = new FormData();
                     fd.set("cityId", reviewing.id);
-                    run(() => publishCities(fd), true);
+                    fd.set("status", "needs_review");
+                    run(() => setReviewStatus(fd), true);
                   }}
                 >
-                  Publier cette ville
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+                  À retravailler
+                </Button>
+                {reviewing.status === "approved" && (
+                  <Button
+                    variant="secondary"
+                    disabled={pending}
+                    onClick={() => {
+                      const fd = new FormData();
+                      fd.set("cityId", reviewing.id);
+                      run(() => publishCities(fd), true);
+                    }}
+                  >
+                    Publier
+                  </Button>
+                )}
+                <SheetClose asChild>
+                  <Button variant="ghost">Fermer</Button>
+                </SheetClose>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
 
-/* unpublishCity est exposé pour l'admin depuis la page publiée (non câblé ici
-   pour rester simple ; disponible pour un futur écran « publiées »). */
+/* unpublishCity est exposé pour un futur écran « villes publiées ». */
 void unpublishCity;

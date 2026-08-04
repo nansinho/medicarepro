@@ -572,6 +572,136 @@ export function provisioningIncidentEmailClient(d: {
   };
 }
 
+export type PaymentFailedData = {
+  adminFirstName: string;
+  cabinetName: string;
+  /** Montant TTC de l'échéance refusée, déjà formaté. */
+  amountLabel: string;
+  /** Jusqu'à quand l'accès reste entier malgré l'impayé, déjà formaté. */
+  graceUntilLabel: string;
+  /** Rang du refus dans la série en cours (1 = premier). */
+  attempt: number;
+};
+
+/**
+ * Échéance refusée par la banque (carte expirée, provision, opposition).
+ * Ton volontairement neutre : dans l'immense majorité des cas c'est une carte
+ * arrivée à expiration, pas un incident de solvabilité. On ne menace pas, on
+ * explique ce qui se passe et sous quel délai agir.
+ */
+export function paymentFailedEmail(d: PaymentFailedData): EmailContent {
+  const subject =
+    d.attempt > 1
+      ? "MediCare Pro — votre paiement n'a toujours pas abouti"
+      : "MediCare Pro — votre dernier paiement a été refusé";
+
+  const rows: KvRow[] = [
+    { label: "Cabinet", valueHtml: escHtml(d.cabinetName) },
+    { label: "Montant TTC", valueHtml: escHtml(d.amountLabel) },
+    { label: "Accès garanti jusqu'au", valueHtml: escHtml(d.graceUntilLabel) },
+  ];
+
+  const bodyHtml =
+    heading(
+      "Votre dernière échéance n'a pas pu être prélevée",
+      `Bonjour ${escHtml(d.adminFirstName)}, la banque a refusé le prélèvement de votre abonnement pour le cabinet <strong style="color:${NAVY};">${escHtml(d.cabinetName)}</strong>. Neuf fois sur dix, il s'agit simplement d'une carte arrivée à expiration.`,
+    ) +
+    kvCard(rows) +
+    callout(
+      `<strong style="color:${NAVY};">Votre accès reste entier</strong> jusqu'au ${escHtml(d.graceUntilLabel)}, le temps de régulariser. Écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a> et nous vous transmettons le lien de mise à jour de votre moyen de paiement.`,
+    ) +
+    paragraph(
+      `Vos données de cabinet et vos dossiers patients ne sont jamais touchés par un incident de paiement.`,
+    );
+
+  const text = [
+    "MediCare Pro — Échéance refusée",
+    "",
+    `Bonjour ${d.adminFirstName},`,
+    "",
+    `La banque a refusé le prélèvement de votre abonnement pour le cabinet`,
+    `${d.cabinetName}. Neuf fois sur dix, il s'agit d'une carte expirée.`,
+    "",
+    `Cabinet                 ${d.cabinetName}`,
+    `Montant TTC             ${d.amountLabel}`,
+    `Accès garanti jusqu'au  ${d.graceUntilLabel}`,
+    "",
+    "Votre accès reste entier le temps de régulariser. Écrivez-nous à",
+    "contact@medicarepro.fr et nous vous transmettons le lien de mise à jour",
+    "de votre moyen de paiement.",
+    "",
+    "Vos données de cabinet et vos dossiers patients ne sont jamais touchés",
+    "par un incident de paiement.",
+  ].join("\n");
+
+  return {
+    subject,
+    text,
+    html: emailShell({
+      title: subject,
+      preheader: `${d.cabinetName} — paiement refusé, accès garanti jusqu'au ${d.graceUntilLabel}.`,
+      badge: "Paiement à régulariser",
+      bodyHtml,
+      footerNoteHtml: CLIENT_FOOTER_NOTE,
+    }),
+  };
+}
+
+/**
+ * Annonce de mise en place de l'abonnement, adressée à un cabinet qui utilise
+ * déjà le logiciel sans payer.
+ *
+ * Ne contient VOLONTAIREMENT aucun lien de souscription : celui-ci expire en
+ * quinze minutes et serait périmé à l'ouverture du message. Ce courriel
+ * prépare l'appel, il ne le remplace pas.
+ */
+export function subscribeInviteEmail(d: {
+  adminFirstName: string;
+  cabinetName: string;
+}): EmailContent {
+  const subject = "MediCare Pro — mise en place de votre abonnement";
+
+  const bodyHtml =
+    heading(
+      "Votre abonnement va être mis en place",
+      `Bonjour ${escHtml(d.adminFirstName)}, vous utilisez MediCare Pro pour le cabinet <strong style="color:${NAVY};">${escHtml(d.cabinetName)}</strong>. Nous mettons en place la facturation de votre accès.`,
+    ) +
+    callout(
+      `<strong style="color:${NAVY};">Rien ne change dans votre logiciel.</strong> Vos utilisateurs, vos dossiers patients et vos réglages restent exactement en l'état&nbsp;: il ne s'agit pas d'un nouveau compte, seulement de l'abonnement qui accompagne celui que vous utilisez déjà.`,
+    ) +
+    paragraph(
+      `Nous vous recontactons pour convenir de la formule qui vous convient et vous accompagner pendant l'activation. Une question d'ici là&nbsp;? Écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a>.`,
+    );
+
+  const text = [
+    "MediCare Pro — Mise en place de votre abonnement",
+    "",
+    `Bonjour ${d.adminFirstName},`,
+    "",
+    `Vous utilisez MediCare Pro pour le cabinet ${d.cabinetName}. Nous mettons`,
+    "en place la facturation de votre accès.",
+    "",
+    "Rien ne change dans votre logiciel : vos utilisateurs, vos dossiers",
+    "patients et vos réglages restent exactement en l'état. Il ne s'agit pas",
+    "d'un nouveau compte.",
+    "",
+    "Nous vous recontactons pour convenir de la formule qui vous convient.",
+    "Une question : contact@medicarepro.fr",
+  ].join("\n");
+
+  return {
+    subject,
+    text,
+    html: emailShell({
+      title: subject,
+      preheader: `${d.cabinetName} — mise en place de l'abonnement, sans changement dans votre logiciel.`,
+      badge: "Votre abonnement",
+      bodyHtml,
+      footerNoteHtml: CLIENT_FOOTER_NOTE,
+    }),
+  };
+}
+
 /* ============================================================
    3. Alerte interne billing — sujet préfixé [BILLING],
    titre + lignes factuelles pour l'équipe.

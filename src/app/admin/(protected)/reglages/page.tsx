@@ -7,7 +7,7 @@ import {
   type EditableSettingKey,
 } from "@/lib/admin/settings-forms";
 import SettingsManager from "@/components/admin/settings/SettingsManager";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +26,12 @@ export default async function AdminReglagesPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Réglages du site</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : les réglages sont indisponibles sur cet
-          environnement.
-        </p>
-      </>
+      <div className="flex flex-col gap-4">
+        <PageHeading title="Réglages du site" />
+        <Notice tone="warn" title="Supabase non configuré">
+          Les réglages sont indisponibles sur cet environnement.
+        </Notice>
+      </div>
     );
   }
 
@@ -53,12 +50,12 @@ export default async function AdminReglagesPage() {
   }
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Réglages du site</h1>
-        <p className={s.pageDesc}>Coordonnées, bandeau promo, pied de page, entité légale.</p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Réglages du site"
+        description="Coordonnées, bandeau promo, pied de page et entité légale."
+      />
       <SettingsManager initialValues={values} />
-    </>
+    </div>
   );
 }

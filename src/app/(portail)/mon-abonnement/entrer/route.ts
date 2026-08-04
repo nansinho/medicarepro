@@ -1,0 +1,55 @@
+import { type NextRequest } from "next/server";
+import { serviceClient } from "@/lib/supabase/service";
+import {
+  consumePortalLink,
+  sealSession,
+  sessionFromLink,
+  PORTAL_COOKIE,
+  SESSION_TTL_MINUTES,
+} from "@/lib/billing/portal";
+
+/* ============================================================
+   GET /mon-abonnement/entrer?t=… — consommation du lien d'entrée.
+
+   Le lien est à USAGE UNIQUE : cette route l'échange contre un cookie de
+   session, puis redirige vers l'espace. Deux conséquences voulues :
+   - le jeton ne reste pas dans la barre d'adresse, l'historique ni les
+     en-têtes Referer une fois la page ouverte ;
+   - un lien transféré ou retrouvé plus tard ne rouvre rien.
+
+   Route Handler et non composant serveur : en Next 16, poser un cookie n'est
+   permis que depuis un Route Handler ou une Server Function.
+   ============================================================ */
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function sessionCookie(value: string): string {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${PORTAL_COOKIE}=${value}; Path=/; Max-Age=${SESSION_TTL_MINUTES * 60}; HttpOnly; SameSite=Lax${secure}`;
+}
+
+function back(request: NextRequest, error: string): Response {
+  const url = new URL("/mon-abonnement", request.nextUrl.origin);
+  url.searchParams.set("e", error);
+  return Response.redirect(url, 303);
+}
+
+export async function GET(request: NextRequest) {
+  const token = request.nextUrl.searchParams.get("t") ?? "";
+  if (!token) return back(request, "lien");
+
+  const supabase = serviceClient();
+  if (!supabase) return back(request, "indispo");
+
+  const link = await consumePortalLink(supabase, token);
+  if (!link) return back(request, "lien");
+
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: new URL("/mon-abonnement", request.nextUrl.origin).toString(),
+      "set-cookie": sessionCookie(sealSession(sessionFromLink(link))),
+    },
+  });
+}

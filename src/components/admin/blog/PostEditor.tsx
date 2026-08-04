@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ExternalLink, Eye, Save, Trash2 } from "lucide-react";
 import {
   changePostStatus,
   deletePost,
@@ -12,8 +13,14 @@ import {
 import RichTextEditor from "@/components/admin/rich-text/RichTextEditor";
 import ImagePicker from "@/components/admin/media/ImagePicker";
 import { useToast } from "@/components/admin/ui/Toast";
-import s from "../Admin.module.css";
-import b from "./blog.module.css";
+import { PageHeading } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 
 /* ============================================================
    Éditeur d'article : métadonnées + couverture + corps riche +
@@ -44,7 +51,27 @@ const STATUS_LABELS: Record<string, string> = {
   archived: "Archivé",
 };
 
-export default function PostEditor({ post }: { post: PostEditorData }) {
+const STATUS_VARIANT: Record<string, "green" | "amber" | "blue" | "gray"> = {
+  draft: "gray",
+  needs_review: "amber",
+  approved: "blue",
+  scheduled: "blue",
+  published: "green",
+  archived: "gray",
+};
+
+const scheduleFmt = new Intl.DateTimeFormat("fr-FR", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+export default function PostEditor({
+  post,
+  heading,
+}: {
+  post: PostEditorData;
+  heading: string;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -126,168 +153,218 @@ export default function PostEditor({ post }: { post: PostEditorData }) {
   }
 
   const isPublished = post.status === "published";
+  const canPublish = Boolean(post.id) && !isPublished;
 
   return (
-    <div className={b.layout}>
-      {/* Colonne principale : titre + corps */}
-      <div className={b.mainCol}>
-        <label className={b.field}>
-          <span>Titre</span>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Titre de l'article"
-          />
-        </label>
-
-        <RichTextEditor value={body} onChange={setBody} variant="blog" />
-      </div>
-
-      {/* Colonne latérale : statut + métadonnées */}
-      <aside className={b.sideCol}>
-        <section className={b.panel}>
-          <h2>Statut</h2>
-          <p className={b.statusLine}>
-            <span className={`${s.badge} ${isPublished ? s.tGreen : s.tGray}`}>
-              {STATUS_LABELS[post.status] ?? post.status}
-            </span>
-            {post.status === "scheduled" && post.scheduledFor && (
-              <small>
-                le{" "}
-                {new Intl.DateTimeFormat("fr-FR", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }).format(new Date(post.scheduledFor))}
-              </small>
-            )}
-          </p>
-
-          <div className={b.statusActions}>
-            <button
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title={heading}
+        description="Métadonnées, couverture et corps de l'article."
+        actions={
+          <>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/admin/blog">
+                <ArrowLeft />
+                Articles
+              </Link>
+            </Button>
+            <Button
               type="button"
-              className={b.primary}
+              variant={canPublish ? "outline" : "default"}
+              size="sm"
               disabled={pending}
               onClick={handleSave}
             >
+              <Save />
               {pending ? "En cours…" : "Enregistrer"}
-            </button>
-
-            {post.id && !isPublished && (
-              <button
+            </Button>
+            {canPublish && (
+              <Button
                 type="button"
-                className={b.publish}
+                size="sm"
                 disabled={pending}
                 onClick={() => handleStatus("published")}
               >
                 Publier maintenant
-              </button>
+              </Button>
             )}
+          </>
+        }
+      />
 
-            {post.id && !isPublished && (
-              <div className={b.scheduleRow}>
-                <input
-                  type="datetime-local"
-                  value={scheduleAt}
-                  onChange={(e) => setScheduleAt(e.target.value)}
-                  aria-label="Date de publication programmée"
-                />
-                <button
-                  type="button"
-                  disabled={pending || !scheduleAt}
-                  onClick={() => handleStatus("scheduled")}
-                >
-                  Programmer
-                </button>
-              </div>
-            )}
-
-            {post.id && isPublished && (
-              <button
-                type="button"
-                className={b.secondary}
-                disabled={pending}
-                onClick={() => handleStatus("draft")}
-              >
-                Dépublier (brouillon)
-              </button>
-            )}
-
-            {post.id && post.status !== "archived" && (
-              <button
-                type="button"
-                className={b.secondary}
-                disabled={pending}
-                onClick={() => handleStatus("archived")}
-              >
-                Archiver
-              </button>
-            )}
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        {/* Colonne principale : titre + corps */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="post-title">Titre</Label>
+            <Input
+              id="post-title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Titre de l'article"
+              className="h-11 text-lg font-semibold md:text-lg"
+            />
           </div>
 
-          {post.id && (
-            <div className={b.sideLinks}>
-              <Link href={`/admin/blog/${post.id}/apercu`} target="_blank">
-                Aperçu de l&apos;article ↗
-              </Link>
-              {isPublished && (
-                <Link href={`/blog/${post.slug}`} target="_blank">
-                  Voir sur le site ↗
-                </Link>
+          <div className="flex flex-col gap-1.5">
+            <Label>Contenu</Label>
+            <RichTextEditor value={body} onChange={setBody} variant="blog" />
+          </div>
+        </div>
+
+        {/* Colonne latérale : statut + métadonnées */}
+        <aside className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
+          <Card>
+            <CardHeader>
+              <CardTitle>Statut</CardTitle>
+              <Badge variant={STATUS_VARIANT[post.status] ?? "gray"}>
+                {STATUS_LABELS[post.status] ?? post.status}
+              </Badge>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {post.status === "scheduled" && post.scheduledFor && (
+                <p className="text-xs text-muted-foreground">
+                  Programmé le {scheduleFmt.format(new Date(post.scheduledFor))}
+                </p>
               )}
-            </div>
+
+              {canPublish && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="schedule-at" className="text-xs text-muted-foreground">
+                    Programmer la publication
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="schedule-at"
+                      type="datetime-local"
+                      value={scheduleAt}
+                      onChange={(e) => setScheduleAt(e.target.value)}
+                      aria-label="Date de publication programmée"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pending || !scheduleAt}
+                      onClick={() => handleStatus("scheduled")}
+                    >
+                      Programmer
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {post.id && isPublished && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => handleStatus("draft")}
+                >
+                  Dépublier (repasser en brouillon)
+                </Button>
+              )}
+
+              {post.id && post.status !== "archived" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => handleStatus("archived")}
+                >
+                  Archiver
+                </Button>
+              )}
+
+              {post.id && (
+                <>
+                  <Separator />
+                  <div className="flex flex-col gap-1">
+                    <Button variant="ghost" size="sm" asChild className="justify-start">
+                      <Link href={`/admin/blog/${post.id}/apercu`} target="_blank">
+                        <Eye />
+                        Aperçu de l&apos;article
+                      </Link>
+                    </Button>
+                    {isPublished && (
+                      <Button variant="ghost" size="sm" asChild className="justify-start">
+                        <Link href={`/blog/${post.slug}`} target="_blank">
+                          <ExternalLink />
+                          Voir sur le site
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Référencement</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="post-slug">Slug (URL)</Label>
+                <Input
+                  id="post-slug"
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="genere-depuis-le-titre"
+                />
+                <p className="text-xs text-muted-foreground">
+                  /blog/{slug || "…"}
+                  {isPublished
+                    ? " (un changement crée automatiquement une redirection)."
+                    : ""}
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="post-excerpt">Résumé (extrait + meta description)</Label>
+                <Textarea
+                  id="post-excerpt"
+                  rows={4}
+                  maxLength={300}
+                  value={excerpt}
+                  onChange={(e) => setExcerpt(e.target.value)}
+                />
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  {excerpt.length}/300
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Couverture</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImagePicker value={cover} onChange={setCover} label="Image de couverture" />
+            </CardContent>
+          </Card>
+
+          {post.id && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={handleDelete}
+              className="justify-start text-destructive hover:bg-destructive/5 hover:text-destructive"
+            >
+              <Trash2 />
+              Supprimer l&apos;article
+            </Button>
           )}
-        </section>
-
-        <section className={b.panel}>
-          <h2>Référencement</h2>
-          <label className={b.field}>
-            <span>Slug (URL)</span>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="genere-depuis-le-titre"
-            />
-            <small>
-              /blog/{slug || "…"}
-              {isPublished
-                ? " — un changement crée automatiquement une redirection."
-                : ""}
-            </small>
-          </label>
-          <label className={b.field}>
-            <span>Résumé (extrait + meta description)</span>
-            <textarea
-              rows={4}
-              maxLength={300}
-              value={excerpt}
-              onChange={(e) => setExcerpt(e.target.value)}
-            />
-            <small>{excerpt.length}/300</small>
-          </label>
-        </section>
-
-        <section className={b.panel}>
-          <h2>Couverture</h2>
-          <ImagePicker
-            value={cover}
-            onChange={setCover}
-            label="Image de couverture"
-          />
-        </section>
-
-        {post.id && (
-          <button
-            type="button"
-            className={b.danger}
-            disabled={pending}
-            onClick={handleDelete}
-          >
-            Supprimer l&apos;article
-          </button>
-        )}
-      </aside>
+        </aside>
+      </div>
     </div>
   );
 }

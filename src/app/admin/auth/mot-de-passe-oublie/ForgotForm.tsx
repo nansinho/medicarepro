@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { requestPasswordReset } from "./actions";
-import styles from "../../login/login.module.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function ForgotForm() {
   const [sent, setSent] = useState(false);
@@ -17,28 +19,32 @@ export default function ForgotForm() {
 
   if (sent) {
     return (
-      <p className={styles.lead} role="status">
-        C&apos;est envoyé — si un compte existe pour cette adresse, un email
-        arrive d&apos;ici quelques minutes (pensez aux indésirables).
+      <p
+        role="status"
+        className="rounded-md border border-[color:var(--ok)]/30 bg-[color:var(--ok)]/8 px-3 py-2.5 text-[13px] text-muted-foreground"
+      >
+        C&apos;est envoyé. Si un compte existe pour cette adresse, un email arrive d&apos;ici quelques
+        minutes (pensez aux indésirables).
       </p>
     );
   }
 
   return (
-    <form className={styles.form} action={handleSubmit}>
-      <label className={styles.field}>
-        <span>Email</span>
-        <input
+    <form className="flex flex-col gap-4" action={handleSubmit}>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="forgot-email">Email</Label>
+        <Input
+          id="forgot-email"
           type="email"
           name="email"
           autoComplete="username"
           required
           placeholder="vous@medicarepro.fr"
         />
-      </label>
-      <button type="submit" className={styles.submit} disabled={pending}>
-        {pending ? "Envoi…" : "Recevoir le lien"}
-      </button>
+      </div>
+      <Button type="submit" disabled={pending} className="w-full">
+        {pending ? "Envoi en cours" : "Recevoir le lien"}
+      </Button>
     </form>
   );
 }

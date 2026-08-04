@@ -1,23 +1,29 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { hasAi } from "@/lib/ai/anthropic";
 import VillesManager, {
   type CityRow,
 } from "@/components/admin/villes/VillesManager";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Villes SEO" };
 
-const STATUS_ORDER = [
-  "seeded",
-  "generated",
-  "needs_review",
-  "approved",
-  "published",
-  "archived",
-] as const;
+const PIPELINE: { key: string; label: string; sub: string }[] = [
+  { key: "seeded", label: "SEEDED", sub: "Préparées" },
+  { key: "generated", label: "GENERATED", sub: "Rédigées" },
+  { key: "needs_review", label: "NEEDS_REVIEW", sub: "À relire" },
+  { key: "approved", label: "APPROVED", sub: "Prêtes" },
+  { key: "published", label: "PUBLISHED", sub: "En ligne" },
+  { key: "archived", label: "ARCHIVED", sub: "Retirées" },
+];
+
+const nf = new Intl.NumberFormat("fr-FR");
 
 export default async function AdminVillesPage() {
   const service = serviceClient();
@@ -25,19 +31,16 @@ export default async function AdminVillesPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Villes SEO</h1>
-        </header>
-        <p className={s.banner}>Supabase non configuré.</p>
-      </>
+      <div className="flex flex-col gap-5">
+        <PageHeading title="Villes SEO local" />
+        <Notice tone="warn" title="Supabase non configuré">
+          La gestion des villes SEO est indisponible.
+        </Notice>
+      </div>
     );
   }
 
-  /* Comptages par statut et par vague (vue d'ensemble). */
-  const { data: all } = await service
-    .from("cities")
-    .select("status, wave");
+  const { data: all } = await service.from("cities").select("status, wave");
   const byStatus: Record<string, number> = {};
   const byWave: Record<number, { total: number; published: number }> = {};
   for (const row of all ?? []) {
@@ -47,7 +50,6 @@ export default async function AdminVillesPage() {
     if (row.status === "published") w.published += 1;
   }
 
-  /* Villes à traiter en priorité : générées / en revue / approuvées. */
   const { data: actionable } = await service
     .from("cities")
     .select("id, slug, name, region, wave, status, review_notes, content")
@@ -66,42 +68,64 @@ export default async function AdminVillesPage() {
       wave: c.wave,
       status: c.status,
       reviewNotes: c.review_notes,
-      claims: Array.isArray(content?.claims_to_verify)
-        ? content!.claims_to_verify
-        : [],
+      claims: Array.isArray(content?.claims_to_verify) ? content!.claims_to_verify : [],
     };
   });
 
+  const total = (all ?? []).length;
+  const published = byStatus["published"] ?? 0;
+
   return (
-    <>
-      <header className={s.pageHead}>
-        <div>
-          <h1 className={s.pageTitle}>Villes SEO local</h1>
-          <p className={s.pageDesc}>Pages locales par ville — génération IA et publication par vague.</p>
-        </div>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Villes SEO local"
+        description="Pages locales par ville, génération IA et publication par vague."
+        actions={
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {nf.format(published)} / {nf.format(total)} en ligne
+          </span>
+        }
+      />
 
       {!aiReady && (
-        <p className={s.banner}>
-          ⚠️ IA non configurée : ajoutez ANTHROPIC_API_KEY et ANTHROPIC_MODEL
-          dans l&apos;environnement pour activer la génération.
-        </p>
+        <Notice
+          tone="warn"
+          title="IA non configurée"
+          action={
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/admin/reglages">Réglages</Link>
+            </Button>
+          }
+        >
+          Ajoutez <span className="font-mono text-xs">ANTHROPIC_API_KEY</span> et{" "}
+          <span className="font-mono text-xs">ANTHROPIC_MODEL</span> dans l&apos;environnement pour activer la génération.
+        </Notice>
       )}
 
-      <div className={s.kpiGrid}>
-        {STATUS_ORDER.map((status) => (
-          <div key={status} className={s.kpiCard}>
-            <span className={s.kpiLabel}>{status}</span>
-            <span className={s.kpiValue}>{byStatus[status] ?? 0}</span>
-          </div>
-        ))}
+      {/* Pipeline des statuts */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+        {PIPELINE.map((step, i) => {
+          const n = byStatus[step.key] ?? 0;
+          return (
+            <div key={step.key} className="relative rounded-lg border border-border bg-card p-3 shadow-sm">
+              <span
+                className="absolute inset-y-2.5 left-0 w-[3px] rounded-r"
+                style={{ background: n > 0 ? "var(--primary)" : "var(--border)" }}
+              />
+              {i < PIPELINE.length - 1 && (
+                <ChevronRight className="absolute -right-[9px] top-1/2 z-10 size-3.5 -translate-y-1/2 bg-background text-muted-foreground/40 max-xl:hidden" />
+              )}
+              <div className={cn("font-mono text-2xl tabular-nums", n > 0 ? "font-medium text-foreground" : "text-muted-foreground/60")}>
+                {nf.format(n)}
+              </div>
+              <div className="mt-1 font-mono text-[10px] tracking-tight text-primary">{step.label}</div>
+              <div className="text-[11px] text-muted-foreground">{step.sub}</div>
+            </div>
+          );
+        })}
       </div>
 
-      <VillesManager
-        rows={rows}
-        waves={byWave}
-        aiReady={aiReady}
-      />
-    </>
+      <VillesManager rows={rows} waves={byWave} aiReady={aiReady} />
+    </div>
   );
 }

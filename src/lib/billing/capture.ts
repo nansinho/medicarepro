@@ -3,7 +3,9 @@ import { serviceClient } from "@/lib/supabase/service";
 import { billingEnv } from "@/lib/env";
 import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
-import { formatEuros } from "@/lib/checkout/pricing";
+import { formatEuros, type BillingPlan } from "@/lib/checkout/pricing";
+import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
+import { orderContext } from "@/lib/billing/orders";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import {
   buildCaptureRequest,
@@ -11,7 +13,6 @@ import {
   parseMoneticoDate,
   isCaptureAlreadyDone,
   type CaptureResponse,
-  type MoneticoConfig,
 } from "@/lib/monetico";
 
 /* ============================================================
@@ -58,16 +59,6 @@ async function sendBillingAlert(title: string, lines: string[]): Promise<void> {
   } catch (err) {
     console.error("[billing-capture] échec alerte :", errMessage(err));
   }
-}
-
-function moneticoConfig(): MoneticoConfig {
-  const b = billingEnv();
-  return {
-    tpe: b.moneticoTpe,
-    key: b.moneticoKey,
-    societe: b.moneticoSociete,
-    mode: b.moneticoMode,
-  };
 }
 
 /** POST scellé vers le service de capture, réponse parsée. */
@@ -120,21 +111,16 @@ export async function captureLedgerEntry(
   }
 
   /* La date de commande doit être transmise à l'identique : la banque
-     authentifie la commande dessus (« commande non authentifiee » sinon). */
-  const { data: subData } = await supabase
-    .from("subscriptions")
-    .select("monetico_order_date, started_at, first_payment_cents")
-    .eq("monetico_reference", entry.reference)
-    .maybeSingle();
-  const sub = subData as {
-    monetico_order_date: string | null;
-    started_at: string;
-    first_payment_cents: number;
-  } | null;
+     authentifie la commande dessus (« commande non authentifiee » sinon).
+     On la lit sur LA COMMANDE qui porte cette référence, pas sur l'abonnement :
+     un abonnement peut avoir changé de carte ou de formule depuis, et sa
+     référence courante n'est alors plus celle de cette écriture. Résoudre par
+     l'abonnement rendrait inencaissable toute échéance antérieure. */
+  const ctx = await orderContext(supabase, entry.reference);
 
   const orderDate = orderDateOf(
-    sub?.monetico_order_date ?? null,
-    sub?.started_at ?? new Date().toISOString(),
+    ctx?.orderDate ?? null,
+    ctx?.fallbackDateIso ?? new Date().toISOString(),
   );
   if (!orderDate) {
     return {
@@ -144,7 +130,11 @@ export async function captureLedgerEntry(
     };
   }
 
-  const config = moneticoConfig();
+  /* Signature avec la clé DU TPE qui porte la commande. En pratique seul le
+     récurrent a des échéances à encaisser (l'immédiat prend l'argent d'office),
+     mais se fier au plan de la commande plutôt qu'à un défaut évite un
+     « commande non authentifiee » silencieux le jour où ce ne sera plus vrai. */
+  const config = moneticoConfigForPlan(ctx?.plan ?? "MONTHLY");
 
   async function attempt(alreadyCapturedCents: number): Promise<CaptureResponse> {
     const { url, fields } = buildCaptureRequest(
@@ -152,7 +142,7 @@ export async function captureLedgerEntry(
         reference: entry.reference,
         orderDate: orderDate!,
         // Montant de la COMMANDE (le 1er paiement fait foi), pas de l'échéance.
-        amountCents: sub?.first_payment_cents ?? entry.amount_cents,
+        amountCents: ctx?.amountCents ?? entry.amount_cents,
         captureCents: entry.amount_cents,
         alreadyCapturedCents,
         remainingCents: 0,
@@ -264,6 +254,13 @@ export async function cancelAuthorization(input: {
   amountCents: number;
   currency?: string;
   cabinetName: string;
+  /* TPE d'origine de la commande. La signature du service de capture doit être
+     faite avec la clé DU TPE qui porte la commande : un appel signé pour le
+     TPE récurrent sur une commande du TPE immédiat repart en « commande non
+     authentifiee ». Défaut MONTHLY : c'est le seul plan dont l'annulation
+     d'autorisation a un sens (l'annuel est encaissé d'office, il se rembourse,
+     il ne s'annule pas). */
+  plan?: BillingPlan;
 }): Promise<CaptureOutcome> {
   const orderDate = orderDateOf(input.orderDate, new Date().toISOString());
   if (!orderDate) {
@@ -280,7 +277,7 @@ export async function cancelAuthorization(input: {
       remainingCents: 0,
       currency: input.currency ?? "EUR",
     },
-    moneticoConfig(),
+    moneticoConfigForPlan(input.plan ?? "MONTHLY"),
   );
 
   let result: CaptureResponse;

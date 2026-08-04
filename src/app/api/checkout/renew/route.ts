@@ -1,7 +1,8 @@
 import { type NextRequest } from "next/server";
-import { hasBilling } from "@/lib/env";
+import { hasCheckout } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { clientIpFrom } from "@/lib/http/client-ip";
+import { isSameOriginJsonPost } from "@/lib/http/origin-guard";
 import { buildPaymentForm } from "@/lib/monetico";
 import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
 import {
@@ -26,9 +27,17 @@ export const dynamic = "force-dynamic";
 const GENERIC = "Le renouvellement est momentanément indisponible.";
 
 export async function POST(request: NextRequest) {
-  if (!hasBilling()) {
+  if (!hasCheckout()) {
     return Response.json({ error: GENERIC }, { status: 503 });
   }
+  /* Même garde que les autres routes qui ouvrent un paiement : ce POST ne
+     doit venir que de NOS pages. Le jeton de renouvellement n'expire pas et
+     ne s'use pas — sans cette garde, quiconque le retrouve dans une boîte mail
+     peut ouvrir des dossiers de paiement en série depuis n'importe où. */
+  if (!isSameOriginJsonPost(request)) {
+    return Response.json({ error: "Requête refusée." }, { status: 403 });
+  }
+
   const supabase = serviceClient();
   if (!supabase) return Response.json({ error: GENERIC }, { status: 503 });
 

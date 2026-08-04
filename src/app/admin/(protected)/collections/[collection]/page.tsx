@@ -11,8 +11,8 @@ import {
 import CollectionManager, {
   type CollectionRowData,
 } from "@/components/admin/collections/CollectionManager";
-import s from "@/components/admin/Admin.module.css";
-import c from "@/components/admin/collections/collections.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -33,12 +33,12 @@ export default async function AdminCollectionPage({
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Collections</h1>
-        </header>
-        <p className={s.banner}>Supabase non configuré.</p>
-      </>
+      <div className="flex flex-col gap-4">
+        <PageHeading title="Collections" />
+        <Notice tone="warn" title="Supabase non configuré">
+          La gestion des collections est indisponible sur cet environnement.
+        </Notice>
+      </div>
     );
   }
 
@@ -59,24 +59,28 @@ export default async function AdminCollectionPage({
   );
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <div>
-          <h1 className={s.pageTitle}>Collections</h1>
-          <p className={s.pageDesc}>{cfg.description}</p>
-        </div>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading title="Collections" description={cfg.description} />
 
-      <nav className={c.tabs} aria-label="Collections">
-        {COLLECTION_KEYS.map((key) => (
-          <Link
-            key={key}
-            href={`/admin/collections/${key}`}
-            className={`${c.tab} ${key === cfg.key ? c.tabActive : ""}`}
-          >
-            {COLLECTIONS_ADMIN[key].title}
-          </Link>
-        ))}
+      <nav className="flex flex-wrap gap-1.5" aria-label="Collections">
+        {COLLECTION_KEYS.map((key) => {
+          const active = key === cfg.key;
+          return (
+            <Link
+              key={key}
+              href={`/admin/collections/${key}`}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "rounded-full border px-3.5 py-1.5 text-[13px] font-medium shadow-sm transition-colors",
+                active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+            >
+              {COLLECTIONS_ADMIN[key].title}
+            </Link>
+          );
+        })}
       </nav>
 
       <CollectionManager
@@ -87,6 +91,6 @@ export default async function AdminCollectionPage({
         hasPublished={cfg.hasPublished}
         hasPosition={cfg.hasPosition}
       />
-    </>
+    </div>
   );
 }

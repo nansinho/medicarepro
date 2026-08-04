@@ -41,6 +41,9 @@ type SubscriptionRow = {
   currency: string;
   current_period_end: string;
   renewal_count: number;
+  status: string;
+  recurrence_stopped_at: string | null;
+  dunning_started_at: string | null;
 };
 
 export type FinalizeRenewalInput = {
@@ -99,7 +102,7 @@ export async function finalizeRenewal(
   const { data, error } = await supabase
     .from("subscriptions")
     .select(
-      "id, app_cabinet_id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, plan, extra_collaborators, renewal_amount_cents, currency, current_period_end, renewal_count",
+      "id, app_cabinet_id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, plan, extra_collaborators, renewal_amount_cents, currency, current_period_end, renewal_count, status, recurrence_stopped_at, dunning_started_at",
     )
     .eq("monetico_reference", input.reference)
     .maybeSingle();
@@ -142,6 +145,41 @@ export async function finalizeRenewal(
   const label = planLabel(sub.plan, sub.extra_collaborators);
   const firstName = sub.admin_name.trim().split(/\s+/)[0] ?? "";
   const periodEnd = new Date(sub.current_period_end);
+
+  /* --- PRÉLÈVEMENT SUR UN ABONNEMENT QUI NE DEVAIT PLUS EN RECEVOIR.
+     L'arrêt de récurrence auprès de Monetico peut avoir échoué, ou la banque
+     peut rejouer une échéance malgré lui. La RPC a quand même comptabilisé et
+     prolongé (c'est la bonne décision : tout débit reçu est une pièce
+     comptable), mais un client résilié qu'on continue de prélever est un
+     litige immédiat. L'équipe doit l'apprendre tout de suite, pas au relevé. */
+  if (sub.status === "canceled" || sub.recurrence_stopped_at) {
+    await sendBillingAlert("URGENT — Prélèvement sur un abonnement résilié", [
+      `Cabinet : ${sub.cabinet_name}`,
+      `Référence : ${input.reference}`,
+      `Montant encaissé : ${formatEuros(amountCents)}`,
+      `Statut de l'abonnement : ${sub.status}`,
+      `Reconduction arrêtée le : ${sub.recurrence_stopped_at ?? "(non renseigné)"}`,
+      "L'échéance est comptabilisée et la période prolongée (aucun débit reçu n'est jamais ignoré). Vérifier l'arrêt de récurrence auprès du CIC et rembourser le client s'il s'agit d'un prélèvement indu.",
+    ]);
+  }
+
+  /* --- Retour à bonne fin après une série d'impayés : on referme la série.
+     Sans cela, un abonnement régularisé resterait marqué en impayé et le
+     futur cron de relance continuerait de le relancer. */
+  if (sub.dunning_started_at) {
+    const { error: clearErr } = await supabase
+      .from("subscriptions")
+      .update({
+        dunning_started_at: null,
+        dunning_failure_count: 0,
+        grace_until: null,
+        last_failure_code: null,
+      })
+      .eq("id", sub.id);
+    if (clearErr) {
+      console.error("[billing-renewals] clôture impayé :", clearErr.message);
+    }
+  }
 
   /* --- Montant inattendu : l'argent est encaissé, on ne bloque rien,
      mais l'équipe doit trancher (changement de barème ? collaborateur

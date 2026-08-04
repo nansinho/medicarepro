@@ -171,6 +171,8 @@ export async function finalizeAnnualRenewal(input: {
   if (!claimed || claimed.length === 0) return; // déjà pris par un autre passage
 
   // 1. Prolonge la souscription (valeur ABSOLUE : sûre même si rejoué).
+  //    Un paiement qui aboutit referme aussi toute série d'impayés en cours,
+  //    sinon le client resterait marqué en retard après avoir régularisé.
   await supabase
     .from("subscriptions")
     .update({
@@ -178,6 +180,10 @@ export async function finalizeAnnualRenewal(input: {
       status: "active",
       renewal_count: sub.renewal_count + 1,
       last_renewal_at: input.occurredAt.toISOString(),
+      dunning_started_at: null,
+      dunning_failure_count: 0,
+      grace_until: null,
+      last_failure_code: null,
     })
     .eq("id", sub.id);
 

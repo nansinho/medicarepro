@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Plus, X } from "lucide-react";
 import { saveSetting } from "@/app/admin/(protected)/reglages/actions";
 import {
   getPath,
@@ -11,14 +12,24 @@ import {
   type SettingField,
   type SettingSection,
 } from "@/lib/admin/settings-forms";
-import { Caret, Check } from "@/components/icons";
-import st from "./settings.module.css";
+import { Notice } from "@/components/admin/shared";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 /* ============================================================
-   Gestionnaire des réglages : un panneau dépliable par clé,
-   formulaires générés depuis les descripteurs (settings-forms).
-   Chaque panneau s'enregistre indépendamment via saveSetting.
+   Gestionnaire des réglages : une carte par clé, formulaires
+   générés depuis les descripteurs (settings-forms). Chaque carte
+   s'enregistre indépendamment via saveSetting.
    ============================================================ */
+
+/* Champ natif (select) aligné visuellement sur le composant Input. */
+const SELECT_CLASS =
+  "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30";
 
 export default function SettingsManager({
   initialValues,
@@ -26,21 +37,14 @@ export default function SettingsManager({
   initialValues: Record<EditableSettingKey, unknown>;
 }) {
   const [values, setValues] = useState(initialValues);
-  const [open, setOpen] = useState<EditableSettingKey | null>(
-    SETTINGS_SECTIONS[0]?.key ?? null,
-  );
 
   return (
-    <div className={st.stack}>
+    <div className="flex flex-col gap-4">
       {SETTINGS_SECTIONS.map((section) => (
-        <SectionPanel
+        <SectionCard
           key={section.key}
           section={section}
           value={values[section.key]}
-          open={open === section.key}
-          onToggle={() =>
-            setOpen(open === section.key ? null : section.key)
-          }
           onChange={(next) =>
             setValues((prev) => ({ ...prev, [section.key]: next }))
           }
@@ -50,17 +54,13 @@ export default function SettingsManager({
   );
 }
 
-function SectionPanel({
+function SectionCard({
   section,
   value,
-  open,
-  onToggle,
   onChange,
 }: {
   section: SettingSection;
   value: unknown;
-  open: boolean;
-  onToggle: () => void;
   onChange: (next: unknown) => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -83,61 +83,39 @@ function SectionPanel({
   }
 
   return (
-    <section className={st.panel}>
-      <button
-        type="button"
-        className={st.panelHead}
-        onClick={onToggle}
-        aria-expanded={open}
-      >
-        <span>
-          <b>{section.title}</b>
-          <small>{section.description}</small>
-        </span>
-        <Caret
-          width={16}
-          height={16}
-          className={open ? st.caretOpen : st.caret}
-        />
-      </button>
+    <Card>
+      <CardHeader className="flex-col items-start gap-1 py-3">
+        <CardTitle>{section.title}</CardTitle>
+        <p className="text-xs text-muted-foreground">{section.description}</p>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {section.fields.map((field) => (
+          <Field
+            key={field.path || field.label}
+            field={field}
+            value={value}
+            onChange={onChange}
+          />
+        ))}
 
-      {open && (
-        <div className={st.panelBody}>
-          {section.fields.map((field) => (
-            <Field
-              key={field.path || field.label}
-              field={field}
-              value={value}
-              onChange={onChange}
-            />
-          ))}
+        {state.kind === "error" && (
+          <Notice tone="bad" title="Erreur">
+            {state.message}
+          </Notice>
+        )}
+        {state.kind === "saved" && (
+          <Notice tone="ok" title="Enregistré">
+            Le site est à jour.
+          </Notice>
+        )}
 
-          <div className={st.panelFoot}>
-            {state.kind === "error" && (
-              <p className={st.error} role="alert">
-                {state.message}
-              </p>
-            )}
-            <button
-              type="button"
-              className={st.saveBtn}
-              disabled={pending}
-              onClick={handleSave}
-            >
-              {pending ? (
-                "Enregistrement…"
-              ) : state.kind === "saved" ? (
-                <>
-                  <Check width={14} height={14} /> Enregistré — site à jour
-                </>
-              ) : (
-                "Enregistrer"
-              )}
-            </button>
-          </div>
+        <div className="flex justify-end">
+          <Button type="button" disabled={pending} onClick={handleSave}>
+            {pending ? "Enregistrement…" : "Enregistrer"}
+          </Button>
         </div>
-      )}
-    </section>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -154,49 +132,65 @@ function Field({
 
   if (field.kind === "toggle") {
     return (
-      <label className={st.toggleRow}>
-        <input
-          type="checkbox"
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <Label>{field.label}</Label>
+          {field.help && (
+            <p className="text-xs text-muted-foreground">{field.help}</p>
+          )}
+        </div>
+        <Switch
           checked={Boolean(current)}
-          onChange={(e) => onChange(setPath(value, field.path, e.target.checked))}
+          onCheckedChange={(checked) =>
+            onChange(setPath(value, field.path, checked))
+          }
         />
-        <span>{field.label}</span>
-        {field.help && <small>{field.help}</small>}
-      </label>
+      </div>
     );
   }
 
   if (field.kind === "text" || field.kind === "textarea") {
     return (
-      <label className={st.field}>
-        <span>{field.label}</span>
+      <div className="flex flex-col gap-1.5">
+        <Label>{field.label}</Label>
         {field.kind === "textarea" ? (
-          <textarea
+          <Textarea
             rows={3}
             value={String(current ?? "")}
-            onChange={(e) => onChange(setPath(value, field.path, e.target.value))}
+            onChange={(e) =>
+              onChange(setPath(value, field.path, e.target.value))
+            }
           />
         ) : (
-          <input
+          <Input
             type="text"
             value={String(current ?? "")}
-            onChange={(e) => onChange(setPath(value, field.path, e.target.value))}
+            onChange={(e) =>
+              onChange(setPath(value, field.path, e.target.value))
+            }
           />
         )}
-        {field.help && <small>{field.help}</small>}
-      </label>
+        {field.help && (
+          <p className="text-xs text-muted-foreground">{field.help}</p>
+        )}
+      </div>
     );
   }
 
   if (field.kind === "icon") {
     return (
-      <label className={st.field}>
-        <span>{field.label}</span>
+      <div className="flex flex-col gap-1.5">
+        <Label>{field.label}</Label>
         <select
+          className={SELECT_CLASS}
           value={current == null ? "" : String(current)}
           onChange={(e) =>
             onChange(
-              setPath(value, field.path, e.target.value === "" ? null : e.target.value),
+              setPath(
+                value,
+                field.path,
+                e.target.value === "" ? null : e.target.value,
+              ),
             )
           }
         >
@@ -207,7 +201,7 @@ function Field({
             </option>
           ))}
         </select>
-      </label>
+      </div>
     );
   }
 
@@ -216,10 +210,10 @@ function Field({
   const { columns, newItem } = field;
   const rows = Array.isArray(current) ? current : [];
   return (
-    <div className={st.arrayField}>
-      <span className={st.arrayLabel}>{field.label}</span>
+    <div className="flex flex-col gap-2">
+      <Label>{field.label}</Label>
       {rows.map((row, index) => (
-        <div key={index} className={st.arrayRow}>
+        <div key={index} className="flex items-center gap-2">
           {columns.map((col) => {
             const colValue = getPath(row, col.path);
             const rowPath = field.path ? `${field.path}.${index}` : String(index);
@@ -228,6 +222,7 @@ function Field({
                 <select
                   key={col.path}
                   aria-label={col.label}
+                  className={cn(SELECT_CLASS, "flex-1")}
                   value={colValue == null ? "" : String(colValue)}
                   onChange={(e) =>
                     onChange(
@@ -249,11 +244,12 @@ function Field({
               );
             }
             return (
-              <input
+              <Input
                 key={col.path}
                 type="text"
                 aria-label={col.label}
                 placeholder={col.label}
+                className="flex-1"
                 value={String(colValue ?? "")}
                 onChange={(e) =>
                   onChange(setPath(value, `${rowPath}.${col.path}`, e.target.value))
@@ -261,9 +257,11 @@ function Field({
               />
             );
           })}
-          <button
+          <Button
             type="button"
-            className={st.rowRemove}
+            variant="outline"
+            size="icon-sm"
+            className="flex-none"
             aria-label="Supprimer la ligne"
             onClick={() =>
               onChange(
@@ -275,19 +273,23 @@ function Field({
               )
             }
           >
-            ✕
-          </button>
+            <X />
+          </Button>
         </div>
       ))}
-      <button
-        type="button"
-        className={st.rowAdd}
-        onClick={() =>
-          onChange(setPath(value, field.path, [...rows, newItem()]))
-        }
-      >
-        + Ajouter
-      </button>
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            onChange(setPath(value, field.path, [...rows, newItem()]))
+          }
+        >
+          <Plus />
+          Ajouter
+        </Button>
+      </div>
     </div>
   );
 }

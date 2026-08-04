@@ -71,7 +71,11 @@ const LIGHT = rgb(234 / 255, 243 / 255, 252 / 255); // #eaf3fc
 const RULE = rgb(217 / 255, 231 / 255, 246 / 255); // #d9e7f6
 const WHITE = rgb(1, 1, 1);
 
-/* Émetteur — mentions légales MEDICARE PRO. */
+/* Émetteur — mentions légales MEDICARE PRO.
+   Le numéro de TVA intracommunautaire est une mention OBLIGATOIRE dès lors que
+   la facture porte de la TVA (art. 242 nonies A, ann. II du CGI) : il manquait.
+   Il se déduit du SIREN : FR + clé + SIREN, avec clé = (12 + 3 × (SIREN mod 97))
+   mod 97 — ici SIREN 102034121, mod 97 = 15, clé = (12 + 45) mod 97 = 57. */
 const COMPANY_NAME = "MEDICARE PRO";
 const COMPANY_LINES = [
   "SAS au capital de 1 000 €",
@@ -79,6 +83,7 @@ const COMPANY_LINES = [
   "13320 Bouc-Bel-Air",
   "SIRET 102 034 121 00016",
   "RCS Aix-en-Provence 102 034 121",
+  "TVA intracommunautaire FR57 102 034 121",
 ];
 
 const KIND_LABELS: Record<InvoiceKind, string> = {

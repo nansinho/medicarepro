@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
-import { hasBilling, missingBillingEnv } from "@/lib/env";
+import { hasCheckout, missingCheckoutEnv } from "@/lib/env";
 import s from "@/components/checkout/Checkout.module.css";
 
 /* ============================================================
@@ -25,11 +25,11 @@ export const dynamic = "force-dynamic";
 export default function CheckoutLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const open = hasBilling();
+  const open = hasCheckout();
   if (!open) {
     // Noms (jamais les valeurs) des variables manquantes — logs serveur uniquement.
     console.warn(
-      `[checkout] tunnel fermé — configuration billing incomplète : ${missingBillingEnv().join(", ")}`,
+      `[checkout] tunnel fermé — configuration d'encaissement incomplète : ${missingCheckoutEnv().join(", ")}`,
     );
   }
 

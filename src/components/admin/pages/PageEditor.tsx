@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import {
   discardDrafts,
   publishPage,
@@ -10,12 +11,25 @@ import {
 } from "@/app/admin/(protected)/pages/actions";
 import SectionForm from "@/components/admin/forms/SectionForm";
 import type { SectionType } from "@/lib/cms/sections.schema";
-import pe from "./pageEditor.module.css";
+import { Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 /* ============================================================
-   Éditeur d'une page gérée : slots à gauche (ordre du fallback,
-   fixes), formulaire de la section à droite. Autosave débouncé
-   (1,2 s) vers page_sections.draft ; publication explicite.
+   Éditeur d'une page gérée : liste des sections en cartes
+   (ordre du fallback, fixe) ; l'édition d'une section ouvre un
+   panneau latéral (Sheet). Autosave débouncé (1,2 s) vers
+   page_sections.draft ; publication explicite au niveau page.
    ============================================================ */
 
 export type EditorSlot = {
@@ -45,7 +59,8 @@ export default function PageEditor({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [selected, setSelected] = useState(slots[0]?.key ?? "");
+  /* Section ouverte dans le panneau d'édition ("" = panneau fermé). */
+  const [selected, setSelected] = useState("");
   const [notice, setNotice] = useState<PageActionResult | null>(null);
   const [states, setStates] = useState<Record<string, SlotState>>(() =>
     Object.fromEntries(
@@ -156,89 +171,130 @@ export default function PageEditor({
   const savingAny = Object.values(states).some((state) => state.saving);
 
   return (
-    <div className={pe.layout}>
-      <aside className={pe.slotCol}>
-        <nav className={pe.slotList} aria-label="Sections de la page">
-          {slots.map((slot) => {
-            const state = states[slot.key];
-            return (
-              <button
-                key={slot.key}
-                type="button"
-                className={`${pe.slotBtn} ${selected === slot.key ? pe.slotActive : ""}`}
-                onClick={() => setSelected(slot.key)}
-              >
-                <span className={pe.slotLabel}>
-                  <b>{slot.label}</b>
-                  <small>{slot.description}</small>
-                </span>
-                {(state?.hasDraft || state?.dirty) && (
-                  <span
-                    className={pe.slotDot}
-                    title="Modifications non publiées"
-                  />
-                )}
-              </button>
-            );
-          })}
-        </nav>
+    <div className="flex flex-col gap-4">
+      {notice && !notice.ok && (
+        <Notice tone="bad" title="Erreur">
+          {notice.message}
+        </Notice>
+      )}
+      {notice?.ok && notice.message && (
+        <Notice tone="ok" title="Modifications enregistrées">
+          {notice.message}
+        </Notice>
+      )}
 
-        <div className={pe.actions}>
-          <p className={pe.saveState} role="status">
+      {/* Barre d'état + actions globales de la page */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[13px] text-muted-foreground" role="status">
             {savingAny
               ? "Enregistrement…"
               : draftCount > 0
                 ? `${draftCount} section(s) en brouillon`
                 : "Tout est publié"}
           </p>
-          <button
-            type="button"
-            className={pe.publish}
-            disabled={pending || draftCount === 0}
-            onClick={handlePublish}
-          >
-            {pending ? "Publication…" : "Publier les modifications"}
-          </button>
-          <a
-            className={pe.preview}
-            href={`/api/draft/enable?path=${encodeURIComponent(slug)}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Aperçu du brouillon ↗
-          </a>
-          <button
-            type="button"
-            className={pe.discard}
-            disabled={pending || draftCount === 0}
-            onClick={handleDiscard}
-          >
-            Abandonner les brouillons
-          </button>
-        </div>
-      </aside>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <a
+                href={`/api/draft/enable?path=${encodeURIComponent(slug)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <ExternalLink />
+                Aperçu du brouillon
+              </a>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-bad hover:bg-bad/10 hover:text-bad"
+              disabled={pending || draftCount === 0}
+              onClick={handleDiscard}
+            >
+              Abandonner les brouillons
+            </Button>
+            <Button
+              disabled={pending || draftCount === 0}
+              onClick={handlePublish}
+            >
+              {pending ? "Publication…" : "Publier les modifications"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className={pe.formCol}>
-        {current && currentState && (
-          <SectionForm
-            key={current.key}
-            type={current.type}
-            value={currentState.value}
-            onChange={(next) => handleChange(current.key, next)}
-          />
-        )}
+      {/* Sections de la page */}
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        {slots.map((slot) => {
+          const state = states[slot.key];
+          const hasDraft = Boolean(state?.hasDraft || state?.dirty);
+          return (
+            <Card key={slot.key}>
+              <CardContent className="flex h-full items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-[13px] font-semibold text-foreground">
+                      {slot.label}
+                    </span>
+                    <Badge variant={hasDraft ? "amber" : "green"}>
+                      {hasDraft ? "Brouillon" : "Publié"}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {slot.description}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-none"
+                  onClick={() => setSelected(slot.key)}
+                >
+                  Modifier
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {notice && !notice.ok && (
-        <div className={pe.noticeErr} role="alert">
-          {notice.message}
-        </div>
-      )}
-      {notice?.ok && notice.message && (
-        <div className={pe.noticeOk} role="status">
-          {notice.message}
-        </div>
-      )}
+      {/* Panneau d'édition d'une section (latéral, pas de modal centré) */}
+      <Sheet open={!!current} onOpenChange={(open) => !open && setSelected("")}>
+        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-2xl">
+          {current && currentState && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{current.label}</SheetTitle>
+                {current.description && (
+                  <SheetDescription>{current.description}</SheetDescription>
+                )}
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                <SectionForm
+                  key={current.key}
+                  type={current.type}
+                  value={currentState.value}
+                  onChange={(next) => handleChange(current.key, next)}
+                />
+              </div>
+
+              <SheetFooter className="flex-row items-center justify-between gap-2 border-t">
+                <span className="text-xs text-muted-foreground" role="status">
+                  {currentState.saving
+                    ? "Enregistrement…"
+                    : currentState.hasDraft || currentState.dirty
+                      ? "Brouillon non publié"
+                      : "Publié"}
+                </span>
+                <SheetClose asChild>
+                  <Button variant="secondary">Fermer</Button>
+                </SheetClose>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

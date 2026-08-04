@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import {
   motion,
   AnimatePresence,
@@ -43,16 +43,18 @@ const ICONS = {
 
 type Head = Pick<SectionContentOf<"feature_scroll">, "kicker" | "title">;
 
-/* Teinte de fond FRANCHE propre à chaque feature (une par feature) : couleurs
-   vives et contrastées, texte blanc par-dessus (cf. .section dans le CSS).
-   Le fond bascule par palier quand la feature change (pas d'interpolation). */
-const BG_COLORS = [
-  "#2b6fd6", // Facturation — bleu MediCare
-  "#0ea5a5", // Signature — turquoise
-  "#6d5cf5", // Comptabilité — indigo/violet
-  "#e6532f", // Agenda — corail
-  "#8b3fd6", // Bilans — violet
-  "#0f7fd6", // PWA — cyan profond
+/* Teinte d'ACCENT propre à chaque feature (halos ambiants, icône, coches,
+   rail), en restant dans la famille bleue de la charte. Le fond, lui, reste un
+   navy constant (cf. .sticky) : plus d'aplat vif pleine page (qui était hors
+   charte). L'accent bascule quand la feature change, les halos le suivent en
+   fondu doux. */
+const ACCENTS = [
+  "#2f7ff2", // Facturation (bleu)
+  "#0ea5e9", // Signature (sky)
+  "#1e88e5", // Comptabilité (bleu profond)
+  "#3d6fe0", // Agenda (royal)
+  "#12b3c9", // Bilans (cyan)
+  "#4c8dff", // PWA (azur)
 ];
 
 /**
@@ -121,14 +123,24 @@ function FeatureCinematic({
       style={{ height: `${features.length * 100}vh` }}
       aria-label="Fonctionnalités clés"
     >
-      {/* Fond franc par palier : la couleur reste stable pendant toute la
-          feature, puis bascule (fondu court) pile quand la feature change —
-          synchronisé avec le texte/mockup, pas d'interpolation « baveuse ». */}
+      {/* Canvas navy constant ; la couleur de la feature vit dans les halos
+          ambiants (fondu doux) et les accents (icône, coches, rail). */}
       <motion.div
         className={s.sticky}
-        animate={{ backgroundColor: BG_COLORS[index] }}
-        transition={{ duration: 0.35, ease: EASE }}
+        style={{ "--accent": ACCENTS[index] } as CSSProperties}
       >
+        <motion.span
+          className={s.orbA}
+          aria-hidden
+          animate={{ backgroundColor: ACCENTS[index] }}
+          transition={{ duration: 0.7, ease: EASE }}
+        />
+        <motion.span
+          className={s.orbB}
+          aria-hidden
+          animate={{ backgroundColor: ACCENTS[index] }}
+          transition={{ duration: 0.7, ease: EASE }}
+        />
         <div className={`wrap ${s.inner}`}>
           <div className={s.head}>
             <div className={s.kicker}>{head.kicker}</div>
@@ -246,8 +258,8 @@ function FeatureFallback({
               <article
                 key={feature.title}
                 className={s.fallbackCard}
-                /* Même teinte franche que le mode cinématique : texte blanc lisible. */
-                style={{ background: BG_COLORS[i % BG_COLORS.length] }}
+                /* Même famille d'accents que le mode cinématique : texte blanc lisible. */
+                style={{ background: ACCENTS[i % ACCENTS.length] }}
               >
                 <div className={s.iconRow}>
                   <span className={s.icon}>

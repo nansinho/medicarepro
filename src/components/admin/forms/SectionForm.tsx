@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronRight, Plus, Trash2 } from "lucide-react";
 import {
   buildFormTree,
   defaultValue,
@@ -16,8 +17,12 @@ import {
 } from "@/lib/cms/sections.schema";
 import ImagePicker from "@/components/admin/media/ImagePicker";
 import RichTextEditor from "@/components/admin/rich-text/RichTextEditor";
-import { Caret } from "@/components/icons";
-import f from "./forms.module.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 /* ============================================================
    Formulaire d'une section : arbre généré par introspection du
@@ -33,6 +38,16 @@ const TONE_LABELS: Record<string, string> = {
   medium: "Bleu clair",
   dark: "Foncé",
 };
+
+/* <select> natif conservé (état contrôlé, valeur vide gérée),
+   simplement restylé au registre shadcn. */
+const SELECT_CLASS =
+  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30";
+
+/** Marqueur « (optionnel) » discret après un libellé. */
+function OptionalTag() {
+  return <span className="font-normal text-muted-foreground">(optionnel)</span>;
+}
 
 export type SectionFormProps = {
   type: SectionType;
@@ -58,7 +73,7 @@ export function FieldsRenderer({
   onChange: (next: Record<string, unknown>) => void;
 }) {
   return (
-    <div className={f.form}>
+    <div className="flex flex-col gap-4">
       {tree.map((node) => (
         <Field
           key={node.path}
@@ -96,36 +111,36 @@ function Field({
     case "string": {
       const multiline = isTextarea(path);
       return (
-        <label className={f.field}>
-          <span>
+        <div className="flex flex-col gap-1.5">
+          <Label className="gap-1">
             {label}
-            {node.optional && <em> (optionnel)</em>}
-          </span>
+            {node.optional && <OptionalTag />}
+          </Label>
           {multiline ? (
-            <textarea
+            <Textarea
               rows={3}
               value={String(current ?? "")}
               onChange={(e) => set(e.target.value)}
             />
           ) : (
-            <input
+            <Input
               type="text"
               value={String(current ?? "")}
               onChange={(e) => set(e.target.value)}
             />
           )}
-          {help && <small>{help}</small>}
-        </label>
+          {help && <p className="text-xs text-muted-foreground">{help}</p>}
+        </div>
       );
     }
     case "number":
       return (
-        <label className={f.field}>
-          <span>
+        <div className="flex flex-col gap-1.5">
+          <Label className="gap-1">
             {label}
-            {node.optional && <em> (optionnel)</em>}
-          </span>
-          <input
+            {node.optional && <OptionalTag />}
+          </Label>
+          <Input
             type="number"
             step="any"
             value={current == null ? "" : Number(current)}
@@ -133,18 +148,21 @@ function Field({
               set(e.target.value === "" ? (node.optional ? undefined : 0) : Number(e.target.value))
             }
           />
-        </label>
+          {help && <p className="text-xs text-muted-foreground">{help}</p>}
+        </div>
       );
     case "boolean":
       return (
-        <label className={f.toggle}>
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2.5">
+          <Switch
+            id={`bool-${path}`}
             checked={Boolean(current)}
-            onChange={(e) => set(e.target.checked)}
+            onCheckedChange={(v) => set(v)}
           />
-          <span>{label}</span>
-        </label>
+          <Label htmlFor={`bool-${path}`} className="cursor-pointer">
+            {label}
+          </Label>
+        </div>
       );
     case "enum":
     case "iconKey":
@@ -163,12 +181,13 @@ function Field({
                 : ToneSchema.options;
       const isTone = node.kind === "tone" || node.kind === "toneDark";
       return (
-        <label className={f.field}>
-          <span>
+        <div className="flex flex-col gap-1.5">
+          <Label className="gap-1">
             {label}
-            {node.optional && <em> (optionnel)</em>}
-          </span>
+            {node.optional && <OptionalTag />}
+          </Label>
           <select
+            className={SELECT_CLASS}
             value={current == null ? "" : String(current)}
             onChange={(e) => set(e.target.value === "" ? undefined : e.target.value)}
           >
@@ -179,7 +198,7 @@ function Field({
               </option>
             ))}
           </select>
-        </label>
+        </div>
       );
     }
     case "imageRef": {
@@ -196,16 +215,16 @@ function Field({
         href: string;
       };
       return (
-        <div className={f.linkRef}>
-          <span className={f.groupLabel}>{label}</span>
-          <div className={f.linkRow}>
-            <input
+        <div className="flex flex-col gap-1.5">
+          <Label>{label}</Label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.4fr]">
+            <Input
               type="text"
               placeholder="Libellé"
               value={link.label}
               onChange={(e) => set({ ...link, label: e.target.value })}
             />
-            <input
+            <Input
               type="text"
               placeholder="/tarifs, https://…, app:register"
               list="linkref-hrefs"
@@ -227,8 +246,8 @@ function Field({
     }
     case "richBody":
       return (
-        <div className={f.rich}>
-          <span className={f.groupLabel}>{label}</span>
+        <div className="flex flex-col gap-1.5">
+          <Label>{label}</Label>
           <RichTextEditor
             value={(current ?? { type: "doc", content: [] }) as Record<string, unknown>}
             onChange={set}
@@ -238,8 +257,10 @@ function Field({
       );
     case "object":
       return (
-        <fieldset className={f.group}>
-          <legend>{label}</legend>
+        <fieldset className="flex min-w-0 flex-col gap-3 rounded-lg border border-border p-3.5">
+          <legend className="px-1.5 text-xs font-semibold text-muted-foreground">
+            {label}
+          </legend>
           {node.fields.map((child) => (
             <Field
               key={child.path}
@@ -272,10 +293,10 @@ function Field({
     }
     default:
       return (
-        <label className={f.field}>
-          <span>{label} (avancé — JSON)</span>
+        <div className="flex flex-col gap-1.5">
+          <Label>{label} (JSON avancé)</Label>
           <JsonField value={current} onCommit={set} />
-        </label>
+        </div>
       );
   }
 }
@@ -322,41 +343,69 @@ function ArrayField({
   };
 
   return (
-    <div className={f.array}>
-      <span className={f.groupLabel}>
-        {label} <small>({rows.length})</small>
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-medium text-foreground">
+        {label}{" "}
+        <span className="text-xs font-normal text-muted-foreground">
+          ({rows.length})
+        </span>
       </span>
       {rows.map((row, index) => (
-        <div key={index} className={f.arrayItem}>
-          <div className={f.arrayItemHead}>
+        <div
+          key={index}
+          className="rounded-lg border border-border bg-secondary/30"
+        >
+          <div className="flex items-center gap-1 p-1.5">
             <button
               type="button"
-              className={f.arrayToggle}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-accent"
               onClick={() => setOpen(open === index ? null : index)}
               aria-expanded={open === index}
             >
-              <Caret
-                width={13}
-                height={13}
-                className={open === index ? f.caretOpen : undefined}
+              <ChevronRight
+                className={cn(
+                  "size-3.5 shrink-0 text-muted-foreground transition-transform",
+                  open === index && "rotate-90",
+                )}
               />
-              <b>{index + 1}.</b> {summary(row)}
+              <b className="font-medium text-muted-foreground">{index + 1}.</b>
+              <span className="truncate">{summary(row)}</span>
             </button>
-            <div className={f.arrayItemActions}>
-              <button type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label="Monter">↑</button>
-              <button type="button" onClick={() => move(index, 1)} disabled={index === rows.length - 1} aria-label="Descendre">↓</button>
-              <button
+            <div className="flex items-center gap-0.5">
+              <Button
                 type="button"
-                className={f.arrayRemove}
-                aria-label="Supprimer"
-                onClick={() => setRows(rows.filter((_, i) => i !== index))}
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => move(index, -1)}
+                disabled={index === 0}
+                aria-label="Monter"
               >
-                ✕
-              </button>
+                <ArrowUp />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => move(index, 1)}
+                disabled={index === rows.length - 1}
+                aria-label="Descendre"
+              >
+                <ArrowDown />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:bg-bad/10 hover:text-bad"
+                onClick={() => setRows(rows.filter((_, i) => i !== index))}
+                aria-label="Supprimer"
+              >
+                <Trash2 />
+              </Button>
             </div>
           </div>
           {open === index && (
-            <div className={f.arrayItemBody}>
+            <div className="flex flex-col gap-3 border-t border-border p-3">
               {node.item.kind === "object" ? (
                 node.item.fields.map((child) => (
                   <Field
@@ -381,16 +430,19 @@ function ArrayField({
           )}
         </div>
       ))}
-      <button
+      <Button
         type="button"
-        className={f.arrayAdd}
+        variant="outline"
+        size="sm"
+        className="self-start"
         onClick={() => {
           setRows([...rows, defaultValue(node.item)]);
           setOpen(rows.length);
         }}
       >
-        + Ajouter
-      </button>
+        <Plus />
+        Ajouter
+      </Button>
     </div>
   );
 }
@@ -407,9 +459,10 @@ function JsonField({
   const [invalid, setInvalid] = useState(false);
   return (
     <>
-      <textarea
+      <Textarea
         rows={6}
-        className={invalid ? f.jsonInvalid : undefined}
+        aria-invalid={invalid}
+        className="font-mono text-xs"
         value={text}
         onChange={(e) => {
           setText(e.target.value);
@@ -422,7 +475,9 @@ function JsonField({
         }}
         spellCheck={false}
       />
-      {invalid && <small className={f.jsonError}>JSON invalide — non enregistré.</small>}
+      {invalid && (
+        <p className="mt-1 text-xs text-bad">JSON invalide, non enregistré.</p>
+      )}
     </>
   );
 }

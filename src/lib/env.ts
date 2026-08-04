@@ -247,17 +247,82 @@ export function missingBillingEnv(): string[] {
     );
   }
   // Vendre l'annuel EXIGE de savoir sur QUEL TPE l'encaisser (NB8179I). La
-  // clé et le code site sont partagés par toute la société : ils retombent
-  // automatiquement sur ceux du récurrent, donc rien de plus à exiger ici.
+  // clé est partagée par toute la société : elle retombe automatiquement sur
+  // celle du récurrent. Le CODE SITE, lui, est exigé par missingCheckoutEnv().
   if (annualSellable(e) && !e.MONETICO_TPE_IMMEDIATE) {
     missing.push("MONETICO_TPE_IMMEDIATE");
   }
   return missing;
 }
 
-/** Le tunnel d'inscription peut-il s'ouvrir ? */
+/**
+ * Variables exigées EN PLUS pour ENCAISSER (tunnel, renouvellement, portail).
+ *
+ * POURQUOI CETTE SÉPARATION : `missingBillingEnv()` garde l'interface Retour
+ * (IPN) opérationnelle — une notification doit toujours pouvoir être acquittée,
+ * même si la configuration de VENTE est incomplète. Ce qui suit ne ferme donc
+ * que la caisse, jamais le journal.
+ *
+ * MONETICO_SOCIETE_IMMEDIATE : la documentation du projet se contredit sur le
+ * paramètre qui porte la FRÉQUENCE de reconduction. `.env.example` (bloc
+ * « Plans vendables ») affirme que c'est le CODE SITE (`medicarepr` =
+ * « Tous les mois ») ; le bloc « Paiement IMMÉDIAT » affirme que le code site
+ * est commun à tous les TPE et que seul le numéro de TPE compte. Si la
+ * première version est la bonne, une offre 12 mois émise avec le code site
+ * mensuel est prélevée 298,08 € CHAQUE MOIS.
+ *
+ * Tant que le CIC n'a pas tranché, on refuse le repli SILENCIEUX : dès que
+ * l'annuel est vendable, l'exploitant DOIT déclarer explicitement le code site
+ * du TPE immédiat. Y remettre la même valeur reste permis — mais devient une
+ * décision consciente, tracée dans l'environnement, au lieu d'un défaut.
+ */
+export function missingCheckoutEnv(): string[] {
+  const missing = missingBillingEnv();
+  const e = env();
+  if (annualSellable(e) && !e.MONETICO_SOCIETE_IMMEDIATE) {
+    missing.push("MONETICO_SOCIETE_IMMEDIATE");
+  }
+  return missing;
+}
+
+/**
+ * Anomalies de configuration d'encaissement, à AFFICHER dans le back-office.
+ * Ce ne sont pas des erreurs bloquantes (la vente continue), mais des
+ * situations où l'argent peut partir au mauvais rythme. Aucune valeur
+ * secrète n'est renvoyée, seulement des noms de variables et un constat.
+ */
+export function billingConfigWarnings(): string[] {
+  const e = env();
+  const warnings: string[] = [];
+
+  /* Deux formules vendues sur un seul code site. Sous la doctrine
+     « un code site = une fréquence » (.env.example, bloc « Plans vendables »),
+     c'est impossible : l'une des deux formules sera prélevée au rythme de
+     l'autre. Sous l'autre doctrine du même fichier (la fréquence suit le TPE),
+     c'est parfaitement normal. Tant que le CIC n'a pas tranché, on le signale
+     au lieu de choisir à sa place. */
+  if (
+    e.CHECKOUT_PLANS === "all" &&
+    e.MONETICO_SOCIETE_IMMEDIATE &&
+    e.MONETICO_SOCIETE &&
+    e.MONETICO_SOCIETE_IMMEDIATE === e.MONETICO_SOCIETE
+  ) {
+    warnings.push(
+      "Les deux formules sont vendues, mais le TPE récurrent et le TPE immédiat partagent le même code site Monetico. Si la fréquence de reconduction est portée par le code site, l'offre 12 mois est prélevée au rythme du mensuel. À confirmer auprès du CIC avant de vendre l'annuel.",
+    );
+  }
+
+  return warnings;
+}
+
+/** Le socle billing est-il là ? (MAC de l'IPN, base, secrets) */
 export function hasBilling(): boolean {
   return missingBillingEnv().length === 0;
+}
+
+/** Peut-on ENCAISSER (tunnel, renouvellement, portail) ? */
+export function hasCheckout(): boolean {
+  return missingCheckoutEnv().length === 0;
 }
 
 export type BillingEnv = {
@@ -301,9 +366,13 @@ export function billingEnv(): BillingEnv {
     moneticoKey: moneticoKeyForMode(e)!,
     moneticoSociete: e.MONETICO_SOCIETE!,
     moneticoMode: e.MONETICO_MODE,
-    // Clé et code site partagés par toute la société : repli sur le récurrent.
+    // Clé partagée par toute la société : repli sur celle du récurrent.
     moneticoTpeImmediate: e.MONETICO_TPE_IMMEDIATE ?? "",
     moneticoKeyImmediate: moneticoKeyForModeImmediate(e) ?? "",
+    /* Repli conservé UNIQUEMENT pour le chemin de LECTURE (vérification du MAC
+       d'un IPN entrant, alertes) : il ne doit jamais servir à émettre une
+       commande. Toute route qui encaisse passe par hasCheckout(), qui exige
+       MONETICO_SOCIETE_IMMEDIATE explicitement dès que l'annuel est vendable. */
     moneticoSocieteImmediate: e.MONETICO_SOCIETE_IMMEDIATE ?? e.MONETICO_SOCIETE ?? "",
     provisioningApiUrl: e.PROVISIONING_API_URL!,
     provisioningApiKey: e.PROVISIONING_API_KEY!,

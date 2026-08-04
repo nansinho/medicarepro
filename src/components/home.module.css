@@ -4,6 +4,11 @@
 /* =================== GRILLE BENTO =================== */
 .bentoSec {
   padding: var(--section-pad-y) 0;
+  /* Léger dégradé bleu vers blanc : la barre d'infos en verre chevauche une
+     zone teintée (le flottement se lit enfin), et le haut de page cesse d'être
+     trois bandes blanches d'affilée. Le fond redevient blanc avant la section
+     colorée suivante (transition nette). */
+  background: linear-gradient(180deg, #e7f1fc 0%, #f6faff 240px, #ffffff 58%);
 }
 .bentoGrid {
   display: grid;

@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { env, hasBilling, billingEnv } from "@/lib/env";
+import { env, hasCheckout, billingEnv } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { encryptSecret } from "@/lib/crypto";
 import { buildPaymentForm } from "@/lib/monetico";
@@ -119,7 +119,7 @@ function isPrefixConflict(error: {
 
 export async function POST(request: NextRequest) {
   // Tunnel fermé tant que la configuration billing est incomplète.
-  if (!hasBilling()) {
+  if (!hasCheckout()) {
     return Response.json(
       { error: "Le tunnel d'inscription n'est pas encore ouvert." },
       { status: 503 },

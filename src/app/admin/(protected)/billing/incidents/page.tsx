@@ -1,8 +1,19 @@
 import type { Metadata } from "next";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { relancerProvisioning, marquerResolu } from "./actions";
-import s from "@/components/admin/Admin.module.css";
 
 /* ============================================================
    Incidents billing — dossiers pending_signups en échec :
@@ -31,11 +42,11 @@ type IncidentRow = {
   cabinet_name: string | null;
 };
 
-const STATUS_BADGE: Record<string, { label: string; tone: string }> = {
-  failed_conflict: { label: "Conflit provisioning", tone: "tRed" },
-  amount_mismatch: { label: "Montant inattendu", tone: "tRed" },
-  duplicate_paid: { label: "Double paiement", tone: "tAmber" },
-  paid: { label: "Échecs répétés", tone: "tAmber" },
+const STATUS_BADGE: Record<string, { label: string; variant: "red" | "amber" | "green" | "blue" | "gray" }> = {
+  failed_conflict: { label: "Conflit provisioning", variant: "red" },
+  amount_mismatch: { label: "Montant inattendu", variant: "red" },
+  duplicate_paid: { label: "Double paiement", variant: "amber" },
+  paid: { label: "Échecs répétés", variant: "amber" },
 };
 
 const PLAN_LABEL: Record<string, string> = {
@@ -58,14 +69,12 @@ export default async function IncidentsPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Incidents</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : la liste des incidents est indisponible.
-        </p>
-      </>
+      <div className="flex flex-col gap-5">
+        <PageHeading title="Incidents" />
+        <Notice tone="warn" title="Supabase non configuré">
+          La liste des incidents est indisponible.
+        </Notice>
+      </div>
     );
   }
 
@@ -83,106 +92,98 @@ export default async function IncidentsPage() {
   const rows = (data ?? []) as IncidentRow[];
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Incidents</h1>
-        <p className={s.pageDesc}>
-          Dossiers payés en échec : conflits de provisioning, écarts de
-          montant, doubles paiements et provisionings en échec répété.
-          « Relancer » redonne le dossier au worker ; « Marquer résolu » clôt
-          le dossier (abandonné ou remboursé manuellement).
-        </p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Incidents"
+        description="Dossiers payés en échec : conflits de provisioning, écarts de montant, doubles paiements et provisionings en échec répété. « Relancer » redonne le dossier au worker ; « Marquer résolu » clôt le dossier (abandonné ou remboursé manuellement)."
+      />
 
       {error && (
-        <p className={s.banner}>Erreur de lecture : {error.message}</p>
+        <Notice tone="bad" title="Erreur de lecture">
+          {error.message}
+        </Notice>
       )}
 
-      <div className={s.card}>
+      <Card className="overflow-hidden">
         {rows.length === 0 ? (
-          <p className={s.empty}>Aucun incident ouvert.</p>
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucun incident ouvert.
+          </div>
         ) : (
-          <div className={s.tableWrap}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Cabinet</th>
-                  <th>Statut</th>
-                  <th>Montant</th>
-                  <th>Tentatives</th>
-                  <th>Dernière erreur</th>
-                  <th>Payé le</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[220px]">Cabinet</TableHead>
+                  <TableHead className="w-44">Statut</TableHead>
+                  <TableHead className="w-28 text-right">Montant</TableHead>
+                  <TableHead className="w-24 text-right">Tentatives</TableHead>
+                  <TableHead className="min-w-[260px]">Dernière erreur</TableHead>
+                  <TableHead className="w-40 text-right">Payé le</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((incident) => {
                   const badge = STATUS_BADGE[incident.status] ?? {
                     label: incident.status,
-                    tone: "tGray",
+                    variant: "gray" as const,
                   };
                   return (
-                    <tr key={incident.id}>
-                      <td>
-                        <span className={s.tdMain}>
+                    <TableRow key={incident.id}>
+                      <TableCell>
+                        <div className="font-medium text-foreground">
                           {incident.cabinet_name ?? "—"}
-                        </span>
-                        <span className={s.tdSub}>
-                          {PLAN_LABEL[incident.plan] ?? incident.plan} — créé le{" "}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {PLAN_LABEL[incident.plan] ?? incident.plan} · créé le{" "}
                           {fmtDateTime(incident.created_at)}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`${s.badge} ${s[badge.tone]}`}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td className={s.tdNum}>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-foreground">
                         {formatEuros(incident.amount_cents)}
-                      </td>
-                      <td className={s.tdNum}>{incident.provision_attempts}</td>
-                      <td>
-                        <span
-                          className={s.truncate}
-                          title={incident.last_error ?? undefined}
-                        >
-                          {incident.last_error ?? "—"}
-                        </span>
-                      </td>
-                      <td className={s.tdNum}>{fmtDateTime(incident.paid_at)}</td>
-                      <td>
-                        <div className={s.rowActions}>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {incident.provision_attempts}
+                      </TableCell>
+                      <TableCell
+                        className="max-w-[360px] truncate font-mono text-xs text-muted-foreground"
+                        title={incident.last_error ?? undefined}
+                      >
+                        {incident.last_error ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {fmtDateTime(incident.paid_at)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-2">
                           {incident.status === "paid" && (
                             <form action={relancerProvisioning}>
-                              <input
-                                type="hidden"
-                                name="id"
-                                value={incident.id}
-                              />
-                              <button type="submit" className={s.btnSmall}>
+                              <input type="hidden" name="id" value={incident.id} />
+                              <Button type="submit" variant="outline" size="sm">
                                 Relancer le provisioning
-                              </button>
+                              </Button>
                             </form>
                           )}
                           <form action={marquerResolu}>
                             <input type="hidden" name="id" value={incident.id} />
-                            <button
-                              type="submit"
-                              className={`${s.btnSmall} ${s.btnSmallDanger}`}
-                            >
+                            <Button type="submit" variant="destructive" size="sm">
                               Marquer résolu
-                            </button>
+                            </Button>
                           </form>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }

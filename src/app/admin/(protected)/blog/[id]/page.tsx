@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { serviceClient } from "@/lib/supabase/service";
 import PostEditor from "@/components/admin/blog/PostEditor";
-import s from "@/components/admin/Admin.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +37,9 @@ export default async function AdminBlogEditPage({
   }
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Modifier l&apos;article</h1>
-      </header>
-      <PostEditor
-        post={{
+    <PostEditor
+      heading="Modifier l'article"
+      post={{
           id: post.id,
           title: post.title,
           slug: post.slug,
@@ -56,7 +52,6 @@ export default async function AdminBlogEditPage({
           scheduledFor: post.scheduled_for,
           publishedAt: post.published_at,
         }}
-      />
-    </>
+    />
   );
 }

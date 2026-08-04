@@ -1,16 +1,19 @@
 /* Écran d'app factice stylisé (placeholder animé). Tokens globaux. */
 .frame {
   width: 100%;
-  max-width: 460px;
-  border-radius: 20px;
+  max-width: 540px;
+  border-radius: 22px;
   background: #fff;
   border: 1px solid var(--color-border-soft);
-  box-shadow: var(--shadow);
+  box-shadow: 0 34px 80px -24px rgba(10, 28, 58, 0.44),
+    0 12px 30px -14px rgba(10, 28, 58, 0.3);
   overflow: hidden;
-  transition: box-shadow 0.4s var(--ease);
+  transition: box-shadow 0.4s var(--ease), transform 0.4s var(--ease);
 }
 .frame:hover {
-  box-shadow: 0 36px 80px rgba(31, 84, 153, 0.22);
+  transform: translateY(-4px);
+  box-shadow: 0 46px 96px -22px rgba(10, 28, 58, 0.5),
+    0 16px 38px -14px rgba(10, 28, 58, 0.36);
 }
 /* Pastille « live » dans la barre de fenêtre (pulse en continu). */
 .live {

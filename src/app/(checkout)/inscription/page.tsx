@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { hasBilling, billingEnv } from "@/lib/env";
+import { hasCheckout, billingEnv } from "@/lib/env";
 import {
   planFromPlanKey,
   monthlyPriceCents,
@@ -31,7 +31,7 @@ export default async function InscriptionPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   // Tunnel fermé : le layout affiche déjà l'écran d'indisponibilité.
-  if (!hasBilling()) return null;
+  if (!hasCheckout()) return null;
 
   const { checkoutPlans, sepaIcs, sepaEnabled } = billingEnv();
   /* Une formule n'est vendable que si un code site Monetico porte SA

@@ -301,42 +301,66 @@ export async function provisionCabinet(
 }
 
 /* ------------------------------------------------------------
-   subscription/renewal — remontée d'une reconduction encaissée.
+   subscription/state — remontée de l'état de l'abonnement.
 
-   POURQUOI : la vitrine encaisse les reconductions et prolonge
-   `subscriptions.current_period_end` dans SA base. L'app dev B,
-   elle, calcule `subscriptionExpiresAt` une seule fois, au
-   provisioning (achat + 1 mois ou + 1 an) et ne la bouge plus :
-   le praticien y verrait donc une échéance périmée dès sa
-   deuxième période, et le cron d'alerte de dev B préviendrait
-   les super-admins pour rien.
+   POURQUOI : la vitrine est la source de vérité de la facturation
+   et prolonge `subscriptions.current_period_end` dans SA base.
+   L'app, elle, calculait `subscriptionExpiresAt` une seule fois,
+   au provisioning (achat + 1 mois ou + 1 an) et ne la bougeait
+   plus : le praticien y voyait une échéance périmée dès sa
+   deuxième période, et le cron d'alerte de l'app prévenait les
+   super-admins pour rien.
 
-   Cette route n'existe PAS encore côté dev B : contrat demandé
-   dans docs/provisioning-renewal.md. Tant que
-   PROVISIONING_RENEWAL_ENABLED n'est pas à `true`, l'appel est
-   un no-op silencieux.
+   UNE SEULE ROUTE POUR TOUS LES MOUVEMENTS : première souscription
+   d'un cabinet existant, reconduction, changement de formule,
+   résiliation, suspension pour impayé. Le contrat initialement
+   demandé (`/subscription/renewal`, docs/provisioning-renewal.md)
+   ne couvrait que la reconduction : trop étroit pour le cycle de
+   vie réel. Contrat à jour : docs/provisioning-subscription-state.md.
 
-   BEST-EFFORT : ne jette jamais. Un renouvellement encaissé ne
-   doit pas échouer parce que l'app d'en face est indisponible ;
-   l'appelant journalise et l'échéance reste rattrapable à la
-   main dans le back-office de dev B.
+   Tant que PROVISIONING_RENEWAL_ENABLED n'est pas à `true`,
+   l'appel est un no-op silencieux.
+
+   BEST-EFFORT : ne jette jamais. Un encaissement ne doit pas
+   échouer parce que l'app d'en face est indisponible ; l'appelant
+   journalise et l'état reste rattrapable à la main.
    ------------------------------------------------------------ */
 
 const RENEWAL_TIMEOUT_MS = 10_000;
 const RENEWAL_MAX_ATTEMPTS = 2;
 
+/** États d'abonnement compris par l'app (enum SubscriptionStatus). */
+export type AppSubscriptionStatus =
+  | "ACTIVE"
+  | "PAST_DUE"
+  | "SUSPENDED"
+  | "CANCELED"
+  | "EXPIRED";
+
 export type RenewalPayload = {
-  /** Idempotence : référence Monetico + rang de l'échéance (`MPXXX-r3`). */
+  /** Idempotence PAR MOUVEMENT : `MPXXX-r3`, `MPXXX-attach`… Jamais la seule
+      référence : le TPE récurrent la rejoue à chaque échéance. */
   idempotencyKey: string;
   /** Identifiant du cabinet DANS l'app, renvoyé par le provisioning initial. */
   cabinetId: string;
   plan: "MONTHLY" | "ANNUAL";
+  /* Tout ce qui suit décrit un ENCAISSEMENT : absent quand l'événement n'en
+     est pas un (impayé, résiliation), ce qui laisse l'app conserver la
+     dernière échéance connue au lieu de la voir reculer. */
   /** Nouvelle fin de période, telle que calculée par la vitrine (ISO 8601). */
-  periodEnd: string;
+  periodEnd?: string;
   /** Date d'encaissement notifiée par Monetico (ISO 8601). */
-  paidAt: string;
-  amountCents: number;
-  currency: string;
+  paidAt?: string;
+  amountCents?: number;
+  currency?: string;
+  /** Défaut ACTIVE : la très grande majorité des appels suit un encaissement. */
+  status?: AppSubscriptionStatus;
+  /** Sièges facturés, pour aligner le quota de l'app sur ce qui est payé. */
+  maxAssistants?: number;
+  /** Résiliation demandée : l'accès court jusqu'à l'échéance. */
+  cancelAtPeriodEnd?: boolean;
+  /** Impayé : accès entier jusqu'à cette date, lecture seule au-delà. */
+  graceUntil?: string;
 };
 
 export type RenewalOutcome =
@@ -351,12 +375,18 @@ export async function notifyRenewal(
     return { ok: true, skipped: true };
   }
 
+  /* Un appel qui suit un encaissement décrit un abonnement à jour : c'est le
+     cas de loin le plus fréquent, on ne force pas chaque appelant à le
+     répéter. Les états d'exception (impayé, résiliation) sont, eux, toujours
+     passés explicitement. */
+  const body = { status: "ACTIVE" as AppSubscriptionStatus, ...payload };
+
   let lastError = "";
   for (let attempt = 1; attempt <= RENEWAL_MAX_ATTEMPTS; attempt++) {
     try {
       const { status, envelope } = await post<{ subscriptionExpiresAt: string }>(
-        "/subscription/renewal",
-        payload,
+        "/subscription/state",
+        body,
         RENEWAL_TIMEOUT_MS,
       );
       // 200 = appliqué ou déjà appliqué (idempotent sur idempotencyKey).

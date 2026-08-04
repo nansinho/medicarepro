@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
 import { serviceClient } from "@/lib/supabase/service";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /* ============================================================
    Demandes de contact (table contact_requests) — lecture seule
@@ -23,12 +33,12 @@ type ContactRow = {
   created_at: string;
 };
 
-const STATUS_BADGE: Record<string, { label: string; tone: string }> = {
-  new: { label: "Nouveau", tone: "tBlue" },
-  in_progress: { label: "En cours", tone: "tAmber" },
-  replied: { label: "Répondu", tone: "tGreen" },
-  closed: { label: "Clos", tone: "tGray" },
-  spam: { label: "Spam", tone: "tRed" },
+const STATUS: Record<string, { label: string; variant: "blue" | "amber" | "green" | "gray" | "red" }> = {
+  new: { label: "Nouveau", variant: "blue" },
+  in_progress: { label: "En cours", variant: "amber" },
+  replied: { label: "Répondu", variant: "green" },
+  closed: { label: "Clos", variant: "gray" },
+  spam: { label: "Spam", variant: "red" },
 };
 
 const dateTimeFmt = new Intl.DateTimeFormat("fr-FR", {
@@ -37,8 +47,7 @@ const dateTimeFmt = new Intl.DateTimeFormat("fr-FR", {
   timeZone: "Europe/Paris",
 });
 
-/** Tronque le message pour la vue liste (le détail viendra en v2). */
-function excerpt(message: string, max = 140): string {
+function excerpt(message: string, max = 120): string {
   const clean = message.replace(/\s+/g, " ").trim();
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
@@ -48,14 +57,12 @@ export default async function ContactsPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Demandes de contact</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : les demandes de contact sont indisponibles.
-        </p>
-      </>
+      <div className="flex flex-col gap-5">
+        <PageHeading title="Demandes de contact" />
+        <Notice tone="warn" title="Supabase non configuré">
+          Les demandes de contact sont indisponibles.
+        </Notice>
+      </div>
     );
   }
 
@@ -68,73 +75,63 @@ export default async function ContactsPage() {
   const rows = (data ?? []) as ContactRow[];
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Demandes de contact</h1>
-        <p className={s.pageDesc}>
-          Formulaire de contact du site ({rows.length} affichées, 200 max).
-          Lecture seule pour l&apos;instant — répondez directement par email.
-        </p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Demandes de contact"
+        description={`Formulaire de contact du site (${rows.length} affichée(s), 200 max). Lecture seule pour l'instant, répondez directement par email.`}
+      />
 
-      {error && (
-        <p className={s.banner}>Erreur de lecture : {error.message}</p>
-      )}
+      {error && <Notice tone="bad" title="Erreur de lecture">{error.message}</Notice>}
 
-      <div className={s.card}>
+      <Card className="overflow-hidden">
         {rows.length === 0 ? (
-          <p className={s.empty}>Aucune demande de contact pour le moment.</p>
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucune demande de contact pour le moment.
+          </div>
         ) : (
-          <div className={s.tableWrap}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Contact</th>
-                  <th>Praticiens</th>
-                  <th>Statut</th>
-                  <th>Message</th>
-                  <th>Reçue le</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((request) => {
-                  const badge = STATUS_BADGE[request.status] ?? {
-                    label: request.status,
-                    tone: "tGray",
-                  };
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[220px]">Contact</TableHead>
+                  <TableHead className="w-24 text-right">Praticiens</TableHead>
+                  <TableHead className="w-28">Statut</TableHead>
+                  <TableHead className="min-w-[280px]">Message</TableHead>
+                  <TableHead className="w-40 text-right">Reçue le</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => {
+                  const st = STATUS[r.status] ?? { label: r.status, variant: "gray" as const };
                   return (
-                    <tr key={request.id}>
-                      <td>
-                        <span className={s.tdMain}>{request.name}</span>
-                        <span className={s.tdSub}>
-                          <a href={`mailto:${request.email}`}>
-                            {request.email}
-                          </a>
-                          {request.phone ? ` — ${request.phone}` : ""}
-                        </span>
-                      </td>
-                      <td className={s.tdNum}>{request.practitioners ?? "—"}</td>
-                      <td>
-                        <span className={`${s.badge} ${s[badge.tone]}`}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={s.truncate} title={request.message}>
-                          {excerpt(request.message)}
-                        </span>
-                      </td>
-                      <td className={s.tdNum}>
-                        {dateTimeFmt.format(new Date(request.created_at))}
-                      </td>
-                    </tr>
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <div className="font-medium text-foreground">{r.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          <a href={`mailto:${r.email}`} className="hover:text-primary">{r.email}</a>
+                          {r.phone ? ` · ${r.phone}` : ""}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {r.practitioners ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={st.variant}>{st.label}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[420px] truncate text-muted-foreground" title={r.message}>
+                        {excerpt(r.message)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {dateTimeFmt.format(new Date(r.created_at))}
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }

@@ -1,8 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Download } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /* ============================================================
    Factures émises (pièces comptables, PDF dans le bucket privé
@@ -26,10 +38,13 @@ type InvoiceRow = {
   issued_at: string;
 };
 
-const KIND_BADGE: Record<string, { label: string; tone: string }> = {
-  card_first: { label: "1er paiement carte", tone: "tBlue" },
-  sdd_renewal: { label: "Renouvellement SEPA", tone: "tGreen" },
-  credit_note: { label: "Avoir", tone: "tAmber" },
+const KIND_BADGE: Record<
+  string,
+  { label: string; variant: "blue" | "green" | "amber" | "gray" }
+> = {
+  card_first: { label: "1er paiement carte", variant: "blue" },
+  sdd_renewal: { label: "Renouvellement SEPA", variant: "green" },
+  credit_note: { label: "Avoir", variant: "amber" },
 };
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", {
@@ -42,14 +57,12 @@ export default async function FacturesPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Factures</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : la liste des factures est indisponible.
-        </p>
-      </>
+      <div className="flex flex-col gap-4">
+        <PageHeading title="Factures" />
+        <Notice tone="warn" title="Supabase non configuré">
+          La liste des factures est indisponible.
+        </Notice>
+      </div>
     );
   }
 
@@ -81,88 +94,91 @@ export default async function FacturesPage() {
   }
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Factures</h1>
-        <p className={s.pageDesc}>
-          Factures émises ({rows.length} affichées, 200 max). Le
-          téléchargement passe par une URL signée à durée courte — le PDF
-          n&apos;est jamais public.
-        </p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Factures"
+        description={`Factures émises (${rows.length} affichées, 200 max). Le téléchargement passe par une URL signée à durée courte (le PDF n'est jamais public).`}
+      />
 
       {error && (
-        <p className={s.banner}>Erreur de lecture : {error.message}</p>
+        <Notice tone="bad" title="Erreur de lecture">
+          {error.message}
+        </Notice>
       )}
 
-      <div className={s.card}>
+      <Card className="overflow-hidden">
         {rows.length === 0 ? (
-          <p className={s.empty}>Aucune facture émise pour le moment.</p>
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucune facture émise pour le moment.
+          </div>
         ) : (
-          <div className={s.tableWrap}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Numéro</th>
-                  <th>Abonnement</th>
-                  <th>Type</th>
-                  <th>Montant</th>
-                  <th>Émise le</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[160px]">Numéro</TableHead>
+                  <TableHead className="min-w-[200px]">Abonnement</TableHead>
+                  <TableHead className="min-w-[160px]">Type</TableHead>
+                  <TableHead className="w-28 text-right">Montant</TableHead>
+                  <TableHead className="w-32 text-right">Émise le</TableHead>
+                  <TableHead className="w-36 text-right" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((invoice) => {
                   const badge = KIND_BADGE[invoice.kind] ?? {
                     label: invoice.kind,
-                    tone: "tGray",
+                    variant: "gray" as const,
                   };
                   const cabinet = invoice.subscription_id
                     ? cabinetById.get(invoice.subscription_id)
                     : undefined;
                   return (
-                    <tr key={invoice.id}>
-                      <td className={`${s.tdMain} ${s.mono}`}>
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-mono text-xs tabular-nums text-foreground">
                         {invoice.number}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         {invoice.subscription_id && cabinet ? (
                           <Link
                             href={`/admin/billing/abonnements/${invoice.subscription_id}`}
+                            className="hover:text-primary"
                           >
                             {cabinet}
                           </Link>
                         ) : (
-                          (cabinet ?? "—")
+                          <span className="text-muted-foreground">
+                            {cabinet ?? "—"}
+                          </span>
                         )}
-                      </td>
-                      <td>
-                        <span className={`${s.badge} ${s[badge.tone]}`}>
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td className={s.tdNum}>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-foreground">
                         {formatEuros(invoice.amount_cents)}
-                      </td>
-                      <td className={s.tdNum}>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {dateFmt.format(new Date(invoice.issued_at))}
-                      </td>
-                      <td>
-                        <a
-                          href={`/admin/billing/factures/${invoice.id}/download`}
-                          className={s.btnSmall}
-                        >
-                          Télécharger
-                        </a>
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" asChild>
+                          <a
+                            href={`/admin/billing/factures/${invoice.id}/download`}
+                          >
+                            <Download />
+                            Télécharger
+                          </a>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }

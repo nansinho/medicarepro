@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
 import { serviceClient } from "@/lib/supabase/service";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export const dynamic = "force-dynamic";
 
@@ -39,16 +49,26 @@ function actionLabel(action: string): string {
   return action;
 }
 
+/* Ton du badge selon la nature de l'action : création/succès (vert),
+   modification (bleu), suppression/échec (rouge), neutre (gris). */
+function actionVariant(action: string): "green" | "blue" | "red" | "gray" {
+  if (action.startsWith("post.status.") || action.startsWith("city.review.")) return "blue";
+  if (/delete|disable|remove|revoke/.test(action)) return "red";
+  if (/create|invite|upload|enable|publish|save|add/.test(action)) return "green";
+  if (/update|change|edit|rename|move/.test(action)) return "blue";
+  return "gray";
+}
+
 export default async function AdminAuditPage() {
   const service = serviceClient();
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Journal d&apos;audit</h1>
-        </header>
-        <p className={s.banner}>Supabase non configuré.</p>
-      </>
+      <div className="flex flex-col gap-4">
+        <PageHeading title="Journal d'audit" />
+        <Notice tone="warn" title="Supabase non configuré">
+          Les entrées du journal sont indisponibles.
+        </Notice>
+      </div>
     );
   }
 
@@ -58,59 +78,56 @@ export default async function AdminAuditPage() {
     .order("created_at", { ascending: false })
     .limit(200);
 
-  return (
-    <>
-      <header className={s.pageHead}>
-        <div>
-          <h1 className={s.pageTitle}>Journal d&apos;audit</h1>
-          <p className={s.pageDesc}>Les 200 dernières actions du back office.</p>
-        </div>
-      </header>
+  const rows = entries ?? [];
 
-      <div className={s.tableWrap}>
-        <table className={s.table}>
-          <thead>
-            <tr>
-              <th>Quand</th>
-              <th>Qui</th>
-              <th>Action</th>
-              <th>Cible</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(entries ?? []).map((entry) => (
-              <tr key={entry.id}>
-                <td>
-                  <span className={s.tdSub}>
-                    {entry.created_at
-                      ? DATE_FMT.format(new Date(entry.created_at))
-                      : "—"}
-                  </span>
-                </td>
-                <td>
-                  <span className={s.tdSub}>{entry.actor_email ?? "système"}</span>
-                </td>
-                <td>
-                  <span className={s.tdMain}>{actionLabel(entry.action)}</span>
-                </td>
-                <td>
-                  <span className={s.tdSub}>
-                    {entry.entity_type ?? ""}
-                    {entry.entity_id ? ` · ${String(entry.entity_id).slice(0, 12)}` : ""}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {(entries ?? []).length === 0 && (
-              <tr>
-                <td colSpan={4}>
-                  <span className={s.tdSub}>Aucune action enregistrée.</span>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </>
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Journal d'audit"
+        description="Les 200 dernières actions du back office."
+      />
+
+      <Card className="overflow-hidden">
+        {rows.length === 0 ? (
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucune action enregistrée.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-40 text-right">Quand</TableHead>
+                  <TableHead className="min-w-[180px]">Qui</TableHead>
+                  <TableHead className="min-w-[200px]">Action</TableHead>
+                  <TableHead className="min-w-[200px]">Cible</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                      {entry.created_at ? DATE_FMT.format(new Date(entry.created_at)) : "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
+                      {entry.actor_email ?? "système"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={actionVariant(entry.action)}>
+                        {actionLabel(entry.action)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
+                      {entry.entity_type ?? ""}
+                      {entry.entity_id ? ` · ${String(entry.entity_id).slice(0, 12)}` : ""}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }

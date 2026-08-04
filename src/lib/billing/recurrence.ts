@@ -4,6 +4,8 @@ import { billingEnv } from "@/lib/env";
 import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { formatEuros } from "@/lib/checkout/pricing";
+import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
+import { currentRecurringOrder, supersedeOrder } from "@/lib/billing/orders";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import {
   buildStopRecurrenceRequest,
@@ -113,11 +115,22 @@ export async function stopRecurrence(
     };
   }
 
-  /* Date de la commande initiale — exigée à l'identique par la banque.
-     Repli sur started_at si le dossier est antérieur à la migration 0022. */
-  const orderDate = sub.monetico_order_date
-    ? parseMoneticoDate(`${sub.monetico_order_date}:00:00:00`)
-    : new Date(sub.started_at);
+  /* La commande à arrêter est la commande récurrente VIVANTE, qui n'est pas
+     forcément la commande d'origine : après un changement de carte ou de
+     formule, l'abonnement en porte une nouvelle. Arrêter l'ancienne laisserait
+     le client se faire prélever par la nouvelle. Repli sur les champs de
+     l'abonnement pour les contrats antérieurs à la migration 0028. */
+  const live = await currentRecurringOrder(supabase, sub.id);
+  const reference = live?.reference ?? sub.monetico_reference;
+  const orderAmountCents = live?.amountCents ?? sub.first_payment_cents;
+  const rawOrderDate = live?.orderDate ?? sub.monetico_order_date;
+  const orderFallbackIso = live?.fallbackDateIso ?? sub.started_at;
+
+  /* Date de la commande — exigée à l'identique par la banque.
+     Repli sur la création si le dossier est antérieur à la migration 0022. */
+  const orderDate = rawOrderDate
+    ? parseMoneticoDate(`${rawOrderDate}:00:00:00`)
+    : new Date(orderFallbackIso);
   if (!orderDate) {
     return {
       ok: false,
@@ -136,27 +149,24 @@ export async function stopRecurrence(
   const { data: ledger } = await supabase
     .from("billing_ledger")
     .select("amount_cents")
-    .eq("reference", sub.monetico_reference)
+    .eq("reference", reference)
     .in("event_type", ["card_payment", "card_renewal"]);
   const capturedCents = (ledger ?? []).reduce(
     (sum, row) => sum + Number((row as { amount_cents: number }).amount_cents),
     0,
   );
 
-  const billing = billingEnv();
-  const config = {
-    tpe: billing.moneticoTpe,
-    key: billing.moneticoKey,
-    societe: billing.moneticoSociete,
-    mode: billing.moneticoMode,
-  };
+  /* Signé avec la clé du TPE qui porte la commande. Seul le récurrent a une
+     récurrence à arrêter, mais router par le plan de la commande évite un
+     « commande non authentifiee » le jour où ce ne sera plus vrai. */
+  const config = moneticoConfigForPlan(live?.plan ?? "MONTHLY");
 
   const attempt = async (alreadyCapturedCents: number) => {
     const { url, fields } = buildStopRecurrenceRequest(
       {
-        reference: sub.monetico_reference,
+        reference,
         orderDate,
-        amountCents: sub.first_payment_cents,
+        amountCents: orderAmountCents,
         alreadyCapturedCents,
         currency: sub.currency,
       },
@@ -175,7 +185,7 @@ export async function stopRecurrence(
     const message = errMessage(err);
     await sendBillingAlert("Arrêt de récurrence : banque injoignable", [
       `Cabinet : ${sub.cabinet_name}`,
-      `Référence : ${sub.monetico_reference}`,
+      `Référence : ${reference}`,
       `Erreur : ${message}`,
       "La reconduction est TOUJOURS ACTIVE. Réessayer, ou arrêter l'abonnement depuis le tableau de bord CIC.",
     ]);
@@ -189,9 +199,9 @@ export async function stopRecurrence(
   if (!result.accepted) {
     await sendBillingAlert("URGENT — Arrêt de récurrence REFUSÉ", [
       `Cabinet : ${sub.cabinet_name}`,
-      `Référence : ${sub.monetico_reference}`,
+      `Référence : ${reference}`,
       `Réponse de la banque : ${result.lib || "(aucun libellé)"}`,
-      `Montant de la commande : ${formatEuros(sub.first_payment_cents)} — déjà capturé déclaré : ${formatEuros(capturedCents)}`,
+      `Montant de la commande : ${formatEuros(orderAmountCents)} — déjà capturé déclaré : ${formatEuros(capturedCents)}`,
       "La reconduction est TOUJOURS ACTIVE : le client sera prélevé à la prochaine échéance. Arrêter l'abonnement depuis le tableau de bord CIC.",
     ]);
     return {
@@ -204,22 +214,34 @@ export async function stopRecurrence(
   const stoppedAt = new Date().toISOString();
   const { error: updateError } = await supabase
     .from("subscriptions")
-    .update({ recurrence_stopped_at: stoppedAt, status: "canceled" })
+    .update({
+      recurrence_stopped_at: stoppedAt,
+      status: "canceled",
+      // Plus aucune commande récurrente vivante : c'est LE fait bancaire.
+      current_recurring_order_id: null,
+    })
     .eq("id", sub.id);
   if (updateError) {
     await sendBillingAlert("Récurrence arrêtée mais registre non mis à jour", [
       `Cabinet : ${sub.cabinet_name}`,
-      `Référence : ${sub.monetico_reference}`,
+      `Référence : ${reference}`,
       `Erreur : ${updateError.message}`,
       "La banque a bien accusé l'arrêt : corriger la souscription à la main (recurrence_stopped_at, status).",
     ]);
+  }
+
+  /* La commande sort de la circulation SEULEMENT ici, après accusé positif.
+     La marquer plus tôt libérerait l'index d'unicité et permettrait d'en
+     ouvrir une seconde alors que la première prélève encore. */
+  if (live?.orderId) {
+    await supersedeOrder(supabase, live.orderId);
   }
 
   await logAudit({
     action: "billing.recurrence_stopped",
     entityType: "subscription",
     entityId: sub.id,
-    diff: { reference: sub.monetico_reference, lib: result.lib },
+    diff: { reference, lib: result.lib },
   });
 
   return {

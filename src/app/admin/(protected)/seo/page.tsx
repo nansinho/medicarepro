@@ -7,7 +7,7 @@ import SeoManager, {
   type RedirectRow,
   type NotFoundRow,
 } from "@/components/admin/seo/SeoManager";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +20,12 @@ export default async function AdminSeoPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>SEO</h1>
-        </header>
-        <p className={s.banner}>Supabase non configuré.</p>
-      </>
+      <div className="flex flex-col gap-5">
+        <PageHeading title="Métas et redirections" />
+        <Notice tone="warn" title="Supabase non configuré">
+          La gestion du référencement est indisponible.
+        </Notice>
+      </div>
     );
   }
 
@@ -87,19 +87,17 @@ export default async function AdminSeoPage() {
   }
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <div>
-          <h1 className={s.pageTitle}>SEO</h1>
-          <p className={s.pageDesc}>Balises méta, redirections et pages introuvables.</p>
-        </div>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Métas et redirections"
+        description="Balises méta, redirections et pages introuvables."
+      />
       <SeoManager
         routes={routes}
         redirects={(redirectRows ?? []) as RedirectRow[]}
         notFound={(notFoundRows ?? []) as NotFoundRow[]}
         isAdmin={isAdmin}
       />
-    </>
+    </div>
   );
 }

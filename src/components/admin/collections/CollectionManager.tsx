@@ -15,10 +15,27 @@ import {
 } from "@/lib/admin/collections-admin";
 import { buildTreeFromSchema, defaultValue } from "@/lib/admin/forms/introspect";
 import { FieldsRenderer } from "@/components/admin/forms/SectionForm";
-import { Close, Plus } from "@/components/icons";
-import s from "../Admin.module.css";
-import m from "../media/media.module.css";
-import c from "./collections.module.css";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /* ============================================================
    Gestionnaire générique d'une collection : liste ordonnée +
@@ -87,164 +104,199 @@ export default function CollectionManager({
   }
 
   return (
-    <div className={c.wrap}>
-      {canCreate && (
-        <button
-          type="button"
-          className={s.primaryBtn}
-          onClick={() => setEditing({ id: null, values: emptyValues() })}
-        >
-          <Plus width={15} height={15} /> Ajouter
-        </button>
-      )}
-
+    <div className="flex flex-col gap-4">
       {notice && (
-        <p
-          className={notice.ok ? c.noticeOk : c.noticeErr}
-          role={notice.ok ? "status" : "alert"}
+        <Notice
+          tone={notice.ok ? "ok" : "bad"}
+          title={notice.ok ? "Action effectuée" : "Erreur"}
         >
-          {notice.message ?? (notice.ok ? "OK" : "Erreur")}
-        </p>
+          {notice.message ?? (notice.ok ? "OK" : "Une erreur est survenue.")}
+        </Notice>
       )}
 
-      <div className={s.tableWrap}>
-        <table className={s.table}>
-          <thead>
-            <tr>
-              {hasPosition && <th aria-label="Ordre" />}
-              <th>Élément</th>
-              {hasPublished && <th>Visibilité</th>}
-              <th aria-label="Actions" />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr key={row.id}>
-                {hasPosition && (
-                  <td className={c.orderCell}>
-                    <button
-                      type="button"
-                      disabled={pending || index === 0}
-                      aria-label="Monter"
-                      onClick={() => {
-                        const formData = new FormData();
-                        formData.set("collection", collection);
-                        formData.set("id", row.id);
-                        formData.set("direction", "up");
-                        run(() => moveCollectionRow(formData));
-                      }}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pending || index === rows.length - 1}
-                      aria-label="Descendre"
-                      onClick={() => {
-                        const formData = new FormData();
-                        formData.set("collection", collection);
-                        formData.set("id", row.id);
-                        formData.set("direction", "down");
-                        run(() => moveCollectionRow(formData));
-                      }}
-                    >
-                      ↓
-                    </button>
-                  </td>
-                )}
-                <td>
-                  <button
-                    type="button"
-                    className={c.rowTitle}
-                    onClick={() => setEditing({ id: row.id, values: row.values })}
-                  >
-                    {row.summary}
-                  </button>
-                </td>
-                {hasPublished && (
-                  <td>
-                    <button
-                      type="button"
-                      className={`${s.badge} ${row.published ? s.tGreen : s.tGray} ${c.pubToggle}`}
-                      disabled={pending}
-                      title="Cliquer pour basculer"
-                      onClick={() => {
-                        const formData = new FormData();
-                        formData.set("collection", collection);
-                        formData.set("id", row.id);
-                        formData.set("published", String(!row.published));
-                        run(() => togglePublished(formData));
-                      }}
-                    >
-                      {row.published ? "Visible" : "Masqué"}
-                    </button>
-                  </td>
-                )}
-                <td>
-                  <div className={s.rowActions}>
-                    <button
-                      type="button"
-                      className={s.btnSmall}
-                      onClick={() => setEditing({ id: row.id, values: row.values })}
-                    >
-                      Modifier
-                    </button>
-                    {canDelete && (
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle>{cfg.title}</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {rows.length}
+            </span>
+            {canCreate && (
+              <Button
+                size="sm"
+                onClick={() => setEditing({ id: null, values: emptyValues() })}
+              >
+                <Plus />
+                Ajouter
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+
+        {rows.length === 0 ? (
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucun élément pour le moment.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {hasPosition && <TableHead className="w-24">Ordre</TableHead>}
+                  <TableHead>Élément</TableHead>
+                  {hasPublished && (
+                    <TableHead className="w-32">Visibilité</TableHead>
+                  )}
+                  <TableHead className="w-40 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, index) => (
+                  <TableRow key={row.id}>
+                    {hasPosition && (
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            disabled={pending || index === 0}
+                            aria-label="Monter"
+                            onClick={() => {
+                              const formData = new FormData();
+                              formData.set("collection", collection);
+                              formData.set("id", row.id);
+                              formData.set("direction", "up");
+                              run(() => moveCollectionRow(formData));
+                            }}
+                          >
+                            <ArrowUp />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            disabled={pending || index === rows.length - 1}
+                            aria-label="Descendre"
+                            onClick={() => {
+                              const formData = new FormData();
+                              formData.set("collection", collection);
+                              formData.set("id", row.id);
+                              formData.set("direction", "down");
+                              run(() => moveCollectionRow(formData));
+                            }}
+                          >
+                            <ArrowDown />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell>
                       <button
                         type="button"
-                        className={s.btnSmallDanger}
-                        disabled={pending}
-                        onClick={() => {
-                          if (!window.confirm(`Supprimer « ${row.summary} » ?`)) return;
-                          const formData = new FormData();
-                          formData.set("collection", collection);
-                          formData.set("id", row.id);
-                          run(() => deleteCollectionRow(formData));
-                        }}
+                        className="text-left text-[13px] font-medium text-foreground transition-colors hover:text-primary"
+                        onClick={() =>
+                          setEditing({ id: row.id, values: row.values })
+                        }
                       >
-                        Supprimer
+                        {row.summary}
                       </button>
+                    </TableCell>
+                    {hasPublished && (
+                      <TableCell>
+                        <button
+                          type="button"
+                          className="cursor-pointer disabled:cursor-default disabled:opacity-50"
+                          disabled={pending}
+                          title="Cliquer pour basculer"
+                          onClick={() => {
+                            const formData = new FormData();
+                            formData.set("collection", collection);
+                            formData.set("id", row.id);
+                            formData.set("published", String(!row.published));
+                            run(() => togglePublished(formData));
+                          }}
+                        >
+                          <Badge variant={row.published ? "green" : "gray"}>
+                            {row.published ? "Visible" : "Masqué"}
+                          </Badge>
+                        </button>
+                      </TableCell>
                     )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {editing && (
-        <div className={m.overlay} role="dialog" aria-modal="true">
-          <div className={`${m.panel} ${c.editPanel}`}>
-            <button
-              type="button"
-              className={m.panelClose}
-              onClick={() => setEditing(null)}
-              aria-label="Fermer"
-            >
-              <Close width={16} height={16} />
-            </button>
-            <h2 className={c.editTitle}>
-              {editing.id ? "Modifier" : "Ajouter"} — {cfg.title}
-            </h2>
-            <FieldsRenderer
-              tree={tree}
-              value={editing.values}
-              onChange={(values) => setEditing({ ...editing, values })}
-            />
-            <div className={c.editFoot}>
-              <button
-                type="button"
-                className={s.primaryBtn}
-                disabled={pending}
-                onClick={handleSave}
-              >
-                {pending ? "Enregistrement…" : "Enregistrer"}
-              </button>
-            </div>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setEditing({ id: row.id, values: row.values })
+                          }
+                        >
+                          Modifier
+                        </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            disabled={pending}
+                            aria-label="Supprimer"
+                            onClick={() => {
+                              if (
+                                !window.confirm(`Supprimer « ${row.summary} » ?`)
+                              )
+                                return;
+                              const formData = new FormData();
+                              formData.set("collection", collection);
+                              formData.set("id", row.id);
+                              run(() => deleteCollectionRow(formData));
+                            }}
+                          >
+                            <Trash2 />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      )}
+        )}
+      </Card>
+
+      {/* Panneau d'édition (latéral, pas de modal centré) */}
+      <Sheet
+        open={!!editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+      >
+        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
+          {editing && (
+            <>
+              <SheetHeader>
+                <SheetTitle>
+                  {editing.id ? "Modifier" : "Ajouter"} · {cfg.title}
+                </SheetTitle>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                <FieldsRenderer
+                  tree={tree}
+                  value={editing.values}
+                  onChange={(values) => setEditing({ ...editing, values })}
+                />
+              </div>
+
+              <SheetFooter className="flex-row justify-end gap-2">
+                <SheetClose asChild>
+                  <Button variant="outline">Annuler</Button>
+                </SheetClose>
+                <Button disabled={pending} onClick={handleSave}>
+                  {pending ? "Enregistrement…" : "Enregistrer"}
+                </Button>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -49,7 +49,7 @@ export default function HomeBento({
 }) {
   const HdsIcon = ICONS[content.hds.icon as keyof typeof ICONS];
   return (
-    <section className={`${h.bentoSec} tone-white`}>
+    <section className={h.bentoSec}>
       <div className="wrap">
         <Reveal className="sec-head">
           <div className="kicker">{content.kicker}</div>

@@ -1,8 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /* ============================================================
    Abonnements — registre de facturation (table subscriptions).
@@ -26,42 +37,31 @@ type SubscriptionRow = {
   created_at: string;
 };
 
-const PLAN_LABEL: Record<string, string> = {
-  MONTHLY: "Mensuel",
-  ANNUAL: "Annuel",
+const PLAN_LABEL: Record<string, string> = { MONTHLY: "Mensuel", ANNUAL: "Annuel" };
+
+const STATUS: Record<string, { label: string; variant: "green" | "amber" | "red" | "gray" | "blue" }> = {
+  active: { label: "Actif", variant: "green" },
+  pending_mandate: { label: "Mandat à signer", variant: "amber" },
+  past_due: { label: "Impayé", variant: "amber" },
+  suspended: { label: "Suspendu", variant: "red" },
+  canceled: { label: "Résilié", variant: "gray" },
+  expired: { label: "Expiré", variant: "gray" },
 };
 
-const STATUS_BADGE: Record<string, { label: string; tone: string }> = {
-  active: { label: "Actif", tone: "tGreen" },
-  pending_mandate: { label: "Mandat à signer", tone: "tAmber" },
-  past_due: { label: "Impayé", tone: "tAmber" },
-  suspended: { label: "Suspendu", tone: "tRed" },
-  canceled: { label: "Résilié", tone: "tGray" },
-  expired: { label: "Expiré", tone: "tGray" },
-};
-
-const dateFmt = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "medium",
-  timeZone: "Europe/Paris",
-});
-
-function fmtDate(value: string | null): string {
-  return value ? dateFmt.format(new Date(value)) : "—";
-}
+const dateFmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "Europe/Paris" });
+const fmtDate = (v: string | null) => (v ? dateFmt.format(new Date(v)) : "—");
 
 export default async function AbonnementsPage() {
   const service = serviceClient();
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Abonnements</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : la liste des abonnements est indisponible.
-        </p>
-      </>
+      <div className="flex flex-col gap-5">
+        <PageHeading title="Abonnements" />
+        <Notice tone="warn" title="Supabase non configuré">
+          La liste des abonnements est indisponible.
+        </Notice>
+      </div>
     );
   }
 
@@ -76,79 +76,84 @@ export default async function AbonnementsPage() {
   const rows = (data ?? []) as SubscriptionRow[];
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Abonnements</h1>
-        <p className={s.pageDesc}>
-          Registre de facturation ({rows.length} affichés, 200 max). Le montant
-          indiqué est celui du prochain renouvellement SEPA.
-        </p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Abonnements"
+        description={`Registre de facturation (${rows.length} affiché(s), 200 max). Le montant indiqué est celui du prochain renouvellement SEPA.`}
+      />
 
-      {error && (
-        <p className={s.banner}>Erreur de lecture : {error.message}</p>
-      )}
+      {error && <Notice tone="bad" title="Erreur de lecture">{error.message}</Notice>}
 
-      <div className={s.card}>
+      <Card className="overflow-hidden">
         {rows.length === 0 ? (
-          <p className={s.empty}>Aucun abonnement pour le moment.</p>
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucun abonnement pour le moment.
+          </div>
         ) : (
-          <div className={s.tableWrap}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Cabinet</th>
-                  <th>Plan</th>
-                  <th>Collab.</th>
-                  <th>Statut</th>
-                  <th>Fin de période</th>
-                  <th>Renouvellement</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[240px]">Cabinet</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead className="w-24 text-right">Collab.</TableHead>
+                  <TableHead className="w-32">Statut</TableHead>
+                  <TableHead className="w-40 text-right">Fin de période</TableHead>
+                  <TableHead className="w-40 text-right">Renouvellement</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((sub) => {
-                  const badge = STATUS_BADGE[sub.status] ?? {
-                    label: sub.status,
-                    tone: "tGray",
-                  };
+                  const st = STATUS[sub.status] ?? { label: sub.status, variant: "gray" as const };
+                  const href = `/admin/billing/abonnements/${sub.id}`;
                   return (
-                    <tr key={sub.id}>
-                      <td>
-                        <span className={s.tdMain}>{sub.cabinet_name}</span>
-                        <span className={s.tdSub}>{sub.admin_email}</span>
-                      </td>
-                      <td>{PLAN_LABEL[sub.plan] ?? sub.plan}</td>
-                      <td className={s.tdNum}>{sub.extra_collaborators}</td>
-                      <td>
-                        <span
-                          className={`${s.badge} ${s[badge.tone as keyof typeof s]}`}
-                        >
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td className={s.tdNum}>
-                        {fmtDate(sub.current_period_end)}
-                      </td>
-                      <td className={s.tdNum}>
-                        {formatEuros(sub.renewal_amount_cents)}
-                      </td>
-                      <td>
-                        <Link
-                          href={`/admin/billing/abonnements/${sub.id}`}
-                          className={s.btnSmall}
-                        >
-                          Détail
+                    <TableRow key={sub.id} className="group">
+                      <TableCell>
+                        <Link href={href} className="flex items-center gap-3">
+                          <span className="grid size-8 flex-none place-items-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary ring-1 ring-inset ring-primary/15">
+                            {sub.cabinet_name.slice(0, 2).toUpperCase()}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-foreground group-hover:text-primary">
+                              {sub.cabinet_name}
+                            </span>
+                            <span className="block truncate text-xs text-muted-foreground">{sub.admin_email}</span>
+                          </span>
                         </Link>
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{PLAN_LABEL[sub.plan] ?? sub.plan}</TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {sub.extra_collaborators}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={st.variant}>{st.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {fmtDate(sub.current_period_end)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums font-medium text-foreground">
+                        {formatEuros(sub.renewal_amount_cents)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link href={href}>
+                          <ChevronRight className="size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                        </Link>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
-    </>
+        {rows.length > 0 && (
+          <div className="flex items-center justify-between border-t bg-secondary px-4 py-2.5 text-xs text-muted-foreground">
+            <span>{rows.length} abonnement(s) affiché(s), 200 max.</span>
+            <span>Trié par création, du plus récent au plus ancien.</span>
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }

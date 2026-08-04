@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff } from "@/components/icons";
+import { Eye, EyeOff } from "lucide-react";
 import { browserClient } from "@/lib/supabase/browser";
-import styles from "./login.module.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /* Messages GoTrue → français (codes les plus courants du password grant). */
 const ERROR_MESSAGES: Record<string, string> = {
@@ -49,8 +51,6 @@ export default function LoginForm() {
       return;
     }
 
-    /* Le rôle autoritaire est dans app_metadata (vérifié aussi côté
-       serveur par le proxy et requireStaff — ici, juste pour l'UX). */
     const role = data.user?.app_metadata?.role;
     if (role !== "admin" && role !== "editor") {
       await supabase.auth.signOut();
@@ -65,10 +65,11 @@ export default function LoginForm() {
   }
 
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
-      <label className={styles.field}>
-        <span>Email</span>
-        <input
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="login-email">Email</Label>
+        <Input
+          id="login-email"
           type="email"
           name="email"
           autoComplete="username"
@@ -77,12 +78,13 @@ export default function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="vous@medicarepro.fr"
         />
-      </label>
+      </div>
 
-      <label className={styles.field}>
-        <span>Mot de passe</span>
-        <div className={styles.passwordWrap}>
-          <input
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="login-password">Mot de passe</Label>
+        <div className="relative">
+          <Input
+            id="login-password"
             type={showPassword ? "text" : "password"}
             name="password"
             autoComplete="current-password"
@@ -90,33 +92,31 @@ export default function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••••••"
+            className="pr-10"
           />
           <button
             type="button"
-            className={styles.eye}
             onClick={() => setShowPassword((v) => !v)}
-            aria-label={
-              showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"
-            }
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
           >
-            {showPassword ? (
-              <EyeOff width={18} height={18} />
-            ) : (
-              <Eye width={18} height={18} />
-            )}
+            {showPassword ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
           </button>
         </div>
-      </label>
+      </div>
 
       {error && (
-        <p className={styles.error} role="alert">
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-[13px] text-destructive"
+        >
           {error}
         </p>
       )}
 
-      <button type="submit" className={styles.submit} disabled={pending}>
-        {pending ? "Connexion…" : "Se connecter"}
-      </button>
+      <Button type="submit" disabled={pending} className="w-full">
+        {pending ? "Connexion en cours" : "Se connecter"}
+      </Button>
     </form>
   );
 }

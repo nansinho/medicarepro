@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /* ============================================================
    DESIGN SYSTEM — MediCare Pro
@@ -475,4 +476,52 @@ h1.sec-title {
       transform: none;
     }
   }
+}
+
+/* ============================================================
+   BACK OFFICE — mapping des utilitaires shadcn/ui.
+
+   Ce bloc génère les utilitaires (bg-background, text-muted-foreground,
+   border-border…) à partir des variables sémantiques définies, elles,
+   sous .admin-scope (src/app/admin/(protected)/admin-theme.css).
+
+   `inline` = les valeurs ne sont PAS émises sur :root ; elles se
+   résolvent au point d'usage, donc uniquement dans le sous-arbre admin.
+   La vitrine, qui n'utilise aucun de ces utilitaires, n'est pas touchée.
+
+   NB : --color-primary et --color-muted sont volontairement ABSENTS ici.
+   Ils existent déjà (@theme vitrine) et sont ré-aliasés dans .admin-scope,
+   sinon les inclure ici casserait le var(--color-primary/muted) du site.
+   ============================================================ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
 }

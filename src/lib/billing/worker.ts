@@ -203,26 +203,78 @@ async function markDuplicatePaid(
    ------------------------------------------------------------ */
 
 /**
- * Libère l'autorisation bancaire d'un dossier qui ne sera pas provisionné.
- * Le TPE récurrent n'ayant qu'AUTORISÉ, annuler évite de laisser une
- * empreinte immobilisée sur la carte d'un client qui n'aura pas de compte.
- * Best-effort : ne jette jamais, l'échec est signalé par l'alerte interne.
+ * Solde bancairement un dossier qui ne sera pas provisionné.
+ *
+ * LES DEUX FORMULES NE SE TRAITENT PAS PAREIL, et les confondre revenait à
+ * mentir à l'équipe :
+ *
+ * - MONTHLY (TPE récurrent) : la banque a seulement AUTORISÉ. On annule
+ *   l'autorisation, le client n'est jamais débité. C'est le cas nominal.
+ * - ANNUAL (TPE immédiat) : la banque a DÉJÀ ENCAISSÉ (c'est la raison d'être
+ *   de ce TPE, cf. captured_at posé d'office plus bas). Une annulation
+ *   d'autorisation n'a rien à annuler : l'argent est parti. Il faut le
+ *   REMBOURSER depuis le CIC, à la main.
+ *
+ * Dans le cas annuel on écrit aussi la pièce comptable de l'encaissement :
+ * l'argent est entré, il doit exister au journal même si le compte n'a jamais
+ * été créé (le remboursement viendra s'y adosser en `card_refund`).
+ *
+ * Renvoie le texte à mettre dans l'alerte, pour qu'elle dise la vérité.
+ * Best-effort : ne jette jamais.
  */
-async function releaseAuthorization(row: PendingSignupRow): Promise<void> {
-  try {
-    await cancelAuthorization({
-      reference: row.monetico_reference,
-      orderDate: row.monetico_order_date,
-      amountCents: row.amount_cents,
-      currency: row.currency,
-      cabinetName: row.cabinet.name,
-    });
-  } catch (err) {
-    console.error(
-      "[billing-worker] annulation d'autorisation :",
-      errMessage(err),
-    );
+async function settleUnprovisionedPayment(
+  supabase: SupabaseClient,
+  row: PendingSignupRow,
+): Promise<string> {
+  if (row.plan !== "ANNUAL") {
+    try {
+      const outcome = await cancelAuthorization({
+        reference: row.monetico_reference,
+        orderDate: row.monetico_order_date,
+        amountCents: row.amount_cents,
+        currency: row.currency,
+        cabinetName: row.cabinet.name,
+        plan: row.plan,
+      });
+      return outcome.ok
+        ? `Montant autorisé : ${formatEuros(row.amount_cents)} — l'autorisation a été annulée, le client n'est pas débité.`
+        : `Montant autorisé : ${formatEuros(row.amount_cents)} — ÉCHEC de l'annulation d'autorisation (${outcome.lib || outcome.message}). À annuler depuis le tableau de bord CIC.`;
+    } catch (err) {
+      console.error(
+        "[billing-worker] annulation d'autorisation :",
+        errMessage(err),
+      );
+      return `Montant autorisé : ${formatEuros(row.amount_cents)} — l'annulation d'autorisation a échoué (${errMessage(err)}). À annuler depuis le tableau de bord CIC.`;
+    }
   }
+
+  /* ANNUEL : l'argent est pris. Pièce comptable d'abord (idempotente : une
+     seule écriture par référence), remboursement manuel ensuite. */
+  const paidAtIso = row.paid_at ?? new Date().toISOString();
+  try {
+    const { data: existing } = await supabase
+      .from("billing_ledger")
+      .select("id")
+      .eq("reference", row.monetico_reference)
+      .eq("event_type", "card_payment")
+      .maybeSingle();
+    if (!existing) {
+      await supabase.from("billing_ledger").insert({
+        event_type: "card_payment",
+        amount_cents: row.amount_cents,
+        currency: row.currency,
+        occurred_at: paidAtIso,
+        captured_at: paidAtIso, // TPE immédiat : encaissé d'office
+        reference: row.monetico_reference,
+        cabinet_name: row.cabinet.name,
+        meta: { kind: "unprovisioned", refund_due: true },
+      });
+    }
+  } catch (err) {
+    console.error("[billing-worker] pièce comptable annulée :", errMessage(err));
+  }
+
+  return `Montant ENCAISSÉ : ${formatEuros(row.amount_cents)} — offre 12 mois sur le TPE immédiat, l'argent est DÉJÀ PRIS. REMBOURSEMENT MANUEL REQUIS depuis le CIC (référence ${row.monetico_reference}). L'écriture comptable est au journal ; y adosser le remboursement une fois fait.`;
 }
 
 /** Erreur non rejouable automatiquement : retour 'paid' SANS next_retry_at. */
@@ -237,11 +289,11 @@ async function failManual(
     .eq("id", row.id)
     .eq("status", "provisioning");
 
-  await releaseAuthorization(row);
+  const moneyLine = await settleUnprovisionedPayment(supabase, row);
 
   await sendBillingAlert("URGENT — Provisioning en échec (intervention requise)", [
     `Dossier ${row.id} (référence ${row.monetico_reference}) — cabinet ${row.cabinet.name}.`,
-    `Montant autorisé : ${formatEuros(row.amount_cents)} — l'autorisation a été annulée, le client n'est pas débité.`,
+    moneyLine,
     `Erreur : ${lastError}`,
     "Aucune re-tentative automatique ne sera faite : diagnostiquer puis relancer manuellement (le paiement devra être refait).",
   ]);
@@ -265,15 +317,16 @@ async function handleProvisionError(
       .eq("id", row.id)
       .eq("status", "provisioning");
 
-    await releaseAuthorization(row);
+    const moneyLine = await settleUnprovisionedPayment(supabase, row);
 
     await sendBillingAlert(
-      "URGENT — Conflit de provisioning après autorisation",
+      "URGENT — Conflit de provisioning après paiement",
       [
         `Dossier ${row.id} (référence ${row.monetico_reference}) — cabinet ${row.cabinet.name}.`,
-        `Montant autorisé : ${formatEuros(row.amount_cents)} — l'autorisation a été annulée, le client n'est pas débité.`,
+        moneyLine,
         `Conflit : ${errMessage(err)}`,
         "Le compte n'a PAS été créé. Résolution manuelle obligatoire — ce dossier ne sera jamais rejoué automatiquement.",
+        "Si le cabinet existe déjà, il ne s'agit pas d'une inscription mais d'un abonnement à rattacher à un compte existant : le rembourser puis le traiter comme tel.",
       ],
     );
 

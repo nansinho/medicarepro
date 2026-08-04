@@ -4,7 +4,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import UsersManager, {
   type AdminUserRow,
 } from "@/components/admin/users/UsersManager";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +16,15 @@ export default async function AdminUtilisateursPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Utilisateurs</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : la gestion des comptes est indisponible.
-        </p>
-      </>
+      <div className="flex flex-col gap-4">
+        <PageHeading
+          title="Utilisateurs"
+          description="Comptes du back office, administrateurs et éditeurs."
+        />
+        <Notice tone="warn" title="Supabase non configuré">
+          La gestion des comptes est indisponible.
+        </Notice>
+      </div>
     );
   }
 
@@ -58,14 +59,12 @@ export default async function AdminUtilisateursPage() {
   });
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Utilisateurs</h1>
-        <p className={s.pageDesc}>
-          Comptes du back office — administrateurs et éditeurs.
-        </p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Utilisateurs"
+        description="Comptes du back office, administrateurs et éditeurs."
+      />
       <UsersManager users={rows} selfId={staff.id} />
-    </>
+    </div>
   );
 }

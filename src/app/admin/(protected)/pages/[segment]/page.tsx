@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { FALLBACK_PAGES } from "@/lib/cms/fallback";
 import { slugForSegment } from "@/lib/admin/pageRoutes";
@@ -8,7 +10,8 @@ import PageEditor, {
   type EditorSlot,
 } from "@/components/admin/pages/PageEditor";
 import type { SectionType } from "@/lib/cms/sections.schema";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading } from "@/components/admin/shared";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -61,16 +64,25 @@ export default async function AdminPageEditorPage({
   });
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <div>
-          <h1 className={s.pageTitle}>{page.title}</h1>
-          <p className={s.pageDesc}>
-            {slug} · {slots.length} sections · enregistrement auto en brouillon.
-          </p>
-        </div>
-      </header>
+    <div className="flex flex-col gap-4">
+      <div>
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="-ml-2 mb-1.5 text-muted-foreground"
+        >
+          <Link href="/admin/pages">
+            <ChevronLeft />
+            Toutes les pages
+          </Link>
+        </Button>
+        <PageHeading
+          title={page.title}
+          description={`${slug} · ${slots.length} sections · enregistrement auto en brouillon.`}
+        />
+      </div>
       <PageEditor slug={slug} slots={slots} />
-    </>
+    </div>
   );
 }

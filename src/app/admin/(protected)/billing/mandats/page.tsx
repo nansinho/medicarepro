@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
 import { serviceClient } from "@/lib/supabase/service";
-import s from "@/components/admin/Admin.module.css";
+import { PageHeading, Notice } from "@/components/admin/shared";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /* ============================================================
    Registre des mandats SEPA. Un mandat Core devient CADUC 36 mois
-   après sa dernière présentation (collectée ou rejetée) — ou après
+   après sa dernière présentation (collectée ou rejetée), ou après
    sa signature s'il n'a jamais été présenté. On signale « caduc
    bientôt » à partir de 33 mois pour représenter avant l'échéance.
    ============================================================ */
@@ -26,13 +36,16 @@ type MandateRow = {
   subscription: { cabinet_name: string } | null;
 };
 
-const STATUS_BADGE: Record<string, { label: string; tone: string }> = {
-  draft: { label: "Brouillon", tone: "tGray" },
-  sent: { label: "Envoyé", tone: "tBlue" },
-  signed: { label: "Signé", tone: "tGreen" },
-  active: { label: "Actif", tone: "tGreen" },
-  revoked: { label: "Révoqué", tone: "tRed" },
-  lapsed: { label: "Caduc", tone: "tGray" },
+const STATUS_BADGE: Record<
+  string,
+  { label: string; variant: "blue" | "amber" | "green" | "gray" | "red" }
+> = {
+  draft: { label: "Brouillon", variant: "gray" },
+  sent: { label: "Envoyé", variant: "blue" },
+  signed: { label: "Signé", variant: "green" },
+  active: { label: "Actif", variant: "green" },
+  revoked: { label: "Révoqué", variant: "red" },
+  lapsed: { label: "Caduc", variant: "gray" },
 };
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", {
@@ -51,7 +64,7 @@ function addMonths(date: Date, months: number): Date {
 }
 
 /** Échéance de caducité (36 mois après la dernière présentation, ou la
-    signature à défaut) — null si le mandat n'est pas encore prélevable. */
+    signature à défaut), null si le mandat n'est pas encore prélevable. */
 function lapseInfo(mandate: MandateRow): {
   lapseAt: Date;
   soon: boolean;
@@ -74,14 +87,12 @@ export default async function MandatsPage() {
 
   if (!service) {
     return (
-      <>
-        <header className={s.pageHead}>
-          <h1 className={s.pageTitle}>Mandats SEPA</h1>
-        </header>
-        <p className={s.banner}>
-          Supabase non configuré : le registre des mandats est indisponible.
-        </p>
-      </>
+      <div className="flex flex-col gap-5">
+        <PageHeading title="Mandats SEPA" />
+        <Notice tone="warn" title="Supabase non configuré">
+          Le registre des mandats est indisponible.
+        </Notice>
+      </div>
     );
   }
 
@@ -99,90 +110,100 @@ export default async function MandatsPage() {
   const rows = (data ?? []) as unknown as MandateRow[];
 
   return (
-    <>
-      <header className={s.pageHead}>
-        <h1 className={s.pageTitle}>Mandats SEPA</h1>
-        <p className={s.pageDesc}>
-          Registre des mandats de prélèvement (Core). Un mandat sans
-          présentation pendant 36 mois devient caduc — signalé ici dès 33
-          mois pour représenter à temps.
-        </p>
-      </header>
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        title="Mandats SEPA"
+        description="Registre des mandats de prélèvement (Core). Un mandat sans présentation pendant 36 mois devient caduc (signalé ici dès 33 mois pour représenter à temps)."
+      />
 
       {error && (
-        <p className={s.banner}>Erreur de lecture : {error.message}</p>
+        <Notice tone="bad" title="Erreur de lecture">
+          {error.message}
+        </Notice>
       )}
 
-      <div className={s.card}>
+      <Card className="overflow-hidden">
         {rows.length === 0 ? (
-          <p className={s.empty}>Aucun mandat pour le moment.</p>
+          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
+            Aucun mandat pour le moment.
+          </div>
         ) : (
-          <div className={s.tableWrap}>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>RUM</th>
-                  <th>Cabinet</th>
-                  <th>Statut</th>
-                  <th>IBAN</th>
-                  <th>Signé le</th>
-                  <th>Dernière présentation</th>
-                  <th>Caducité</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[200px]">RUM</TableHead>
+                  <TableHead className="min-w-[180px]">Cabinet</TableHead>
+                  <TableHead className="w-36">Statut</TableHead>
+                  <TableHead className="w-28">IBAN</TableHead>
+                  <TableHead className="w-32 text-right">Signé le</TableHead>
+                  <TableHead className="w-40 text-right">
+                    Dernière présentation
+                  </TableHead>
+                  <TableHead className="min-w-[200px] text-right">
+                    Caducité
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((mandate) => {
                   const badge = STATUS_BADGE[mandate.status] ?? {
                     label: mandate.status,
-                    tone: "tGray",
+                    variant: "gray" as const,
                   };
                   const lapse = lapseInfo(mandate);
                   return (
-                    <tr key={mandate.id}>
-                      <td className={`${s.tdMain} ${s.mono}`}>{mandate.rum}</td>
-                      <td>{mandate.subscription?.cabinet_name ?? "—"}</td>
-                      <td>
-                        <span className={`${s.badge} ${s[badge.tone]}`}>
-                          {badge.label}
-                        </span>{" "}
-                        {mandate.legal_hold && (
-                          <span className={`${s.badge} ${s.tRed}`}>Litige</span>
-                        )}
-                      </td>
-                      <td className={`${s.tdNum} ${s.mono}`}>
+                    <TableRow key={mandate.id}>
+                      <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
+                        {mandate.rum}
+                      </TableCell>
+                      <TableCell className="font-medium text-foreground">
+                        {mandate.subscription?.cabinet_name ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                          {mandate.legal_hold && (
+                            <Badge variant="red">Litige</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
                         •••• {mandate.iban_last4}
-                      </td>
-                      <td className={s.tdNum}>{fmtDate(mandate.signed_at)}</td>
-                      <td className={s.tdNum}>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {fmtDate(mandate.signed_at)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {fmtDate(mandate.last_presented_at)}
-                      </td>
-                      <td className={s.tdNum}>
+                      </TableCell>
+                      <TableCell className="text-right">
                         {lapse ? (
                           lapse.overdue ? (
-                            <span className={s.dangerText}>
-                              Caduc depuis le{" "}
-                              {dateFmt.format(lapse.lapseAt)}
+                            <span className="font-medium text-bad">
+                              Caduc depuis le {dateFmt.format(lapse.lapseAt)}
                             </span>
                           ) : lapse.soon ? (
-                            <span className={s.warnText}>
-                              Caduc bientôt — le{" "}
-                              {dateFmt.format(lapse.lapseAt)}
+                            <span className="font-medium text-warn">
+                              Caduc bientôt, le {dateFmt.format(lapse.lapseAt)}
                             </span>
                           ) : (
-                            <>le {dateFmt.format(lapse.lapseAt)}</>
+                            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                              le {dateFmt.format(lapse.lapseAt)}
+                            </span>
                           )
                         ) : (
-                          "—"
+                          <span className="text-muted-foreground">—</span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
-      </div>
-    </>
+      </Card>
+    </div>
   );
 }
