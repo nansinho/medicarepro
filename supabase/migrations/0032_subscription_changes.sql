@@ -137,6 +137,26 @@ alter table public.subscription_changes enable row level security;
 revoke all on table public.subscription_changes from anon, authenticated;
 
 -- ============================================================================
+-- Rappels : ouvrir les paliers aux relances APRÈS l'échéance.
+--
+-- 0025 bornait `days_before` à (30, 15, 7, 3, 0) : des rappels d'anticipation,
+-- pour une offre annuelle qu'on ne pouvait que renouveler à temps. Un
+-- changement programmé, lui, peut rester non validé APRÈS son échéance — et
+-- c'est précisément le moment où le praticien doit être relancé, pas celui où
+-- l'on cesse de lui écrire. On ouvre donc J+3 et J+7, en réutilisant la même
+-- table et la même unicité (un palier par échéance, jamais deux fois).
+-- ============================================================================
+
+alter table public.subscription_reminders
+  drop constraint if exists subscription_reminders_days_before_check;
+alter table public.subscription_reminders
+  add constraint subscription_reminders_days_before_check
+  check (days_before in (30, 15, 7, 3, 0, -3, -7));
+
+comment on column public.subscription_reminders.days_before is
+  'Palier du rappel. Positif avant l''échéance (30/15/7/3/0), négatif après (-3/-7) pour les validations en retard.';
+
+-- ============================================================================
 -- Rattrapage : marquer les abonnements dont la période est échue.
 --
 -- Rien, aujourd'hui, ne pose jamais le statut 'expired' — il est déclaré dans

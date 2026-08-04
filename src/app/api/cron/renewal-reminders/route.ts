@@ -3,26 +3,46 @@ import { timingSafeEqualString } from "@/lib/crypto";
 import { serviceClient } from "@/lib/supabase/service";
 import { sendMail } from "@/lib/email";
 import { renewalReminderEmail } from "@/lib/emails/checkout-templates";
-import { formatEuros } from "@/lib/checkout/pricing";
+import { changeReminderEmail } from "@/lib/emails/portal-templates";
+import { formatEuros, planLabel, type BillingPlan } from "@/lib/checkout/pricing";
 import { buildRenewalUrl } from "@/lib/billing/renewal-link";
+import { notifyRenewal } from "@/lib/provisioning";
+import { lapseChange } from "@/lib/billing/changes";
 
 /* ============================================================
-   /api/cron/renewal-reminders — rappels d'échéance de l'offre
-   ANNUELLE (paiement unique, sans reconduction carte).
+   /api/cron/renewal-reminders — échéances des abonnements qui ne se
+   reconduisent PAS tout seuls. Une passe par jour.
 
-   À J-30/15/7/3/0 avant la fin des 12 mois, on prévient le client
-   pour qu'il renouvelle avant de perdre l'accès. Un palier n'est
-   envoyé qu'UNE fois par échéance (table subscription_reminders,
-   clé unique) : l'INSERT sert de claim, l'email ne part qu'après.
+   TROIS POPULATIONS, une seule raison d'être : personne ne doit perdre l'accès
+   à son cabinet sans avoir été prévenu.
 
-   Le mensuel n'est PAS concerné : il se reconduit tout seul.
-   Auth : Bearer CRON_SECRET. À planifier une fois par jour.
+   1. OFFRE ANNUELLE — paiement unique, aucune reconduction carte. Rappels à
+      J-30/15/7/3/0 avec le lien de renouvellement.
+
+   2. CHANGEMENT PROGRAMMÉ (formule ou carte) — la reconduction a été arrêtée
+      au moment de la demande, et le praticien doit valider un paiement à
+      l'échéance. Rappels à J-7/3/0, puis J+3/J+7 : après l'échéance, c'est là
+      qu'il faut insister, pas se taire.
+
+   3. MENSUEL SANS RECONDUCTION — demande retirée, résiliation annulée, arrêt
+      posé depuis le back-office. Même traitement que le cas 2 : sans paiement,
+      l'accès s'arrête, et le silence serait le pire des services.
+
+   Puis on constate : les périodes échues passent en past_due, puis en expired
+   après le délai de grâce, et les demandes jamais honorées sont closes.
+
+   Auth : Bearer CRON_SECRET. Un palier n'est envoyé qu'UNE fois par échéance
+   (table subscription_reminders, clé unique) : l'INSERT sert de claim, l'email
+   ne part qu'après.
    ============================================================ */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STAGES = [30, 15, 7, 3, 0] as const;
+/** Offre annuelle : anticipation seulement, le lien reste valable. */
+const ANNUAL_STAGES = [30, 15, 7, 3, 0] as const;
+/** Validation à faire : on relance aussi APRÈS l'échéance. */
+const VALIDATION_STAGES = [7, 3, 0, -3, -7] as const;
 
 function isAuthorized(request: Request): boolean {
   const secret = env().CRON_SECRET;
@@ -58,12 +78,25 @@ function frDate(iso: string): string {
 
 type SubRow = {
   id: string;
+  app_cabinet_id: string;
   cabinet_name: string;
   admin_email: string;
   admin_name: string;
+  plan: BillingPlan;
+  extra_collaborators: number;
   current_period_end: string;
   renewal_amount_cents: number;
   currency: string;
+  recurrence_stopped_at: string | null;
+};
+
+type ChangeRow = {
+  id: string;
+  subscription_id: string;
+  kind: "plan_change" | "card_update" | "cancel";
+  target_plan: BillingPlan | null;
+  target_extra_collaborators: number | null;
+  target_amount_cents: number | null;
 };
 
 async function handle(request: Request): Promise<Response> {
@@ -76,30 +109,63 @@ async function handle(request: Request): Promise<Response> {
   }
 
   const todayDay = parisDay(new Date());
-  // Fenêtre large (couvre tous les paliers) : de la veille à J+31.
-  const from = new Date(Date.now() - 86_400_000).toISOString();
+  /* Fenêtre : de J-8 (relances tardives) à J+31 (premier palier annuel). */
+  const from = new Date(Date.now() - 8 * 86_400_000).toISOString();
   const to = new Date(Date.now() + 32 * 86_400_000).toISOString();
 
+  /* Tout ce qui ne se reconduit pas tout seul : l'annuel par nature, et tout
+     contrat dont la récurrence carte a été arrêtée. Un mensuel encore reconduit
+     n'a rien à valider, la banque s'en charge. */
   const { data, error } = await supabase
     .from("subscriptions")
     .select(
-      "id, cabinet_name, admin_email, admin_name, current_period_end, renewal_amount_cents, currency",
+      "id, app_cabinet_id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, current_period_end, renewal_amount_cents, currency, recurrence_stopped_at",
     )
-    .eq("plan", "ANNUAL")
     .eq("status", "active")
     .gte("current_period_end", from)
-    .lte("current_period_end", to);
+    .lte("current_period_end", to)
+    .or("plan.eq.ANNUAL,recurrence_stopped_at.not.is.null");
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  let sent = 0;
-  for (const sub of (data ?? []) as SubRow[]) {
-    const d = daysUntil(sub.current_period_end, todayDay);
-    if (!STAGES.includes(d as (typeof STAGES)[number])) continue;
+  const subs = (data ?? []) as SubRow[];
 
-    // Claim atomique : si le palier est déjà pris pour cette échéance,
-    // l'INSERT échoue (unique) et on n'envoie rien.
+  /* Les demandes en attente de ces contrats, en une seule requête : c'est
+     elles qui décident du message à envoyer. */
+  const changes = new Map<string, ChangeRow>();
+  if (subs.length > 0) {
+    const { data: changeRows } = await supabase
+      .from("subscription_changes")
+      .select(
+        "id, subscription_id, kind, target_plan, target_extra_collaborators, target_amount_cents",
+      )
+      .eq("status", "scheduled")
+      .in(
+        "subscription_id",
+        subs.map((sub) => sub.id),
+      );
+    for (const row of (changeRows ?? []) as ChangeRow[]) {
+      changes.set(row.subscription_id, row);
+    }
+  }
+
+  let sent = 0;
+
+  for (const sub of subs) {
+    const change = changes.get(sub.id);
+
+    /* Résiliation demandée : il n'y a rien à valider, et relancer quelqu'un
+       qui a choisi de partir serait déplacé. La date de fin lui a été
+       confirmée par écrit au moment de sa demande. */
+    if (change?.kind === "cancel") continue;
+
+    const d = daysUntil(sub.current_period_end, todayDay);
+    const stages: readonly number[] =
+      change || sub.plan === "MONTHLY" ? VALIDATION_STAGES : ANNUAL_STAGES;
+    if (!stages.includes(d)) continue;
+
+    // Claim atomique : si le palier est déjà pris, l'INSERT échoue (unique).
     const { error: claimErr } = await supabase
       .from("subscription_reminders")
       .insert({
@@ -107,18 +173,51 @@ async function handle(request: Request): Promise<Response> {
         period_end: sub.current_period_end,
         days_before: d,
       });
-    if (claimErr) continue; // 23505 (déjà envoyé) ou autre : on passe
+    if (claimErr) continue;
 
     try {
-      const mail = renewalReminderEmail({
-        adminFirstName: sub.admin_name.trim().split(/\s+/)[0] ?? "",
-        cabinetName: sub.cabinet_name,
-        expiresAtLabel: frDate(sub.current_period_end),
-        daysBefore: d,
-        amountLabel: formatEuros(sub.renewal_amount_cents),
-        renewUrl: buildRenewalUrl(sub.id),
-      });
-      await sendMail({ to: sub.admin_email, ...mail });
+      const firstName = (sub.admin_name ?? "").trim().split(/\s+/)[0] ?? "";
+
+      if (!change && sub.plan === "ANNUAL") {
+        // Renouvellement annuel classique : le lien signé reste la voie courte.
+        await sendMail({
+          to: sub.admin_email,
+          ...renewalReminderEmail({
+            adminFirstName: firstName,
+            cabinetName: sub.cabinet_name,
+            expiresAtLabel: frDate(sub.current_period_end),
+            daysBefore: d,
+            amountLabel: formatEuros(sub.renewal_amount_cents),
+            renewUrl: buildRenewalUrl(sub.id),
+          }),
+        });
+      } else {
+        /* Validation à faire. Pas de lien : l'espace s'ouvre depuis le
+           logiciel, par un lien à usage unique valable quinze minutes, qu'un
+           email ne peut donc pas transporter. */
+        const targetPlan = change?.target_plan ?? sub.plan;
+        const targetExtra =
+          change?.target_extra_collaborators ?? sub.extra_collaborators;
+        await sendMail({
+          to: sub.admin_email,
+          ...changeReminderEmail({
+            adminFirstName: firstName,
+            cabinetName: sub.cabinet_name,
+            kind:
+              change?.kind === "card_update"
+                ? "card_update"
+                : change?.kind === "plan_change"
+                  ? "plan_change"
+                  : "renewal",
+            planLabel: planLabel(targetPlan, targetExtra),
+            amountLabel: formatEuros(
+              change?.target_amount_cents ?? sub.renewal_amount_cents,
+            ),
+            dueAtLabel: frDate(sub.current_period_end),
+            daysBefore: d,
+          }),
+        });
+      }
       sent += 1;
     } catch (err) {
       // Envoi échoué : on libère le claim pour retenter demain.
@@ -135,7 +234,93 @@ async function handle(request: Request): Promise<Response> {
     }
   }
 
-  return Response.json({ sent });
+  /* --- Constat des échéances manquées ---------------------------------- */
+
+  const expired = await expireDue(supabase);
+
+  return Response.json({ sent, ...expired });
+}
+
+/**
+ * Fait tomber les périodes échues sans reconduction, puis clôt les demandes
+ * jamais honorées.
+ *
+ * L'ÉTAT SUIT LE FAIT, ET SEULEMENT LUI : on ne touche qu'aux contrats dont la
+ * récurrence est arrêtée. Un mensuel encore reconduit dont l'échéance vient de
+ * passer attend simplement sa notification bancaire — le déclarer impayé à la
+ * place de la banque couperait un cabinet parfaitement à jour.
+ */
+async function expireDue(
+  supabase: NonNullable<ReturnType<typeof serviceClient>>,
+): Promise<{ pastDue: number; expired: number; lapsed: number }> {
+  let pastDue = 0;
+  let closed = 0;
+  let lapsed = 0;
+
+  const { data, error } = await supabase.rpc("expire_due_subscriptions", {
+    p_grace_days: 14,
+  });
+  if (error) {
+    console.error("[renewal-reminders] expire_due_subscriptions :", error.message);
+    return { pastDue, expired: closed, lapsed };
+  }
+
+  const moved = (data ?? []) as { subscription_id: string; new_status: string }[];
+  if (moved.length === 0) return { pastDue, expired: closed, lapsed };
+
+  const { data: rows } = await supabase
+    .from("subscriptions")
+    .select("id, app_cabinet_id, plan, status, grace_until")
+    .in(
+      "id",
+      moved.map((row) => row.subscription_id),
+    );
+
+  for (const row of (rows ?? []) as {
+    id: string;
+    app_cabinet_id: string;
+    plan: BillingPlan;
+    status: string;
+    grace_until: string | null;
+  }[]) {
+    if (row.status === "expired") closed += 1;
+    else pastDue += 1;
+
+    /* Une demande qu'on n'honorera plus : on la clôt pour que l'espace cesse
+       d'annoncer un changement à venir, et que le praticien puisse en faire
+       une autre. */
+    if (row.status === "expired") {
+      const { data: pending } = await supabase
+        .from("subscription_changes")
+        .select("id")
+        .eq("subscription_id", row.id)
+        .eq("status", "scheduled")
+        .maybeSingle();
+      if (pending) {
+        await lapseChange(supabase, (pending as { id: string }).id);
+        lapsed += 1;
+      }
+    }
+
+    /* Remontée à l'application : sans elle, un abonnement échu reste affiché
+       comme valide dans le logiciel, indéfiniment. */
+    try {
+      await notifyRenewal({
+        idempotencyKey: `sub-${row.id}-${row.status}-${parisDay(new Date())}`,
+        cabinetId: row.app_cabinet_id,
+        plan: row.plan,
+        status: row.status === "expired" ? "EXPIRED" : "PAST_DUE",
+        ...(row.grace_until ? { graceUntil: row.grace_until } : {}),
+      });
+    } catch (err) {
+      console.error(
+        "[renewal-reminders] remontée d'expiration :",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  return { pastDue, expired: closed, lapsed };
 }
 
 export async function POST(request: Request) {

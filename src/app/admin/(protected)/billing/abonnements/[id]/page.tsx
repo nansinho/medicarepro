@@ -4,14 +4,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Building2,
+  CalendarClock,
   Download,
   Landmark,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
-import { formatEuros } from "@/lib/checkout/pricing";
-import { arreterReconduction } from "../actions";
+import { formatEuros, planLabel } from "@/lib/checkout/pricing";
+import { activeChange } from "@/lib/billing/changes";
+import { arreterReconduction, retirerDemande } from "../actions";
 import { PageHeading, StatBand, Notice, type Stat } from "@/components/admin/shared";
 import { KeyValue } from "@/components/admin/kit/KeyValue";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +119,11 @@ const INVOICE_KIND: Record<string, string> = {
   sdd_renewal: "Renouvellement SEPA",
   credit_note: "Avoir",
 };
+const CHANGE_KIND: Record<string, string> = {
+  plan_change: "Changement de formule",
+  card_update: "Changement de carte",
+  cancel: "Résiliation",
+};
 const TASK_KIND: Record<string, string> = {
   renewal: "Renouvellement",
   suspension: "Suspension",
@@ -179,6 +186,8 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
     service.from("consent_records").select("id, label_text, documents, accepted_at, full_name, email, client_ip").eq("subscription_id", sub.id).order("accepted_at", { ascending: false }),
   ]);
 
+  const pendingChange = await activeChange(service, sub.id);
+
   const mandateRows = (mandates.data ?? []) as MandateRow[];
   const invoiceRows = (invoices.data ?? []) as InvoiceRow[];
   const ipnRows = (ipns.data ?? []) as IpnRow[];
@@ -223,6 +232,38 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
           récurrente reste vivante côté banque : elle re-présentera peut-être
           l&apos;échéance. La série se referme d&apos;elle-même dès qu&apos;un paiement
           aboutit.
+        </Notice>
+      )}
+
+      {pendingChange && (
+        <Notice
+          tone={pendingChange.kind === "cancel" ? "warn" : "info"}
+          title={
+            pendingChange.kind === "cancel"
+              ? `Résiliation demandée, effet le ${fmtDate(pendingChange.effective_at)}`
+              : pendingChange.kind === "card_update"
+                ? `Changement de carte demandé, à valider le ${fmtDate(pendingChange.effective_at)}`
+                : `Changement de formule demandé, à valider le ${fmtDate(pendingChange.effective_at)}`
+          }
+        >
+          {pendingChange.kind === "cancel" ? (
+            <>
+              La reconduction est arrêtée et l&apos;accès du cabinet court
+              jusqu&apos;au {fmtDate(pendingChange.effective_at)}. Aucun montant
+              ne sera prélevé d&apos;ici là.
+            </>
+          ) : (
+            <>
+              La reconduction est arrêtée : le client doit valider un paiement à
+              l&apos;échéance pour repartir
+              {pendingChange.target_amount_cents
+                ? ` (${formatEuros(pendingChange.target_amount_cents)} annoncés)`
+                : ""}
+              . Des rappels lui partent à J-7, J-3, le jour même, puis J+3 et
+              J+7. Sans validation, l&apos;abonnement passe en impayé puis
+              expire après le délai de grâce.
+            </>
+          )}
         </Notice>
       )}
 
@@ -290,6 +331,64 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
             </p>
           </div>
         </Card>
+
+        {pendingChange && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <CalendarClock className="size-4 text-muted-foreground" />
+                Demande du client
+              </CardTitle>
+              <Badge variant={pendingChange.kind === "cancel" ? "amber" : "blue"}>
+                {CHANGE_KIND[pendingChange.kind] ?? pendingChange.kind}
+              </Badge>
+            </CardHeader>
+            <KV
+              items={[
+                { k: "Demandé le", v: fmtDateTime(pendingChange.created_at), mono: true },
+                { k: "Date d'effet", v: fmtDate(pendingChange.effective_at), mono: true },
+                {
+                  k: "Formule visée",
+                  v:
+                    pendingChange.target_plan &&
+                    pendingChange.target_extra_collaborators !== null
+                      ? planLabel(
+                          pendingChange.target_plan,
+                          pendingChange.target_extra_collaborators,
+                        )
+                      : "Inchangée",
+                },
+                {
+                  k: "Montant annoncé",
+                  v: pendingChange.target_amount_cents
+                    ? formatEuros(pendingChange.target_amount_cents)
+                    : "—",
+                  mono: true,
+                },
+                {
+                  k: "Motif",
+                  v: pendingChange.reason,
+                  wide: true,
+                  hidden: !pendingChange.reason,
+                },
+              ]}
+            />
+            <div className="border-t border-border p-4">
+              <form action={retirerDemande} className="mb-2 flex flex-wrap items-center gap-3">
+                <input type="hidden" name="id" value={sub.id} />
+                <Button type="submit" variant="outline" size="sm">
+                  Retirer la demande
+                </Button>
+              </form>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Retirer la demande rend la formule d&apos;origine, pas la
+                reconduction automatique : l&apos;arrêt envoyé à Monetico est
+                définitif. Le contrat devra être repayé à l&apos;échéance, et le
+                client en est informé par email.
+              </p>
+            </div>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

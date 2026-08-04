@@ -252,6 +252,35 @@
   font-weight: 500;
 }
 
+/* Variante EMPILÉE, pour les valeurs longues (adresse, email de facturation).
+   Alignées à droite sur une seule ligne, elles se coupaient en plein mot
+   (« contact@harua-\nds.com ») et poussaient leur propre étiquette à passer à
+   la ligne. Une adresse se lit à gauche, sous son étiquette. */
+.kvBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 11px 0;
+  border-bottom: 1px dashed var(--color-border-soft);
+}
+.kvBlock:last-child {
+  border-bottom: 0;
+}
+.kvBlockValue {
+  font-family: var(--font-body);
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--color-navy);
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.kvBlockValueMuted {
+  color: var(--color-body);
+  font-weight: 500;
+}
+
 /* ---------- Actions ---------- */
 
 .actions {
@@ -321,8 +350,12 @@
 
 /* ---------- Panneau dépliant (jamais une fenêtre flottante) ---------- */
 
+/* Déplié SOUS la grille, sur toute la largeur.
+   Logé dans la carte du contrat, il faisait grandir la colonne de gauche de
+   800 px pendant que la colonne de droite restait courte : un vide massif à
+   droite, exactement ce qu'on veut éviter. En pleine largeur, les deux cartes
+   de formule respirent et le panneau est deux fois moins haut. */
 .drawer {
-  margin-top: 20px;
   border: 1px solid #d9e7f6;
   border-radius: 18px;
   background: linear-gradient(180deg, #f7fbff 0%, #fff 60%);
@@ -388,7 +421,6 @@
   }
 }
 .planCard {
-  position: relative;
   text-align: left;
   padding: 18px 18px 16px;
   border-radius: 16px;
@@ -431,29 +463,33 @@
   color: var(--color-body);
   line-height: 1.55;
 }
+/* Rangée de pastille EN FLUX, pas en absolu.
+   Posée en haut à droite, la pastille recouvrait le nom de la formule dès que
+   celui-ci était un peu long (« Mensuel sans engagement »). Une rangée
+   réservée, de hauteur constante, garde les deux cartes alignées même quand
+   une seule porte une pastille. */
+.planCardTop {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 22px;
+  margin-bottom: 4px;
+}
+.planCardBadge,
+.planCardCurrent {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .planCardBadge {
-  position: absolute;
-  top: 14px;
-  right: 14px;
   background: #e8f6ee;
   color: #1c6b42;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-family: var(--font-body);
-  font-size: 0.72rem;
-  font-weight: 700;
 }
 .planCardCurrent {
-  position: absolute;
-  top: 14px;
-  right: 14px;
   background: var(--color-hero-soft, #eaf3fc);
   color: var(--color-primary-dark);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-family: var(--font-body);
-  font-size: 0.72rem;
-  font-weight: 700;
 }
 
 /* ---------- Compteur de collaborateurs ---------- */
