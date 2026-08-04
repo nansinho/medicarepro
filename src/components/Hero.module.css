@@ -411,40 +411,46 @@
   position: relative;
   z-index: 20;
   margin-top: -80px;
-  /* Panneau en verre bleu profond : il tranche à la fois sur le hero clair ET
-     sur le bento clair en dessous, donc le flottement se lit enfin. Il crée
-     aussi le lien chromatique avec la bande manifesto navy plus bas. Le hero
-     transparaît légèrement (backdrop-blur), le halo bleu diffus dans l'ombre
-     fait écho aux blobs du hero (et à la réf hl-debouchage). */
-  background: linear-gradient(
-    118deg,
-    rgba(34, 82, 143, 0.95) 0%,
-    rgba(22, 48, 77, 0.96) 100%
-  );
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  /* Panneau BLANC posé à cheval sur le hero et le bento. Sur deux fonds clairs,
+     une carte blanche ne flotte que si l'ombre fait le travail : on en empile
+     trois couches (contact serré, diffusion large teintée bleu, filet clair en
+     haut). Le halo de .infoBar::before prolonge les blobs du hero sous la
+     carte, ce qui l'ancre au lieu de la laisser posée là. */
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border: 1px solid var(--color-border-soft);
   border-radius: 28px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr) auto;
+  /* Colonnes à la taille du contenu, pas trois tiers égaux : en 1fr, chaque
+     bloc se collait à gauche d'une colonne trop large et creusait un vide
+     derrière lui. Les trois informations se suivent maintenant à intervalle
+     constant, et TOUT l'espace restant part dans la dernière colonne, où il
+     sépare franchement l'information de l'appel à l'action. */
+  grid-template-columns: auto auto auto 1fr;
   align-items: center;
-  padding: 30px 40px 30px 46px;
-  box-shadow: 0 34px 80px -18px rgba(16, 42, 78, 0.6),
-    0 14px 50px -12px rgba(43, 111, 214, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  padding: 24px 30px 24px 34px;
+  /* Quatre couches, chacune son rôle : le contact qui décolle la carte du
+     fond, l'ombre courte qui lui donne son épaisseur, la diffusion large et
+     teintée bleu qui fait office de halo (un pseudo-élément en z-index négatif
+     peindrait AU-DESSUS du fond blanc, le parent créant un contexte
+     d'empilement), et le filet blanc qui simule la tranche éclairée. */
+  box-shadow:
+    0 1px 2px rgba(31, 84, 153, 0.07),
+    0 10px 22px -8px rgba(31, 84, 153, 0.14),
+    0 46px 92px -28px rgba(43, 111, 214, 0.42),
+    inset 0 1px 0 #ffffff;
   opacity: 0;
   animation: rise 1.05s var(--ease) 0.75s forwards;
 }
 .infoItem {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 4px 34px;
+  gap: 15px;
+  padding: 4px 78px;
   position: relative;
   transition: transform 0.4s var(--ease);
 }
 .infoItem:first-child {
-  padding-left: 6px;
+  padding-left: 10px;
 }
 .infoItem:not(:first-child)::before {
   content: "";
@@ -453,59 +459,70 @@
   top: 50%;
   transform: translateY(-50%);
   width: 1px;
-  height: 48px;
+  height: 44px;
   background: linear-gradient(
     180deg,
     transparent,
-    rgba(255, 255, 255, 0.16) 20%,
-    rgba(255, 255, 255, 0.16) 80%,
+    var(--color-border-soft) 22%,
+    var(--color-border-soft) 78%,
     transparent
   );
 }
 .infoItem:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
 }
+/* Pastille douce plutôt que le disque saturé d'avant : sur fond blanc, un
+   aplat bleu vif de 62 px criait plus qu'il n'informait. Le carré arrondi
+   teinté laisse la donnée (le numéro, la mention HDS) redevenir le sujet. */
 .infoCirc {
-  width: 62px;
-  height: 62px;
-  border-radius: 50%;
-  background: linear-gradient(150deg, #55a0f5, #2b6fd6);
-  color: #fff;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  background: var(--color-light);
+  border: 1px solid rgba(43, 111, 214, 0.14);
+  color: var(--color-primary);
   display: grid;
   place-items: center;
   flex: none;
-  box-shadow: 0 10px 26px rgba(43, 111, 214, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.45s var(--ease), box-shadow 0.45s var(--ease);
+  transition:
+    transform 0.45s var(--ease),
+    background 0.35s var(--ease),
+    box-shadow 0.45s var(--ease);
+}
+.infoCirc :global(.ico) {
+  width: 21px;
+  height: 21px;
 }
 .infoItem:hover .infoCirc {
-  transform: scale(1.09) rotate(-4deg);
-  box-shadow: 0 18px 34px rgba(43, 111, 214, 0.46);
+  transform: scale(1.06);
+  background: #fff;
+  box-shadow: 0 8px 20px -6px rgba(43, 111, 214, 0.4);
 }
+/* Hiérarchie inversée par rapport à la version sombre : l'intitulé passe en
+   petites capitales discrètes, la VALEUR devient l'élément lisible. C'est elle
+   qu'on vient chercher (un numéro, un horaire, un pays d'hébergement). */
 .infoItem h4 {
   font-family: var(--font-head);
-  font-weight: 700;
-  font-size: 1.06rem;
-  margin-bottom: 3px;
-  color: #fff;
+  font-weight: 600;
+  font-size: 0.74rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  color: var(--color-muted);
 }
 .infoItem span {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.96rem;
+  display: block;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1.04rem;
+  line-height: 1.25;
+  color: var(--color-navy);
 }
-/* Sur le panneau sombre, le CTA devient une pastille blanche : contraste
-   maximal, il ancre la barre à droite (le .btn global est bleu par défaut). */
+/* Le panneau étant blanc, le bouton bleu du site redevient l'ancre naturelle :
+   plus besoin de la pastille blanche inversée. */
 .infoBar :global(.btn) {
   justify-self: end;
-  padding: 16px 30px;
   margin-left: 18px;
-  background: #fff;
-  color: var(--color-navy);
-  box-shadow: 0 14px 30px rgba(8, 25, 48, 0.34);
-}
-.infoBar :global(.btn):hover {
-  background: #fff;
-  box-shadow: 0 18px 38px rgba(8, 25, 48, 0.42);
 }
 
 /* ---------- RESPONSIVE ---------- */
@@ -517,32 +534,20 @@
     max-width: 54%;
   }
 }
-@media (max-width: 880px) {
-  .heroInner {
-    padding: 104px 28px 0;
-    min-height: 0;
+/* ---------- INFO BAR : paliers de largeur ----------
+   Les colonnes sont dimensionnées AU CONTENU (et non en 1fr) : elles ne
+   rétrécissent donc pas d'elles-mêmes, et la barre débordait entre 880 et
+   1150px. D'où deux paliers explicites là où un seul suffisait avant. */
+@media (max-width: 1400px) {
+  /* Le conteneur est plafonné : la largeur utile cesse de croître. On rend
+     l'empattement pour que les trois blocs et le bouton tiennent sur la ligne. */
+  .infoItem {
+    padding: 4px 34px;
   }
-  .photoBleed {
-    position: relative;
-    width: calc(100% + 56px);
-    height: 300px;
-    order: -1;
-    margin: 0 -28px;
-    animation: none;
-    opacity: 1;
-  }
-  .photoBleed .photo {
-    height: 100%;
-  }
-  .duoImg {
-    object-position: bottom center;
-  }
-  .heroText {
-    max-width: none;
-    padding: 30px 0 24px;
-  }
-  /* À cette largeur, les 4 colonnes tomberaient à ~160px chacune : passage
-     en 2 colonnes, séparateurs retirés, bouton pleine largeur en dessous. */
+}
+@media (max-width: 1180px) {
+  /* En dessous, quatre colonnes sur une ligne ne tiennent plus : deux
+     colonnes, séparateurs retirés, bouton pleine largeur en dessous. */
   .infoBar {
     grid-template-columns: 1fr 1fr;
     gap: 20px 24px;
@@ -569,6 +574,32 @@
     justify-self: stretch;
     justify-content: center;
     margin-left: 0;
+  }
+}
+
+@media (max-width: 880px) {
+  .heroInner {
+    padding: 104px 28px 0;
+    min-height: 0;
+  }
+  .photoBleed {
+    position: relative;
+    width: calc(100% + 56px);
+    height: 300px;
+    order: -1;
+    margin: 0 -28px;
+    animation: none;
+    opacity: 1;
+  }
+  .photoBleed .photo {
+    height: 100%;
+  }
+  .duoImg {
+    object-position: bottom center;
+  }
+  .heroText {
+    max-width: none;
+    padding: 30px 0 24px;
   }
 }
 @media (max-width: 760px) {
