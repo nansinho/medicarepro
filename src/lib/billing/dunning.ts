@@ -197,7 +197,9 @@ export async function registerPaymentFailure(input: {
 
   const { data: orderData } = await supabase
     .from("subscription_orders")
-    .select("id, kind, amount_cents, status, app_cabinet_id, billing_snapshot")
+    .select(
+      "id, kind, amount_cents, status, app_cabinet_id, subscription_id, billing_snapshot",
+    )
     .eq("monetico_reference", input.reference)
     .maybeSingle();
 
@@ -208,6 +210,7 @@ export async function registerPaymentFailure(input: {
       amount_cents: number;
       status: string;
       app_cabinet_id: string;
+      subscription_id: string | null;
       billing_snapshot: { cabinetName?: string };
     };
     if (order.status !== "pending") return; // déjà tranché
@@ -217,13 +220,21 @@ export async function registerPaymentFailure(input: {
     /* Pas d'email : le client vient de voir le refus sur sa page de retour et
        peut relancer immédiatement. L'équipe, elle, doit savoir qu'une
        souscription a échoué — c'est un client perdu si personne ne rappelle. */
+    /* Une commande rattachée à un contrat existant (changement de formule ou
+       de carte, reprise) laisse ce contrat INTACT : rien n'a été appliqué, et
+       la demande programmée reste en attente. Le client peut donc réessayer.
+       Le dire précisément évite qu'on cherche un contrat manquant qui, lui,
+       n'a jamais existé. */
+    const attached = Boolean(order.subscription_id);
     await sendBillingAlert("Commande refusée par la banque", [
       `Cabinet : ${order.billing_snapshot?.cabinetName ?? order.app_cabinet_id}`,
       `Type : ${order.kind}`,
       `Référence : ${input.reference}`,
       `Montant attendu : ${formatEuros(order.amount_cents)}`,
       `Code-retour : ${input.codeRetour}`,
-      "Aucun contrat n'a été créé. Le client peut réessayer depuis son espace abonnement.",
+      attached
+        ? "Le contrat existant est inchangé et la demande reste en attente. Le client peut réessayer depuis son espace abonnement."
+        : "Aucun contrat n'a été créé. Le client peut réessayer depuis son espace abonnement.",
     ]);
 
     await logAudit({

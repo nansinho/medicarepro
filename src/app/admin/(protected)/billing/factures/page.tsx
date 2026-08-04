@@ -1,20 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, ReceiptEuro } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
-import { PageHeading, Notice } from "@/components/admin/shared";
+import { Notice, StatBand } from "@/components/admin/shared";
+import { PageHeader, PageStack } from "@/components/admin/kit/layout";
+import { EmptyState, NotConfigured } from "@/components/admin/kit/states";
+import DataTable, { RowActions } from "@/components/admin/kit/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 /* ============================================================
    Factures émises (pièces comptables, PDF dans le bucket privé
@@ -57,12 +52,10 @@ export default async function FacturesPage() {
 
   if (!service) {
     return (
-      <div className="flex flex-col gap-4">
-        <PageHeading title="Factures" />
-        <Notice tone="warn" title="Supabase non configuré">
-          La liste des factures est indisponible.
-        </Notice>
-      </div>
+      <PageStack>
+        <PageHeader title="Factures" />
+        <NotConfigured scope="La liste des factures" />
+      </PageStack>
     );
   }
 
@@ -93,11 +86,21 @@ export default async function FacturesPage() {
     }
   }
 
+  /* Synthèses sur les lignes affichées : rien de plus n'est requêté. */
+  const total = rows
+    .filter((r) => r.kind !== "credit_note")
+    .reduce((sum, r) => sum + r.amount_cents, 0);
+  const avoirs = rows.filter((r) => r.kind === "credit_note").length;
+  const periode =
+    rows.length > 0
+      ? `${dateFmt.format(new Date(rows[rows.length - 1].issued_at))} → ${dateFmt.format(new Date(rows[0].issued_at))}`
+      : undefined;
+
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeading
+    <PageStack>
+      <PageHeader
         title="Factures"
-        description={`Factures émises (${rows.length} affichées, 200 max). Le téléchargement passe par une URL signée à durée courte (le PDF n'est jamais public).`}
+        description="Pièces comptables émises. Le téléchargement passe par une URL signée à durée courte : le PDF n'est jamais public."
       />
 
       {error && (
@@ -106,79 +109,110 @@ export default async function FacturesPage() {
         </Notice>
       )}
 
-      <Card className="overflow-hidden">
-        {rows.length === 0 ? (
-          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
-            Aucune facture émise pour le moment.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[160px]">Numéro</TableHead>
-                  <TableHead className="min-w-[200px]">Abonnement</TableHead>
-                  <TableHead className="min-w-[160px]">Type</TableHead>
-                  <TableHead className="w-28 text-right">Montant</TableHead>
-                  <TableHead className="w-32 text-right">Émise le</TableHead>
-                  <TableHead className="w-36 text-right" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((invoice) => {
-                  const badge = KIND_BADGE[invoice.kind] ?? {
-                    label: invoice.kind,
-                    variant: "gray" as const,
-                  };
-                  const cabinet = invoice.subscription_id
-                    ? cabinetById.get(invoice.subscription_id)
-                    : undefined;
-                  return (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-mono text-xs tabular-nums text-foreground">
-                        {invoice.number}
-                      </TableCell>
-                      <TableCell>
-                        {invoice.subscription_id && cabinet ? (
-                          <Link
-                            href={`/admin/billing/abonnements/${invoice.subscription_id}`}
-                            className="hover:text-primary"
-                          >
-                            {cabinet}
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            {cabinet ?? "—"}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-foreground">
-                        {formatEuros(invoice.amount_cents)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                        {dateFmt.format(new Date(invoice.issued_at))}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" asChild>
-                          <a
-                            href={`/admin/billing/factures/${invoice.id}/download`}
-                          >
-                            <Download />
-                            Télécharger
-                          </a>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+      {rows.length > 0 && (
+        <StatBand
+          stats={[
+            { label: "Factures affichées", value: rows.length, hint: "200 max" },
+            { label: "Total facturé", value: formatEuros(total), hint: "Hors avoirs" },
+            { label: "Avoirs", value: avoirs, zero: avoirs === 0 },
+            { label: "Période couverte", value: periode ?? "—" },
+          ]}
+        />
+      )}
+
+      <Card className="overflow-clip">
+        <DataTable
+          rows={rows}
+          getKey={(invoice) => invoice.id}
+          columns={[
+            {
+              id: "number",
+              header: "Numéro",
+              role: "mono",
+              cell: (invoice) => invoice.number,
+            },
+            {
+              id: "subscription",
+              header: "Abonnement",
+              role: "grow",
+              truncate: true,
+              title: (invoice) =>
+                invoice.subscription_id
+                  ? cabinetById.get(invoice.subscription_id)
+                  : undefined,
+              cell: (invoice) => {
+                const cabinet = invoice.subscription_id
+                  ? cabinetById.get(invoice.subscription_id)
+                  : undefined;
+                return invoice.subscription_id && cabinet ? (
+                  <Link
+                    href={`/admin/billing/abonnements/${invoice.subscription_id}`}
+                    className="font-medium text-foreground hover:text-primary"
+                  >
+                    {cabinet}
+                  </Link>
+                ) : (
+                  <span className="text-muted-foreground">{cabinet ?? "—"}</span>
+                );
+              },
+            },
+            {
+              id: "kind",
+              header: "Type",
+              cell: (invoice) => {
+                const badge = KIND_BADGE[invoice.kind] ?? {
+                  label: invoice.kind,
+                  variant: "gray" as const,
+                };
+                return <Badge variant={badge.variant}>{badge.label}</Badge>;
+              },
+            },
+            {
+              id: "amount",
+              header: "Montant",
+              role: "money",
+              cell: (invoice) => formatEuros(invoice.amount_cents),
+            },
+            {
+              id: "issued",
+              header: "Émise le",
+              role: "date",
+              cell: (invoice) => dateFmt.format(new Date(invoice.issued_at)),
+            },
+            {
+              id: "download",
+              header: "",
+              role: "actions",
+              cell: (invoice) => (
+                <RowActions>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={`/admin/billing/factures/${invoice.id}/download`}>
+                      <Download />
+                      Télécharger
+                    </a>
+                  </Button>
+                </RowActions>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              icon={ReceiptEuro}
+              title="Aucune facture émise"
+              description="Une facture est produite automatiquement à chaque paiement encaissé."
+            />
+          }
+          footer={
+            <>
+              <span>{rows.length} facture(s) affichée(s), 200 max.</span>
+              <span className="ml-auto">
+                Triées par date d&apos;émission, de la plus récente à la plus
+                ancienne.
+              </span>
+            </>
+          }
+        />
       </Card>
-    </div>
+    </PageStack>
   );
 }

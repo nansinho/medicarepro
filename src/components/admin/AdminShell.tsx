@@ -7,6 +7,10 @@ import AdminSidebar from "./AdminSidebar";
 import AdminTopbar from "./AdminTopbar";
 import AdminFrame from "./AdminFrame";
 import CommandPalette from "./CommandPalette";
+import {
+  createPersistedFlag,
+  usePersistedFlag,
+} from "./kit/client-state";
 import { cn } from "@/lib/utils";
 
 /* ============================================================
@@ -24,7 +28,8 @@ import { cn } from "@/lib/utils";
    248px, et 64px une fois repliée).
    ============================================================ */
 
-const COLLAPSE_KEY = "admin_sidebar_collapsed";
+/* Préférence de repli de la barre latérale, partagée et persistée. */
+const collapseFlag = createPersistedFlag("admin_sidebar_collapsed", false);
 
 export default function AdminShell({
   displayName,
@@ -39,30 +44,13 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedFlag(collapseFlag);
 
-  /* Préférence de repli relue au montage (et non à l'initialisation de
-     l'état) : le rendu serveur ne connaît pas localStorage. */
-  useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
-    } catch {
-      /* navigation privée : on reste déplié. */
-    }
-  }, []);
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((c) => {
-      const next = !c;
-      try {
-        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-      } catch {
-        /* idem */
-      }
-      return next;
-    });
-  }, []);
+  const toggleCollapsed = useCallback(
+    () => setCollapsed(!collapsed),
+    [collapsed, setCollapsed],
+  );
 
   /* Tiroir ouvert : on gèle le défilement de la page dessous. */
   useEffect(() => {

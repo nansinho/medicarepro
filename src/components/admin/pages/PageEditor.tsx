@@ -224,7 +224,7 @@ export default function PageEditor({
       </Card>
 
       {/* Sections de la page */}
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3 @wide/page:grid-cols-4 @ultra/page:grid-cols-5">
         {slots.map((slot) => {
           const state = states[slot.key];
           const hasDraft = Boolean(state?.hasDraft || state?.dirty);

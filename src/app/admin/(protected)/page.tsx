@@ -6,15 +6,20 @@ import {
   BadgeCheck,
   ChevronRight,
   CalendarClock,
+  CircleCheck,
+  ListChecks,
   RefreshCw,
 } from "lucide-react";
 import { requireStaff, getIsAdmin } from "@/lib/admin/auth";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
-import { PageHeading, StatBand, Notice, type Stat } from "@/components/admin/shared";
+import { PageHeading, StatBand, type Stat } from "@/components/admin/shared";
+import { PageStack } from "@/components/admin/kit/layout";
+import { EmptyState, NotConfigured } from "@/components/admin/kit/states";
+import { WorkQueue, type QueueItem } from "@/components/admin/kit/WorkQueue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 /* ============================================================
    Tableau de bord facturation — cockpit : indicateurs, derniers
@@ -52,6 +57,37 @@ type SubRow = {
   renewal_amount_cents: number;
 };
 
+type IncidentRow = {
+  id: string;
+  status: string;
+  amount_cents: number;
+  provision_attempts: number;
+  cabinet_name: string | null;
+};
+
+type DefautRow = {
+  id: string;
+  cabinet_name: string;
+  status: string;
+  renewal_amount_cents: number;
+};
+
+type SyncRow = {
+  id: string;
+  kind: string;
+  subscription_id: string | null;
+  /* PostgREST renvoie la relation embarquée sous forme de tableau, même
+     pour un lien à cardinalité 1. */
+  subscription: { cabinet_name: string }[] | null;
+};
+
+const INCIDENT_LABEL: Record<string, string> = {
+  failed_conflict: "Conflit de provisioning",
+  amount_mismatch: "Écart de montant",
+  duplicate_paid: "Double paiement",
+  paid: "Provisioning en échec répété",
+};
+
 export default async function AdminDashboardPage() {
   const staff = await requireStaff();
   if (!(await getIsAdmin(staff))) redirect("/admin/contenu");
@@ -60,12 +96,10 @@ export default async function AdminDashboardPage() {
 
   if (!service) {
     return (
-      <div className="flex flex-col gap-5">
+      <PageStack>
         <PageHeading title="Tableau de bord" />
-        <Notice tone="warn" title="Supabase non configuré">
-          Les données de facturation sont indisponibles sur cet environnement.
-        </Notice>
-      </div>
+        <NotConfigured scope="Le tableau de bord de facturation" />
+      </PageStack>
     );
   }
 
@@ -74,35 +108,90 @@ export default async function AdminDashboardPage() {
   // eslint-disable-next-line react-hooks/purity
   const in30Days = new Date(Date.now() + 30 * 86_400_000).toISOString();
 
-  const [actifs, echeances, incidents, syncTasks, recentRes, upcomingRes] = await Promise.all([
-    service.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "active"),
-    service
-      .from("subscriptions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active")
-      .lt("current_period_end", in30Days),
-    service.from("pending_signups").select("id", { count: "exact", head: true }).or(INCIDENT_FILTER),
-    service.from("app_sync_tasks").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    service
-      .from("subscriptions")
-      .select("id, cabinet_name, admin_email, plan, status, current_period_end, renewal_amount_cents")
-      .order("created_at", { ascending: false })
-      .limit(6),
-    service
-      .from("subscriptions")
-      .select("id, cabinet_name, admin_email, plan, status, current_period_end, renewal_amount_cents")
-      .eq("status", "active")
-      .lt("current_period_end", in30Days)
-      .order("current_period_end", { ascending: true })
-      .limit(6),
-  ]);
+  /* Les trois requêtes qui alimentent la file de travail renvoient
+     désormais les LIGNES en plus du compte : même coût côté base, mais on
+     peut nommer ce qu'il y a à faire au lieu d'afficher un nombre. */
+  const [actifs, echeances, incidents, syncTasks, defauts, recentRes, upcomingRes] =
+    await Promise.all([
+      service.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "active"),
+      service
+        .from("subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active")
+        .lt("current_period_end", in30Days),
+      service
+        .from("pending_signups")
+        .select("id, status, amount_cents, provision_attempts, cabinet_name:cabinet->>name", {
+          count: "exact",
+        })
+        .or(INCIDENT_FILTER)
+        .order("created_at", { ascending: false })
+        .limit(6),
+      service
+        .from("app_sync_tasks")
+        .select("id, kind, subscription_id, subscription:subscriptions(cabinet_name)", {
+          count: "exact",
+        })
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+        .limit(6),
+      service
+        .from("subscriptions")
+        .select("id, cabinet_name, status, renewal_amount_cents", { count: "exact" })
+        .in("status", ["past_due", "pending_mandate"])
+        .order("current_period_end", { ascending: true })
+        .limit(6),
+      service
+        .from("subscriptions")
+        .select("id, cabinet_name, admin_email, plan, status, current_period_end, renewal_amount_cents")
+        .order("created_at", { ascending: false })
+        .limit(8),
+      service
+        .from("subscriptions")
+        .select("id, cabinet_name, admin_email, plan, status, current_period_end, renewal_amount_cents")
+        .eq("status", "active")
+        .lt("current_period_end", in30Days)
+        .order("current_period_end", { ascending: true })
+        .limit(8),
+    ]);
 
   const nActifs = actifs.count ?? 0;
   const nEch = echeances.count ?? 0;
   const nIncidents = incidents.count ?? 0;
   const nSync = syncTasks.count ?? 0;
+  const nDefauts = defauts.count ?? 0;
   const recent = (recentRes.data ?? []) as SubRow[];
   const upcoming = (upcomingRes.data ?? []) as SubRow[];
+
+  /* File de travail : trois sources réelles fusionnées, triées par gravité. */
+  const queue: QueueItem[] = [
+    ...((incidents.data ?? []) as IncidentRow[]).map((i) => ({
+      id: `inc-${i.id}`,
+      severity: "urgent" as const,
+      title: i.cabinet_name ?? "Dossier sans nom",
+      detail: `${INCIDENT_LABEL[i.status] ?? i.status} · ${i.provision_attempts} tentative(s)`,
+      href: "/admin/billing/incidents",
+      meta: formatEuros(i.amount_cents),
+    })),
+    ...((defauts.data ?? []) as DefautRow[]).map((s) => ({
+      id: `def-${s.id}`,
+      severity: "attention" as const,
+      title: s.cabinet_name,
+      detail:
+        s.status === "past_due"
+          ? "Impayé : relance ou suspension à décider"
+          : "Mandat SEPA jamais signé",
+      href: `/admin/billing/abonnements/${s.id}`,
+      meta: formatEuros(s.renewal_amount_cents),
+    })),
+    ...((syncTasks.data ?? []) as SyncRow[]).map((t) => ({
+      id: `sync-${t.id}`,
+      severity: "info" as const,
+      title: t.subscription?.[0]?.cabinet_name ?? "Cabinet inconnu",
+      detail: `À reporter dans l'application : ${t.kind}`,
+      href: "/admin/billing/synchro",
+    })),
+  ];
 
   const stats: Stat[] = [
     { label: "Abonnements actifs", value: nf.format(nActifs), hint: "À jour de paiement", zero: nActifs === 0 },
@@ -117,7 +206,7 @@ export default async function AdminDashboardPage() {
       <Link
         key={sub.id}
         href={`/admin/billing/abonnements/${sub.id}`}
-        className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-secondary/50"
+        className="mp-row group flex items-center gap-3 px-5 py-2.5"
       >
         <span className="grid size-8 flex-none place-items-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary ring-1 ring-inset ring-primary/15">
           {sub.cabinet_name.slice(0, 2).toUpperCase()}
@@ -146,7 +235,7 @@ export default async function AdminDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <PageStack>
       <PageHeading
         title="Tableau de bord"
         description="Vue d'ensemble de la facturation : abonnements, échéances, incidents de provisioning et synchronisation avec l'application."
@@ -162,38 +251,46 @@ export default async function AdminDashboardPage() {
 
       <StatBand stats={stats} />
 
-      {(nIncidents > 0 || nSync > 0) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {nIncidents > 0 && (
-            <Notice
-              tone="bad"
-              title={`${nf.format(nIncidents)} incident(s) de provisioning`}
-              action={
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/admin/billing/incidents">Traiter</Link>
-                </Button>
-              }
-            >
-              Conflits, écarts de montant, doubles paiements ou échecs répétés à résoudre.
-            </Notice>
+      <div className="grid gap-4 xl:grid-cols-2 @ultra/page:grid-cols-3">
+        {/* À traiter en premier : une file de travail réelle, pas un
+            bandeau de félicitations. Elle occupe la colonne de gauche
+            parce que c'est par là qu'on commence sa journée. */}
+        <Card className="overflow-clip">
+          <CardHeader>
+            <CardTitle>
+              <ListChecks className="size-4 text-muted-foreground" />À traiter
+            </CardTitle>
+            {queue.length > 0 && (
+              <Badge variant={nIncidents > 0 ? "red" : "amber"}>
+                {nf.format(nIncidents + nDefauts + nSync)}
+              </Badge>
+            )}
+          </CardHeader>
+          {queue.length > 0 ? (
+            <>
+              <WorkQueue items={queue} />
+              <CardFooter className="justify-between">
+                <span>
+                  {nf.format(nIncidents)} incident(s) · {nf.format(nDefauts)} en
+                  défaut · {nf.format(nSync)} synchro
+                </span>
+                <Link
+                  href="/admin/billing/incidents"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Tout traiter
+                </Link>
+              </CardFooter>
+            </>
+          ) : (
+            <EmptyState
+              icon={CircleCheck}
+              title="Rien à traiter"
+              description="Aucun incident de provisioning, aucun impayé, aucune tâche de synchronisation en attente."
+            />
           )}
-          {nSync > 0 && (
-            <Notice
-              tone="warn"
-              title={`${nf.format(nSync)} tâche(s) de synchro en attente`}
-              action={
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/admin/billing/synchro">Ouvrir</Link>
-                </Button>
-              }
-            >
-              À reporter manuellement dans l&apos;application des cabinets.
-            </Notice>
-          )}
-        </div>
-      )}
+        </Card>
 
-      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>
@@ -227,22 +324,14 @@ export default async function AdminDashboardPage() {
           {upcoming.length > 0 ? (
             <div className="divide-y divide-border">{upcoming.map((s) => subRow(s, true))}</div>
           ) : (
-            <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
-              <span className="grid size-9 place-items-center rounded-full bg-secondary text-muted-foreground ring-1 ring-inset ring-border">
-                <CalendarClock className="size-4" />
-              </span>
-              <p className="mt-1 text-[13px] font-medium text-foreground">Aucune échéance sous 30 jours</p>
-              <p className="text-xs text-muted-foreground">Les renouvellements SEPA proches s&apos;afficheront ici.</p>
-            </div>
+            <EmptyState
+              icon={CalendarClock}
+              title="Aucune échéance sous 30 jours"
+              description="Les renouvellements SEPA proches s'afficheront ici."
+            />
           )}
         </Card>
       </div>
-
-      {nIncidents === 0 && nSync === 0 && (
-        <Notice tone="ok" title="Facturation saine">
-          Aucun incident de provisioning, aucune tâche de synchronisation en attente.
-        </Notice>
-      )}
-    </div>
+    </PageStack>
   );
 }

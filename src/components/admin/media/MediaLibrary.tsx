@@ -252,11 +252,11 @@ export default function MediaLibrary({ canDelete }: { canDelete: boolean }) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 @wide/page:grid-cols-7 @ultra/page:grid-cols-8">
           {rows.map((row) => (
             <div
               key={row.id}
-              className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-colors hover:border-primary/40"
+              className="mp-lift group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm hover:border-[color:var(--mp-blue-soft)]"
             >
               <button
                 type="button"

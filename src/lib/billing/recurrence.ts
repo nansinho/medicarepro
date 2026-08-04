@@ -39,6 +39,7 @@ type SubscriptionRow = {
   monetico_reference: string;
   monetico_order_date: string | null;
   started_at: string;
+  current_period_end: string;
   recurrence_stopped_at: string | null;
 };
 
@@ -98,7 +99,7 @@ export async function stopRecurrence(
   const { data, error } = await supabase
     .from("subscriptions")
     .select(
-      "id, cabinet_name, status, currency, first_payment_cents, monetico_reference, monetico_order_date, started_at, recurrence_stopped_at",
+      "id, cabinet_name, status, currency, first_payment_cents, monetico_reference, monetico_order_date, started_at, current_period_end, recurrence_stopped_at",
     )
     .eq("id", subscriptionId)
     .maybeSingle();
@@ -212,11 +213,22 @@ export async function stopRecurrence(
   }
 
   const stoppedAt = new Date().toISOString();
+
+  /* ⚠️ NE PAS marquer 'canceled' tant que la période court.
+     Arrêter la reconduction et résilier sont deux faits distincts : le client
+     a payé jusqu'au terme, son accès lui est dû jusque-là. Marquer 'canceled'
+     le jour de la demande faisait afficher « abonnement terminé » dans
+     l'espace du praticien alors qu'il lui restait des semaines, et coupait
+     l'accès dans l'application dès que la remontée d'état a été branchée.
+     Le passage à 'expired' au terme est le travail du cron quotidien
+     (expire_due_subscriptions, migration 0032). */
+  const periodOver = new Date(sub.current_period_end).getTime() <= Date.now();
+
   const { error: updateError } = await supabase
     .from("subscriptions")
     .update({
       recurrence_stopped_at: stoppedAt,
-      status: "canceled",
+      ...(periodOver ? { status: "canceled" } : {}),
       // Plus aucune commande récurrente vivante : c'est LE fait bancaire.
       current_recurring_order_id: null,
     })

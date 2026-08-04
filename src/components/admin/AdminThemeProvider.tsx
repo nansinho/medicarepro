@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /* ============================================================
    Thème du back office — sélecteur EXPLICITE.
@@ -12,10 +12,11 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
    La classe est posée sur #admin-scope, JAMAIS sur <html> : la vitrine
    est claire uniquement et ne doit pas pouvoir être atteinte.
 
-   L'application avant peinture est faite par le script inline du layout
-   (voir ADMIN_THEME_BOOT) ; ce fournisseur ne fait que LIRE l'état posé
-   au démarrage, sinon il écraserait la préférence et rendrait le flash
-   inévitable.
+   La source de vérité est le DOM (la classe), pas un état React : c'est
+   le script inline du layout qui l'écrit AVANT la première peinture,
+   sinon on verrait un flash clair à chaque rechargement en mode sombre.
+   React s'y abonne donc via useSyncExternalStore plutôt que de la
+   recopier dans un effet.
    ============================================================ */
 
 export type ThemeMode = "light" | "dark";
@@ -30,45 +31,53 @@ export const ADMIN_THEME_BOOT = `try{if(localStorage.getItem(${JSON.stringify(
   SCOPE_ID,
 )}).classList.add("dark")}}catch(e){}`;
 
-type Ctx = { mode: ThemeMode; setMode: (next: ThemeMode) => void; toggle: () => void };
+function scope(): HTMLElement | null {
+  return document.getElementById(SCOPE_ID);
+}
 
-const ThemeContext = createContext<Ctx | null>(null);
+function getSnapshot(): ThemeMode {
+  return scope()?.classList.contains("dark") ? "dark" : "light";
+}
+
+function subscribe(onChange: () => void) {
+  const el = scope();
+  if (!el) return () => {};
+  const observer = new MutationObserver(onChange);
+  observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
 
 export function AdminThemeProvider({ children }: { children: React.ReactNode }) {
-  /* Départ à "light" pour que le rendu serveur et la première passe client
-     concordent ; l'état réel est relu de la classe dans l'effet ci-dessous. */
-  const [mode, setModeState] = useState<ThemeMode>("light");
+  /* Plus de contexte : la classe DOM EST l'état partagé, et chaque
+     consommateur s'y abonne directement. Un fournisseur n'apporterait
+     qu'une indirection de plus. */
+  return <>{children}</>;
+}
 
-  useEffect(() => {
-    const scope = document.getElementById(SCOPE_ID);
-    setModeState(scope?.classList.contains("dark") ? "dark" : "light");
-  }, []);
+export function useAdminTheme(): {
+  mode: ThemeMode;
+  setMode: (next: ThemeMode) => void;
+  toggle: () => void;
+} {
+  const mode = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    () => "light" as const,
+  );
 
   const setMode = useCallback((next: ThemeMode) => {
-    setModeState(next);
-    document.getElementById(SCOPE_ID)?.classList.toggle("dark", next === "dark");
+    scope()?.classList.toggle("dark", next === "dark");
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
-      /* navigation privée : la préférence ne survit pas à l'onglet, tant pis. */
+      /* navigation privée : la préférence ne survit pas à l'onglet. */
     }
   }, []);
 
   const toggle = useCallback(
-    () => setMode(mode === "dark" ? "light" : "dark"),
-    [mode, setMode],
+    () => setMode(getSnapshot() === "dark" ? "light" : "dark"),
+    [setMode],
   );
 
-  return (
-    <ThemeContext.Provider value={{ mode, setMode, toggle }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-export function useAdminTheme(): Ctx {
-  const ctx = useContext(ThemeContext);
-  /* Repli inerte : les écrans d'authentification montent le Toaster sans
-     fournisseur, ils n'ont pas de sélecteur de thème. */
-  return ctx ?? { mode: "light", setMode: () => {}, toggle: () => {} };
+  return { mode, setMode, toggle };
 }

@@ -147,6 +147,10 @@
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-body), "Poppins", system-ui, sans-serif;
+  /* Chiffres et références : JetBrains Mono, chargée par le layout racine.
+     Le repli système donnait des largeurs de chiffres différentes selon le
+     poste, ce qui décale des colonnes de montants. */
+  --font-mono: var(--font-mono-admin), ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;

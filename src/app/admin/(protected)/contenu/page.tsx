@@ -198,7 +198,7 @@ export default async function AdminContenuPage() {
       <StatBand stats={stats} />
 
       {/* Activité récente réelle + accès rapides */}
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-3 @ultra/page:grid-cols-4">
         <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle>
@@ -250,7 +250,7 @@ export default async function AdminContenuPage() {
               <Link
                 key={t.label}
                 href={t.href}
-                className="group flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/40 hover:bg-secondary/50"
+                className="mp-lift group flex flex-col gap-1.5 rounded-xl border border-border bg-card p-3.5 shadow-sm hover:border-[color:var(--mp-blue-soft)]"
               >
                 <span className="flex items-center justify-between">
                   <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
@@ -270,7 +270,7 @@ export default async function AdminContenuPage() {
       </div>
 
       {/* Derniers articles + répartition */}
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-3 @ultra/page:grid-cols-4">
         <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle>
@@ -290,7 +290,7 @@ export default async function AdminContenuPage() {
                 <Link
                   key={p.id}
                   href={`/admin/blog/${p.id}`}
-                  className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-secondary/50"
+                  className="mp-row group flex items-center gap-3 px-5 py-2.5"
                 >
                   <FileText className="size-4 flex-none text-muted-foreground/60" />
                   <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{p.title}</span>

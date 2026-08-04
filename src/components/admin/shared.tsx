@@ -1,37 +1,26 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "./kit/layout";
 
 /* ============================================================
-   Blocs partagés du back office (registre Vercel/Stripe).
-   Rendu serveur, sans état : utilisables depuis n'importe quelle
-   page. Consomment les tokens shadcn scopés (.admin-scope).
+   Blocs partagés du back office.
+
+   Ce module reste le point d'entrée historique (une vingtaine de pages
+   l'importent) : les composants sont désormais habillés comme l'app
+   praticien, mais leur signature ne bouge pas. Les nouveaux blocs
+   vivent dans ./kit et sont importés directement par les pages qui les
+   adoptent.
    ============================================================ */
 
-/** En-tête de page : titre, description, actions à droite. */
-export function PageHeading({
-  title,
-  description,
-  actions,
-}: {
+export { PageHeader, PageStack, PageColumns, Section } from "./kit/layout";
+
+/** Alias historique de PageHeader (même contrat). */
+export function PageHeading(props: {
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
 }) {
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="text-[22px] font-semibold tracking-tight text-foreground">
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-1 max-w-[92ch] text-[13px] text-muted-foreground">
-            {description}
-          </p>
-        )}
-      </div>
-      {actions && <div className="flex flex-none items-center gap-2">{actions}</div>}
-    </div>
-  );
+  return <PageHeader {...props} />;
 }
 
 export type Stat = {
@@ -54,38 +43,46 @@ const BAND_COLS: Record<number, string> = {
  * Bandeau de mesures : un seul bloc bordé, cellules séparées par des
  * filets d'un pixel (technique gap-px sur fond border). Quel que soit
  * le nombre de mesures, aucune carte orpheline.
+ *
+ * Les valeurs sont en Figtree extrabold à chasse tabulaire : c'est le
+ * chiffre signature de l'app praticien, et le repère visuel le plus
+ * immédiat que les deux produits sont le même.
+ *
+ * Volontairement SANS courbe ni variation en pourcentage : le schéma ne
+ * stocke aucune série temporelle. Une sparkline ici serait une donnée
+ * inventée.
  */
 export function StatBand({ stats }: { stats: Stat[] }) {
   const cols = BAND_COLS[stats.length] ?? "md:grid-cols-4";
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border shadow-sm",
+        "grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-md",
         cols,
       )}
     >
       {stats.map((stat, i) => (
-        <div key={i} className="min-w-0 bg-card px-4 pb-3.5 pt-3">
+        <div key={i} className="min-w-0 bg-card px-5 pb-4 pt-3.5">
           <div
             className={cn(
-              "truncate text-xs text-muted-foreground",
-              stat.mono && "font-mono text-[11px] tracking-tight",
+              "truncate text-xs font-semibold uppercase tracking-[0.06em] text-[color:var(--mp-text-3)]",
+              stat.mono && "font-mono tracking-tight normal-case",
             )}
           >
             {stat.label}
           </div>
           <div
             className={cn(
-              "mt-0.5 font-mono text-2xl tracking-tight tabular-nums",
+              "mt-1 font-display text-[28px] leading-none tabular-nums",
               stat.zero
-                ? "font-normal text-muted-foreground/70"
-                : "font-medium text-foreground",
+                ? "font-bold text-[color:var(--mp-text-3)]"
+                : "font-extrabold text-[color:var(--mp-text)]",
             )}
           >
             {stat.value}
           </div>
           {stat.hint && (
-            <div className="mt-0.5 truncate text-[11px] text-muted-foreground/80">
+            <div className="mt-1 truncate text-xs text-muted-foreground">
               {stat.hint}
             </div>
           )}
@@ -109,14 +106,14 @@ export function Notice({
 }) {
   const tones = {
     info: "border-border bg-card",
-    ok: "border-[color:var(--ok)]/30 bg-[color:var(--ok)]/8 text-foreground",
+    ok: "border-[color:var(--ok)]/30 bg-[color:var(--ok)]/8",
     warn: "border-[color:var(--warn)]/30 bg-[color:var(--warn)]/8",
     bad: "border-destructive/30 bg-destructive/8",
   } as const;
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-lg border p-3.5 text-[13px] shadow-sm",
+        "flex items-start gap-3 rounded-xl border p-4 text-cell shadow-sm",
         tones[tone],
       )}
     >

@@ -65,13 +65,23 @@ export default function CommandPalette({
     );
   }, [entries, query]);
 
-  /* Toute frappe repart du premier résultat : sinon le curseur pointe
-     dans le vide dès que la liste rétrécit. */
-  useEffect(() => setCursor(0), [query]);
+  /* Ajustements PENDANT le rendu (et non dans un effet) : c'est le motif
+     prévu pour « remettre un état à zéro quand une prop change ». Un effet
+     provoquerait un rendu en cascade après coup, et un curseur affiché une
+     frame au mauvais endroit. */
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (prevQuery !== query) {
+    setPrevQuery(query);
+    /* Toute frappe repart du premier résultat : sinon le curseur pointe
+       dans le vide dès que la liste rétrécit. */
+    setCursor(0);
+  }
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (!open) setQuery("");
-  }, [open]);
+  }
 
   function go(entry: Entry | undefined) {
     if (!entry) return;

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Figtree, Poppins } from "next/font/google";
+import { Figtree, JetBrains_Mono, Poppins } from "next/font/google";
 import { JSONLD_ORG, JSONLD_SOFTWARE } from "@/data/content/site";
 import "./globals.css";
 
@@ -14,6 +14,18 @@ const poppins = Poppins({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+/* Chasse fixe du back office : montants, références Monetico, RUM SEPA,
+   numéros de facture. Sans elle, tous ces `font-mono` tombaient sur la
+   police système (Consolas ici, Menlo ailleurs) — des chiffres de largeurs
+   différentes d'un poste à l'autre dans des colonnes de comptabilité.
+   La vitrine ne l'utilise pas : le sous-ensemble ne coûte rien au site. */
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono-admin",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
@@ -67,7 +79,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${figtree.variable} ${poppins.variable}`}>
+    <html
+      lang="fr"
+      className={`${figtree.variable} ${poppins.variable} ${jetbrainsMono.variable}`}
+    >
       <body>
         <script
           type="application/ld+json"

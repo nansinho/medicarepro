@@ -638,6 +638,11 @@ h1.sec-title {
   --shadow-lg: var(--mp-shadow-lg, 0 24px 60px rgba(31, 84, 153, 0.1));
   --shadow-xl: 0 28px 70px rgba(31, 84, 153, 0.14);
 
+  /* Chasse fixe : `font-mono` suit --font-mono, défini dans .admin-scope.
+     Hors du scope la valeur est absente et le repli système s'applique,
+     donc la vitrine n'est pas touchée. */
+  --font-mono: var(--font-mono-admin), ui-monospace, SFMono-Regular, Menlo, monospace;
+
   --ease-mp: var(--mp-ease, cubic-bezier(0.16, 1, 0.3, 1));
 
   /* ---- Paliers de la COLONNE de contenu, pas du viewport ----

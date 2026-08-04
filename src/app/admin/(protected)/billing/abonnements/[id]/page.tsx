@@ -13,6 +13,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
 import { arreterReconduction } from "../actions";
 import { PageHeading, StatBand, Notice, type Stat } from "@/components/admin/shared";
+import { KeyValue } from "@/components/admin/kit/KeyValue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -133,22 +134,17 @@ function statusBadge(map: Record<string, { label: string; v: Variant }>, status:
   return <Badge variant={b.v}>{b.label}</Badge>;
 }
 
-/** Liste clé-valeur alignée (remplace detailList). */
+/**
+ * Liste clé-valeur.
+ *
+ * L'ancien rendu justifiait la valeur À DROITE : dans une carte large,
+ * cela creusait plusieurs centaines de pixels de vide entre « Plan » et sa
+ * valeur, le même défaut que la page étirée, tourné de 90°. Deux colonnes
+ * fixes alignées sur la ligne de base réglent le problème et font gagner
+ * ~8px par rangée. Le filtre `hidden` est conservé (l'appelant l'utilise).
+ */
 function KV({ items }: { items: { k: ReactNode; v: ReactNode; mono?: boolean; wide?: boolean; hidden?: boolean }[] }) {
-  return (
-    <dl>
-      {items
-        .filter((i) => !i.hidden)
-        .map((i, idx) => (
-          <div key={idx} className="flex items-baseline justify-between gap-4 border-t border-border px-4 py-2.5 first:border-t-0">
-            <dt className="flex-none text-[13px] text-muted-foreground">{i.k}</dt>
-            <dd className={cn("min-w-0 text-right text-[13px] text-foreground [overflow-wrap:anywhere]", i.mono && "font-mono text-xs tabular-nums", i.wide && "text-left")}>
-              {i.v}
-            </dd>
-          </div>
-        ))}
-    </dl>
-  );
+  return <KeyValue items={items.filter((i) => !i.hidden)} />;
 }
 
 export default async function AbonnementDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -239,7 +235,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
 
       <StatBand stats={stats} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2 @wide/page:grid-cols-3 @ultra/page:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Souscription</CardTitle>
@@ -393,7 +389,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
       </Card>
 
       {/* Factures + IPN + synchro */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2 @ultra/page:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Factures</CardTitle>

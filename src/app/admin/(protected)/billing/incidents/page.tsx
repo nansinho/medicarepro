@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
+import { ShieldCheck } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
-import { PageHeading, Notice } from "@/components/admin/shared";
+import { Notice, StatBand } from "@/components/admin/shared";
+import { PageHeader, PageStack } from "@/components/admin/kit/layout";
+import { EmptyState, NotConfigured } from "@/components/admin/kit/states";
+import DataTable, { CellTitle, RowActions } from "@/components/admin/kit/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { relancerProvisioning, marquerResolu } from "./actions";
 
 /* ============================================================
@@ -69,12 +65,10 @@ export default async function IncidentsPage() {
 
   if (!service) {
     return (
-      <div className="flex flex-col gap-5">
-        <PageHeading title="Incidents" />
-        <Notice tone="warn" title="Supabase non configuré">
-          La liste des incidents est indisponible.
-        </Notice>
-      </div>
+      <PageStack>
+        <PageHeader title="Incidents" />
+        <NotConfigured scope="La liste des incidents" />
+      </PageStack>
     );
   }
 
@@ -91,9 +85,16 @@ export default async function IncidentsPage() {
 
   const rows = (data ?? []) as IncidentRow[];
 
+  const enjeu = rows.reduce((sum, r) => sum + r.amount_cents, 0);
+  const aRelancer = rows.filter((r) => r.status === "paid").length;
+  const maxTentatives = rows.reduce(
+    (max, r) => Math.max(max, r.provision_attempts),
+    0,
+  );
+
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeading
+    <PageStack>
+      <PageHeader
         title="Incidents"
         description="Dossiers payés en échec : conflits de provisioning, écarts de montant, doubles paiements et provisionings en échec répété. « Relancer » redonne le dossier au worker ; « Marquer résolu » clôt le dossier (abandonné ou remboursé manuellement)."
       />
@@ -104,86 +105,116 @@ export default async function IncidentsPage() {
         </Notice>
       )}
 
-      <Card className="overflow-hidden">
-        {rows.length === 0 ? (
-          <div className="px-4 py-14 text-center text-[13px] text-muted-foreground">
-            Aucun incident ouvert.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[220px]">Cabinet</TableHead>
-                  <TableHead className="w-44">Statut</TableHead>
-                  <TableHead className="w-28 text-right">Montant</TableHead>
-                  <TableHead className="w-24 text-right">Tentatives</TableHead>
-                  <TableHead className="min-w-[260px]">Dernière erreur</TableHead>
-                  <TableHead className="w-40 text-right">Payé le</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((incident) => {
-                  const badge = STATUS_BADGE[incident.status] ?? {
-                    label: incident.status,
-                    variant: "gray" as const,
-                  };
-                  return (
-                    <TableRow key={incident.id}>
-                      <TableCell>
-                        <div className="font-medium text-foreground">
-                          {incident.cabinet_name ?? "—"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {PLAN_LABEL[incident.plan] ?? incident.plan} · créé le{" "}
-                          {fmtDateTime(incident.created_at)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-foreground">
-                        {formatEuros(incident.amount_cents)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                        {incident.provision_attempts}
-                      </TableCell>
-                      <TableCell
-                        className="max-w-[360px] truncate font-mono text-xs text-muted-foreground"
-                        title={incident.last_error ?? undefined}
-                      >
-                        {incident.last_error ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                        {fmtDateTime(incident.paid_at)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {incident.status === "paid" && (
-                            <form action={relancerProvisioning}>
-                              <input type="hidden" name="id" value={incident.id} />
-                              <Button type="submit" variant="outline" size="sm">
-                                Relancer le provisioning
-                              </Button>
-                            </form>
-                          )}
-                          <form action={marquerResolu}>
-                            <input type="hidden" name="id" value={incident.id} />
-                            <Button type="submit" variant="destructive" size="sm">
-                              Marquer résolu
-                            </Button>
-                          </form>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+      {rows.length > 0 && (
+        <StatBand
+          stats={[
+            { label: "Incidents ouverts", value: rows.length },
+            {
+              label: "À relancer",
+              value: aRelancer,
+              zero: aRelancer === 0,
+              hint: "Payés, provisioning en échec",
+            },
+            { label: "Montant en jeu", value: formatEuros(enjeu) },
+            {
+              label: "Tentatives max",
+              value: maxTentatives,
+              zero: maxTentatives === 0,
+            },
+          ]}
+        />
+      )}
+
+      <Card className="overflow-clip">
+        <DataTable
+          rows={rows}
+          getKey={(incident) => incident.id}
+          columns={[
+            {
+              id: "cabinet",
+              header: "Cabinet",
+              role: "grow-2",
+              truncate: true,
+              title: (incident) => incident.cabinet_name ?? undefined,
+              cell: (incident) => (
+                <CellTitle
+                  sub={`${PLAN_LABEL[incident.plan] ?? incident.plan} · créé le ${fmtDateTime(incident.created_at)}`}
+                >
+                  {incident.cabinet_name ?? "—"}
+                </CellTitle>
+              ),
+            },
+            {
+              id: "status",
+              header: "Statut",
+              cell: (incident) => {
+                const badge = STATUS_BADGE[incident.status] ?? {
+                  label: incident.status,
+                  variant: "gray" as const,
+                };
+                return <Badge variant={badge.variant}>{badge.label}</Badge>;
+              },
+            },
+            {
+              id: "amount",
+              header: "Montant",
+              role: "money",
+              cell: (incident) => formatEuros(incident.amount_cents),
+            },
+            {
+              id: "attempts",
+              header: "Tentatives",
+              role: "num",
+              cell: (incident) => incident.provision_attempts,
+            },
+            {
+              id: "error",
+              header: "Dernière erreur",
+              role: "grow-2",
+              truncate: true,
+              title: (incident) => incident.last_error ?? undefined,
+              className: "font-mono text-xs text-muted-foreground",
+              cell: (incident) => incident.last_error ?? "—",
+            },
+            {
+              id: "paid",
+              header: "Payé le",
+              role: "date",
+              cell: (incident) => fmtDateTime(incident.paid_at),
+            },
+            {
+              id: "actions",
+              header: "",
+              role: "actions",
+              cell: (incident) => (
+                <RowActions>
+                  {incident.status === "paid" && (
+                    <form action={relancerProvisioning}>
+                      <input type="hidden" name="id" value={incident.id} />
+                      <Button type="submit" variant="outline" size="sm">
+                        Relancer
+                      </Button>
+                    </form>
+                  )}
+                  <form action={marquerResolu}>
+                    <input type="hidden" name="id" value={incident.id} />
+                    <Button type="submit" variant="destructive" size="sm">
+                      Marquer résolu
+                    </Button>
+                  </form>
+                </RowActions>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              icon={ShieldCheck}
+              title="Aucun incident ouvert"
+              description="Les dossiers payés dont le provisioning échoue apparaissent ici automatiquement."
+            />
+          }
+        />
       </Card>
-    </div>
+    </PageStack>
   );
 }

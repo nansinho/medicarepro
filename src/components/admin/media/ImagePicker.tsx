@@ -9,6 +9,7 @@ import {
 } from "@/app/admin/(protected)/medias/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useIsClient } from "@/components/admin/kit/client-state";
 
 /* ============================================================
    Sélecteur d'image réutilisable (blog : couverture ; éditeur de
@@ -94,12 +95,11 @@ export function PickerPanel({
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  /* Le panneau est rendu dans <body>, pas à sa place dans l'arbre : la colonne
-     de contenu porte `container-type: inline-size`, ce qui en fait un bloc
+  /* Le panneau est rendu hors de sa place dans l'arbre : la colonne de
+     contenu porte `container-type: inline-size`, ce qui en fait un bloc
      conteneur pour les descendants `fixed`. Rendu en ligne, l'overlay serait
      borné à la colonne au lieu du viewport. */
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useIsClient();
 
   /* Échap ferme, et le fond ne défile pas tant que le panneau est ouvert. */
   useEffect(() => {
@@ -181,7 +181,7 @@ export function PickerPanel({
                 type="button"
                 onClick={() => onPick(row)}
                 title={row.path}
-                className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-colors hover:border-primary/60"
+                className="mp-lift group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left shadow-sm hover:border-[color:var(--mp-blue-soft)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- vignette admin */}
                 <img
