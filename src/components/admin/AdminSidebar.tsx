@@ -1,110 +1,163 @@
 "use client";
 
 import Link from "next/link";
-import { Globe } from "@/components/icons";
-import { NAV_GROUPS, isLinkActive, type NavLink } from "./nav";
+import { ExternalLink, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import BrandLogo from "@/components/BrandLogo";
+import { navGroupsFor, isLinkActive, type NavLink } from "./nav";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /* ============================================================
-   Barre latérale du back office. Registre Vercel/Stripe : surface
-   blanche à filet, rangées denses, entrée active en teinte d'accent
-   avec un rail bleu à gauche. Aucun dégradé, aucune capitale forcée.
-   Les sections réservées (facturation, administration) ne sont
-   rendues que pour le rôle admin ; la vérification autoritaire reste
-   côté serveur (requireStaff + getIsAdmin).
+   Barre latérale du back office, alignée sur le panneau de
+   navigation de l'app praticien : surface carte, titres de groupe en
+   micro-capitales espacées, entrée active en pastille teintée (et non
+   en rail), glissement de 2px au survol avec l'icône qui respire.
+
+   Un seul niveau, volontairement. L'app praticien pose un rail navy
+   pleine hauteur devant son panneau parce qu'elle compte une dizaine
+   de sections ; ici il y en a quatre, et seulement deux pour un rôle
+   éditeur. Un rail pleine hauteur portant deux icônes recréerait
+   exactement le vide que le back office devait perdre. Les icônes de
+   section existent malgré tout dans nav.ts : basculer sur deux niveaux
+   ne demanderait aucune modification des pages.
+
+   Les sections réservées ne sont rendues que pour le rôle admin ; la
+   vérification autoritaire reste côté serveur (requireStaff).
    ============================================================ */
 
 export default function AdminSidebar({
   pathname,
   role,
   open,
+  collapsed,
+  onToggleCollapsed,
   onNavigate,
 }: {
   pathname: string;
   role: "admin" | "editor";
   open: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   onNavigate: () => void;
 }) {
+  const groups = navGroupsFor(role);
+
   function renderLink(link: NavLink) {
     const Icon = link.icon;
     const active = isLinkActive(link, pathname);
-    return (
+
+    const row = (
       <Link
         key={link.href}
         href={link.href}
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
+        title={collapsed ? undefined : link.label}
         className={cn(
-          "relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-muted-foreground transition-colors",
-          "hover:bg-secondary hover:text-foreground",
-          active &&
-            "bg-accent font-medium text-primary hover:bg-accent hover:text-primary before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-r before:bg-primary",
+          "mp-nav-item group flex items-center gap-2.5 rounded-[10px] px-3 py-2 text-cell",
+          collapsed && "justify-center px-0",
+          active
+            ? "bg-[color:var(--mp-tone-primary-bg)] font-semibold text-[color:var(--mp-blue-mid)]"
+            : "text-[color:var(--mp-text-2)] hover:bg-[color:var(--mp-tone-navy-bg)] hover:text-[color:var(--mp-blue)]",
         )}
       >
-        <Icon
-          width={16}
-          height={16}
-          className={cn("shrink-0", active ? "text-primary" : "text-muted-foreground/80")}
-        />
-        <span className="min-w-0 flex-1 truncate">{link.label}</span>
+        <Icon className="mp-nav-icon size-4 shrink-0" />
+        {!collapsed && <span className="min-w-0 flex-1 truncate">{link.label}</span>}
       </Link>
+    );
+
+    if (!collapsed) return row;
+    return (
+      <Tooltip key={link.href}>
+        <TooltipTrigger asChild>{row}</TooltipTrigger>
+        <TooltipContent side="right">{link.label}</TooltipContent>
+      </Tooltip>
     );
   }
 
   return (
     <aside
+      style={{
+        width: collapsed
+          ? "var(--admin-sidebar-collapsed)"
+          : "var(--admin-sidebar)",
+      }}
       className={cn(
-        "z-40 flex w-[236px] shrink-0 flex-col border-r border-border bg-card",
-        "fixed inset-y-0 left-0 -translate-x-full transition-transform duration-200 ease-out",
-        "lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
-        open && "translate-x-0 shadow-2xl",
+        "z-40 flex shrink-0 flex-col border-r border-border bg-card",
+        /* Le repli anime la LARGEUR, jamais un transform : une
+           transformation sur un ancêtre effondrerait le halo fixe. */
+        "transition-[width,transform] duration-[320ms] ease-mp",
+        "fixed inset-y-0 left-0 -translate-x-full",
+        "lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
+        open && "translate-x-0 shadow-lg",
       )}
       aria-label="Sections du back office"
     >
-      {/* En-tête */}
+      {/* En-tête, aligné en hauteur sur la barre supérieure. */}
       <Link
         href="/admin/contenu"
         onClick={onNavigate}
-        className="flex h-12 items-center gap-2 border-b border-border px-4"
+        className={cn(
+          "flex h-12 shrink-0 items-center gap-2 border-b border-border px-4",
+          collapsed && "justify-center px-0",
+        )}
       >
-        <span
-          aria-hidden="true"
-          className="grid size-[22px] shrink-0 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background"
-        >
-          M
-        </span>
-        <span className="text-[13px] font-semibold tracking-tight text-foreground">
-          MediCare Pro
-        </span>
-        <span className="ml-auto text-[11px] text-muted-foreground/70">Back office</span>
+        {collapsed ? (
+          /* eslint-disable-next-line @next/next/no-img-element -- SVG statique */
+          <img src="/logo-icon.svg?v=7" alt="MediCare Pro" width={24} height={24} />
+        ) : (
+          <BrandLogo size={24} />
+        )}
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-2">
-        {NAV_GROUPS.map((group) => {
-          if (group.adminOnly && role !== "admin") return null;
-          return (
-            <div key={group.title} className="mb-1">
-              <p className="flex items-center gap-1.5 px-2 pb-1 pt-3 text-[11px] font-medium text-muted-foreground/70">
-                <span className="size-1 rounded-full bg-border" aria-hidden="true" />
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+        {groups.map((group) => (
+          <div key={group.key} className="mb-3 last:mb-0">
+            {collapsed ? (
+              <div className="mx-3 mb-1.5 mt-3 border-t border-border first:mt-1" />
+            ) : (
+              <p className="mb-1 px-3 pt-3 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--mp-text-3)]">
                 {group.title}
               </p>
+            )}
+            <div className="flex flex-col gap-0.5">
               {group.links.map((link) => renderLink(link))}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </nav>
 
-      {/* Pied : lien vitrine */}
-      <div className="border-t border-border p-2">
+      {/* Pied : lien vitrine + repli */}
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-1 border-t border-border p-2",
+          collapsed && "flex-col",
+        )}
+      >
         <Link
           href="/"
           target="_blank"
-          className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className={cn(
+            "mp-nav-item group flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-3 py-2 text-cell text-[color:var(--mp-text-3)] hover:bg-[color:var(--mp-tone-navy-bg)] hover:text-[color:var(--mp-blue)]",
+            collapsed && "justify-center px-0",
+          )}
         >
-          <Globe width={15} height={15} className="shrink-0 text-muted-foreground/70" />
-          Voir le site
+          <ExternalLink className="mp-nav-icon size-4 shrink-0" />
+          {!collapsed && <span className="truncate">Voir le site</span>}
         </Link>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-label={collapsed ? "Déplier la navigation" : "Replier la navigation"}
+          className="mp-icon-btn hidden size-8 shrink-0 place-items-center rounded-[10px] text-[color:var(--mp-text-3)] hover:bg-[color:var(--mp-tone-navy-bg)] hover:text-[color:var(--mp-blue)] lg:grid"
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="size-4" />
+          ) : (
+            <PanelLeftClose className="size-4" />
+          )}
+        </button>
       </div>
     </aside>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import {
   searchMedia,
@@ -93,6 +94,21 @@ export function PickerPanel({
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  /* Le panneau est rendu dans <body>, pas à sa place dans l'arbre : la colonne
+     de contenu porte `container-type: inline-size`, ce qui en fait un bloc
+     conteneur pour les descendants `fixed`. Rendu en ligne, l'overlay serait
+     borné à la colonne au lieu du viewport. */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  /* Échap ferme, et le fond ne défile pas tant que le panneau est ouvert. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -109,11 +125,22 @@ export function PickerPanel({
 
   const pages = Math.max(1, Math.ceil(total / 40));
 
-  return (
+  if (!mounted) return null;
+
+  /* Cible du portail : la racine `.admin-scope`, et non <body>. Elle est en
+     dehors de la colonne de contenu (donc pas de piège de bloc conteneur) tout
+     en portant les tokens du back office, qui seraient perdus sous <body>. */
+  const host =
+    document.querySelector<HTMLElement>(".admin-scope") ?? document.body;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black/50"
+      className="fixed inset-0 z-50 flex justify-end bg-foreground/40 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="relative flex h-full w-full max-w-xl flex-col gap-4 overflow-y-auto border-l border-border bg-background p-4 shadow-lg duration-300 animate-in slide-in-from-right">
         <Button
@@ -204,6 +231,7 @@ export function PickerPanel({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    host,
   );
 }

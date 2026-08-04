@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { GeistSans } from "geist/font/sans";
-import { Eye, EyeOff, Lock } from "lucide-react";
-import BrandLogo from "@/components/BrandLogo";
+import { Eye, EyeOff } from "lucide-react";
+import AuthCard from "@/components/admin/kit/AuthCard";
 import { browserClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import "../../(protected)/admin-theme.css";
@@ -82,46 +80,35 @@ export default function ConfirmForm() {
     window.location.assign("/admin");
   }
 
+  /* Un seul écran, trois en-têtes : la coque est portée par AuthCard. */
+  const heading =
+    step.kind === "verifying"
+      ? { title: "Vérification en cours", description: "Validation de votre lien." }
+      : step.kind === "invalid"
+        ? { title: "Lien invalide", description: step.message }
+        : {
+            title:
+              type === "invite"
+                ? "Bienvenue, choisissez votre mot de passe"
+                : "Nouveau mot de passe",
+            description:
+              "10 caractères minimum, utilisez votre gestionnaire de mots de passe.",
+          };
+
   return (
-    <div className={`admin-scope ${GeistSans.variable}`}>
-      <main className="flex min-h-screen items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-sm p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <BrandLogo size={34} />
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-              <Lock className="size-3" />
-              Back office
-            </span>
-          </div>
-
-          {step.kind === "verifying" && (
-            <>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">Vérification en cours</h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">Validation de votre lien.</p>
-            </>
-          )}
-
-          {step.kind === "invalid" && (
-            <>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">Lien invalide</h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">{step.message}</p>
-              <div className="mt-5 border-t border-border pt-4 text-[13px]">
-                <Link href="/admin/login" className="text-primary hover:underline">
-                  Aller à la connexion
-                </Link>
-              </div>
-            </>
-          )}
-
-          {step.kind === "password" && (
-            <>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">
-                {type === "invite" ? "Bienvenue, choisissez votre mot de passe" : "Nouveau mot de passe"}
-              </h1>
-              <p className="mt-1 text-[13px] text-muted-foreground">
-                10 caractères minimum, utilisez votre gestionnaire de mots de passe.
-              </p>
-              <form className="mt-5 flex flex-col gap-4" onSubmit={handleSubmit}>
+    <AuthCard
+      title={heading.title}
+      description={heading.description}
+      footer={
+        step.kind === "invalid" ? (
+          <Link href="/admin/login" className="text-primary hover:underline">
+            Aller à la connexion
+          </Link>
+        ) : undefined
+      }
+    >
+      {step.kind === "password" && (
+              <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="cf-pass">Mot de passe</Label>
                   <div className="relative">
@@ -158,7 +145,7 @@ export default function ConfirmForm() {
                   />
                 </div>
                 {error && (
-                  <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-[13px] text-destructive">
+                  <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-sm text-destructive">
                     {error}
                   </p>
                 )}
@@ -166,10 +153,7 @@ export default function ConfirmForm() {
                   {pending ? "Enregistrement en cours" : "Enregistrer et accéder au back office"}
                 </Button>
               </form>
-            </>
-          )}
-        </Card>
-      </main>
-    </div>
+      )}
+    </AuthCard>
   );
 }

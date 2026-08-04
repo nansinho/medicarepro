@@ -2,15 +2,17 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-/* Card resserré pour le back office (registre Vercel/Stripe) :
-   coins 8px, filet, ombre discrète, en-tête à filet bas, densité. */
+/* Card aligné sur l'app praticien : coins 16px, ombre bleutée, densité p-5.
+   L'en-tête à filet bas et le slot CardAction sont CONSERVÉS (contrairement
+   à l'app, dont l'en-tête est nu) : une vingtaine de pages s'appuient sur
+   l'en-tête comme rangée flex avec une action à droite. */
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col rounded-lg border bg-card text-card-foreground shadow-sm",
+        "flex flex-col rounded-xl border bg-card text-card-foreground shadow-md",
         className
       )}
       {...props}
@@ -23,7 +25,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "flex min-h-11 items-center justify-between gap-3 border-b px-4 py-2.5",
+        "flex min-h-12 items-center justify-between gap-3 border-b px-5 py-3",
         className
       )}
       {...props}
@@ -36,7 +38,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "flex items-center gap-2 text-[13px] font-semibold tracking-tight",
+        "flex items-center gap-2 font-display text-card-title font-semibold tracking-tight",
         className
       )}
       {...props}
@@ -66,7 +68,7 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div data-slot="card-content" className={cn("p-4", className)} {...props} />
+    <div data-slot="card-content" className={cn("p-5", className)} {...props} />
   )
 }
 
@@ -75,7 +77,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center gap-3 border-t bg-secondary px-4 py-2.5 text-xs text-muted-foreground",
+        "flex items-center gap-3 border-t bg-secondary/50 px-5 py-3 text-xs text-muted-foreground",
         className
       )}
       {...props}

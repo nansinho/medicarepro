@@ -12,7 +12,7 @@ import {
 } from "@/app/admin/(protected)/blog/actions";
 import RichTextEditor from "@/components/admin/rich-text/RichTextEditor";
 import ImagePicker from "@/components/admin/media/ImagePicker";
-import { useToast } from "@/components/admin/ui/Toast";
+import { toast } from "sonner";
 import { PageHeading } from "@/components/admin/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,8 +72,7 @@ export default function PostEditor({
   post: PostEditorData;
   heading: string;
 }) {
-  const router = useRouter();
-  const toast = useToast();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const [title, setTitle] = useState(post.title);

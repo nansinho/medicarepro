@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useToast } from "@/components/admin/ui/Toast";
+import { toast } from "sonner";
 
 /* ============================================================
    Liste des articles : recherche, filtre par statut, sélection
@@ -70,8 +70,7 @@ const DATE_FMT = new Intl.DateTimeFormat("fr-FR", {
 });
 
 export default function BlogList({ rows }: { rows: BlogListRow[] }) {
-  const router = useRouter();
-  const toast = useToast();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [query, setQuery] = useState("");

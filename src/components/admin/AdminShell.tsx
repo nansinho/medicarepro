@@ -1,18 +1,30 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import AdminSidebar from "./AdminSidebar";
 import AdminTopbar from "./AdminTopbar";
+import AdminFrame from "./AdminFrame";
+import CommandPalette from "./CommandPalette";
 import { cn } from "@/lib/utils";
 
 /* ============================================================
-   Ossature client du back office : grille barre latérale + contenu,
-   état du tiroir de navigation (mobile) partagé entre la barre
-   supérieure et la barre latérale, et route courante.
+   Ossature client du back office : barre latérale + contenu, état du
+   tiroir mobile, repli de la barre latérale, palette ⌘K et route
+   courante.
+
    Le contenu des pages reste rendu côté serveur : il arrive en
    `children` et traverse ce composant sans être hydraté.
+
+   Le <main> ne porte plus de largeur en dur : elle vient d'AdminFrame,
+   partagé avec la barre supérieure, et le conteneur `@container/page`
+   permet aux pages de se recomposer sur la largeur RÉELLE de la
+   colonne plutôt que sur celle du viewport (la barre latérale en mange
+   248px, et 64px une fois repliée).
    ============================================================ */
+
+const COLLAPSE_KEY = "admin_sidebar_collapsed";
 
 export default function AdminShell({
   displayName,
@@ -27,6 +39,30 @@ export default function AdminShell({
 }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  /* Préférence de repli relue au montage (et non à l'initialisation de
+     l'état) : le rendu serveur ne connaît pas localStorage. */
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch {
+      /* navigation privée : on reste déplié. */
+    }
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        /* idem */
+      }
+      return next;
+    });
+  }, []);
 
   /* Tiroir ouvert : on gèle le défilement de la page dessous. */
   useEffect(() => {
@@ -43,37 +79,63 @@ export default function AdminShell({
     };
   }, [navOpen]);
 
+  /* ⌘K / Ctrl+K, partout dans le back office. */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <AdminSidebar
-        pathname={pathname}
-        role={role}
-        open={navOpen}
-        onNavigate={() => setNavOpen(false)}
-      />
-
-      {/* Voile du tiroir mobile */}
-      <div
-        onClick={() => setNavOpen(false)}
-        aria-hidden="true"
-        className={cn(
-          "fixed inset-0 z-30 bg-foreground/25 lg:hidden",
-          navOpen ? "block" : "hidden",
-        )}
-      />
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AdminTopbar
+    <TooltipProvider delayDuration={300}>
+      <div className="flex min-h-dvh text-foreground">
+        <AdminSidebar
           pathname={pathname}
-          displayName={displayName}
-          email={email}
           role={role}
-          onOpenNav={() => setNavOpen(true)}
+          open={navOpen}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+          onNavigate={() => setNavOpen(false)}
         />
-        <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 pb-16 pt-7 md:px-8">
-          {children}
-        </main>
+
+        {/* Voile du tiroir mobile */}
+        <div
+          onClick={() => setNavOpen(false)}
+          aria-hidden="true"
+          className={cn(
+            "fixed inset-0 z-30 bg-foreground/25 lg:hidden",
+            navOpen ? "block" : "hidden",
+          )}
+        />
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AdminTopbar
+            pathname={pathname}
+            displayName={displayName}
+            email={email}
+            role={role}
+            onOpenNav={() => setNavOpen(true)}
+            onOpenPalette={() => setPaletteOpen(true)}
+          />
+          {/* relative z-[1] : le contenu passe AU-DESSUS du halo d'ambiance. */}
+          <main className="relative z-[1] min-w-0 flex-1 pb-14 pt-7">
+            <AdminFrame>
+              <div className="@container/page">{children}</div>
+            </AdminFrame>
+          </main>
+        </div>
+
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          role={role}
+        />
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

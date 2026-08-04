@@ -7,15 +7,20 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
+import { useAdminTheme } from "@/components/admin/AdminThemeProvider"
+
+/* Le thème vient du sélecteur explicite du back office, pas de next-themes :
+   celui-ci tournait sans fournisseur et renvoyait "system", donc les toasts
+   suivaient le réglage de l'OS — exactement ce qui a été écarté. */
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const { mode } = useAdminTheme()
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={mode}
+      position="bottom-right"
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
@@ -29,7 +34,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--border-radius": "var(--r-sm, 12px)",
+          "--normal-shadow": "var(--mp-shadow-lg)",
         } as React.CSSProperties
       }
       {...props}

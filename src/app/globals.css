@@ -2,6 +2,27 @@
 @import "tw-animate-css";
 
 /* ============================================================
+   RÉPARTITION DES RÔLES (à ne pas inverser)
+
+   globals.css  = ENREGISTREMENT : @theme, @custom-variant, @utility,
+                  @layer. Tailwind v4 ne traite QUE le fichier qui
+                  importe "tailwindcss" ; toute directive placée
+                  ailleurs est inerte.
+   admin-theme.css = VALEURS uniquement (.admin-scope { --x: … }).
+                  Ce fichier est injecté hors couche : une règle de
+                  style qu'on y écrirait battrait tous les utilitaires
+                  Tailwind à spécificité égale. C'est ce qui neutralisait
+                  toutes les bordures teintées du back office.
+   ============================================================ */
+
+/* Variante sombre du back office. Sans cette ligne, `dark:` suit
+   prefers-color-scheme (défaut Tailwind v4) alors que le sélecteur de
+   thème bascule une CLASSE : les utilitaires se déclenchaient donc sur
+   le réglage de l'OS, jamais sur le bouton. Scopée à .admin-scope, donc
+   la vitrine (claire uniquement) ne peut pas être atteinte. */
+@custom-variant dark (&:where(.admin-scope.dark, .admin-scope.dark *));
+
+/* ============================================================
    DESIGN SYSTEM — MediCare Pro
    Tokens, base styles, utilitaires & animations
    ============================================================ */
@@ -74,84 +95,116 @@
   --title-block: clamp(1.4rem, 2.4vw, 1.9rem); /* titre de bloc/groupe */
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ============================================================
+   BASE — ces règles DOIVENT rester dans `@layer base`.
 
-html {
-  scroll-behavior: smooth;
-  scroll-padding-top: 104px;
-}
+   Hors couche (leur ancienne place), elles battaient l'intégralité des
+   utilitaires Tailwind, quelle que soit la spécificité : c'est la règle
+   de cascade des couches. Concrètement, dans tout le back office :
+     · `* { margin: 0; padding: 0 }` annulait TOUTES les marges et TOUS
+       les rembourrages utilitaires (p-5, px-4, mt-1, py-2.5…), d'où des
+       cartes sans air et des écrans qui semblaient tassés ;
+     · `a { color: inherit }` annulait text-primary et consorts sur tout
+       lien ;
+     · `h1..h4 { color: var(--color-navy) }` clouait les titres en navy,
+       donc invisibles sur le fond sombre du mode nuit.
+   La vitrine, elle, ne perd rien : ses styles vivent dans des CSS
+   Modules, qui restent hors couche et gardent la priorité.
+   ============================================================ */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-/* Garde anti-débordement horizontal (backstop racine).
-   `clip` ne crée PAS de scroll container → position:sticky (HomeFeatureScroll)
-   et Lenis restent intacts. La 1re déclaration = repli Safari < 16.
-   Ne JAMAIS poser d'overflow-x sur main/section : cela créerait un scroll
-   container entre le sticky et le viewport et casserait l'épinglage. */
-html,
-body {
-  overflow-x: hidden;
-  overflow-x: clip;
-}
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 104px;
+  }
 
-/* Lenis pilote le scroll → neutraliser le smooth natif (sinon double-smoothing).
-   En l'absence de Lenis (reduced-motion / mobile), le smooth natif reste actif. */
-html.lenis,
-html.lenis body {
-  height: auto;
-}
-html.lenis {
-  scroll-behavior: auto;
-}
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-.lenis.lenis-stopped {
-  overflow: hidden;
-}
+  /* Garde anti-débordement horizontal (backstop racine).
+     `clip` ne crée PAS de scroll container → position:sticky (HomeFeatureScroll)
+     et Lenis restent intacts. La 1re déclaration = repli Safari < 16.
+     Ne JAMAIS poser d'overflow-x sur main/section : cela créerait un scroll
+     container entre le sticky et le viewport et casserait l'épinglage. */
+  html,
+  body {
+    overflow-x: hidden;
+    overflow-x: clip;
+  }
 
-body {
-  font-family: var(--font-body);
-  font-weight: 400;
-  color: var(--color-body);
-  background: var(--color-bg);
-  line-height: 1.65;
-  -webkit-font-smoothing: antialiased;
-  /* Décalage du bandeau promo (PromoBanner fixe la variable quand actif). */
-  padding-top: var(--promo-offset, 0px);
-}
+  /* Lenis pilote le scroll → neutraliser le smooth natif (sinon double-smoothing).
+     En l'absence de Lenis (reduced-motion / mobile), le smooth natif reste actif. */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  html.lenis {
+    scroll-behavior: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
 
-h1,
-h2,
-h3,
-h4,
-.font-head {
-  font-family: var(--font-head);
-  color: var(--color-navy);
-  line-height: 1.15;
-}
+  body {
+    font-family: var(--font-body);
+    font-weight: 400;
+    color: var(--color-body);
+    background: var(--color-bg);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    /* Décalage du bandeau promo (PromoBanner fixe la variable quand actif). */
+    padding-top: var(--promo-offset, 0px);
+  }
 
-a {
-  text-decoration: none;
-  color: inherit;
-}
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-head {
+    font-family: var(--font-head);
+    color: var(--color-navy);
+    line-height: 1.15;
+  }
 
-/* Le flash gris de tap WebKit casse l'effet « app » sur mobile ;
-   les états :active définis plus bas le remplacent. */
-a,
-button {
-  -webkit-tap-highlight-color: transparent;
-}
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
 
-img {
-  max-width: 100%;
-  display: block;
-}
+  /* Le flash gris de tap WebKit casse l'effet « app » sur mobile ;
+     les états :active définis plus bas le remplacent. */
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
 
-section {
-  position: relative;
+  img {
+    max-width: 100%;
+    display: block;
+  }
+
+  section {
+    position: relative;
+  }
+
+  /* Titres du back office : police d'affichage de l'app praticien. La
+     couleur vient des utilitaires (donc suit le mode sombre), pas d'ici. */
+  .admin-scope :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--font-head), var(--font-body), "Figtree", system-ui, sans-serif;
+    color: inherit;
+    letter-spacing: -0.015em;
+  }
+
+  /* Chasse fixe tabulaire pour les valeurs (signature du registre). */
+  .admin-scope .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
 }
 
 /* ---------- LAYOUT UTILITIES ---------- */
@@ -520,8 +573,276 @@ h1.sec-title {
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
+  /* Tons de données (paires teinte / fond), pendants sombres inclus.
+     Toute couleur sémantique passe par une paire : rien ne meurt en nuit. */
+  --color-tone-primary: var(--mp-tone-primary);
+  --color-tone-primary-bg: var(--mp-tone-primary-bg);
+  --color-tone-sky: var(--mp-tone-sky);
+  --color-tone-sky-bg: var(--mp-tone-sky-bg);
+  --color-tone-navy: var(--mp-tone-navy);
+  --color-tone-navy-bg: var(--mp-tone-navy-bg);
+  --color-tone-amber: var(--mp-tone-amber);
+  --color-tone-amber-bg: var(--mp-tone-amber-bg);
+  --color-tone-success: var(--mp-tone-success);
+  --color-tone-success-bg: var(--mp-tone-success-bg);
+
+  /* ---- Rayons : échelle --r-* de l'app praticien ----
+     Repli en dur pour le cas (théorique) d'un utilitaire hors .admin-scope. */
+  --radius-sm: calc(var(--radius) - 4px); /* 10px */
+  --radius-md: calc(var(--radius) - 2px); /* 12px — champs, boutons, chips */
+  --radius-lg: var(--radius); /* 14px */
+  --radius-xl: var(--r-md, 16px); /* 16px — cartes */
+  --radius-2xl: var(--r-lg, 22px); /* 22px — bandeaux de mesures */
+  --radius-3xl: var(--r-xl, 28px); /* 28px */
+
+  /* ---- Échelle typographique compactée ----
+     Poppins occupe ~8 % de plus qu'Inter à taille égale, et le back office
+     est un outil de travail dense. Les 7 tailles arbitraires du back office
+     (13, 12, 11, 10, 14, 15, 22) tombent chacune dans une case ci-dessous. */
+  --text-2xs: 10.5px;
+  --text-2xs--line-height: 14px;
+  --text-xs: 11.5px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 19px;
+  --text-base: 14px;
+  --text-base--line-height: 22px;
+  --text-lg: 15px;
+  --text-lg--line-height: 22px;
+  --text-xl: 17px;
+  --text-xl--line-height: 25px;
+  --text-2xl: 20px;
+  --text-2xl--line-height: 27px;
+  --text-3xl: 22px;
+  --text-3xl--line-height: 28px;
+  /* Cellules de tableau et champs de saisie : une seule valeur. */
+  --text-cell: 13.5px;
+  --text-cell--line-height: 19px;
+  /* Titre de carte : 15px, donc AU-DESSUS d'un libellé de champ (13px).
+     La hiérarchie était inversée (carte 13px < libellé 14px). */
+  --text-card-title: 15px;
+  --text-card-title--line-height: 22px;
+  /* Titre de page : la signature typographique de l'app. */
+  --text-page-title: 22px;
+  --text-page-title--line-height: 28px;
+  --text-page-title--letter-spacing: -0.6px;
+  --text-page-title--font-weight: 800;
+
+  /* ---- Ombres bleutées (jamais noires en clair) ----
+     Repointer la rampe par défaut suffit à restyler les ~40 `shadow-sm`
+     déjà écrits dans les pages, sans y toucher. */
+  --shadow-2xs: 0 1px 2px rgba(31, 84, 153, 0.04);
+  --shadow-xs: 0 1px 3px rgba(31, 84, 153, 0.05);
+  --shadow-sm: var(--mp-shadow-sm, 0 2px 8px rgba(31, 84, 153, 0.06));
+  --shadow-md: var(--mp-shadow-md, 0 12px 30px rgba(31, 84, 153, 0.08));
+  --shadow-lg: var(--mp-shadow-lg, 0 24px 60px rgba(31, 84, 153, 0.1));
+  --shadow-xl: 0 28px 70px rgba(31, 84, 153, 0.14);
+
+  --ease-mp: var(--mp-ease, cubic-bezier(0.16, 1, 0.3, 1));
+
+  /* ---- Paliers de la COLONNE de contenu, pas du viewport ----
+     La sidebar mange 236px : un point de rupture de viewport mentirait sur
+     la largeur réellement disponible, et mentirait deux fois le jour où la
+     sidebar se replie. On mesure donc le conteneur `@container/page`. */
+  --container-narrow: 640px;
+  --container-mid: 980px;
+  --container-wide: 1280px;
+  --container-ultra: 1560px;
+}
+
+/* ============================================================
+   BACK OFFICE — base (couche `base`, donc sous les utilitaires)
+   ============================================================ */
+@layer base {
+  /* Tailwind v4 met border-color: currentColor par défaut, shadcn attend
+     --border. Cette règle DOIT vivre dans une couche : non layerisée (son
+     ancienne place, dans admin-theme.css), elle battait tous les
+     utilitaires et neutralisait chaque bordure teintée du back office. */
+  .admin-scope *,
+  .admin-scope *::before,
+  .admin-scope *::after {
+    border-color: var(--border);
+  }
+
+  /* Gouttière de défilement réservée en permanence SUR LES ROUTES ADMIN :
+     sans elle, ouvrir un menu Radix (qui verrouille le scroll) décale la
+     page de ~15px. react-remove-scroll ajoute EN PLUS sa propre
+     compensation, qui devient un double décalage une fois la gouttière
+     réservée : on la neutralise. Les deux règles vont par paire. */
+  html:has(.admin-scope) {
+    scrollbar-gutter: stable;
+  }
+  html:has(.admin-scope) body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
+}
+
+/* ============================================================
+   BACK OFFICE — les 5 gestes, définis une fois
+
+   Une seule courbe (--mp-ease), cinq gestes, tous neutralisés sous
+   prefers-reduced-motion. Ils doivent être des @utility (et non des
+   classes dans admin-theme.css) pour que la cascade et tailwind-merge
+   les traitent comme des utilitaires.
+   ============================================================ */
+
+/* Carte cliquable : se soulève. */
+@utility mp-lift {
+  transition:
+    transform 260ms var(--mp-ease),
+    box-shadow 260ms var(--mp-ease),
+    border-color 260ms var(--mp-ease);
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--mp-shadow-md);
+  }
+  &:active {
+    transform: translateY(-1px);
+  }
+}
+
+/* Ligne de tableau : teinte au survol, et ses actions sortent de l'ombre. */
+@utility mp-row {
+  transition: background-color 200ms var(--mp-ease);
+  &:hover {
+    background-color: var(--mp-row-hover);
+  }
+  &:hover .mp-row-actions,
+  &:focus-within .mp-row-actions {
+    opacity: 1;
+  }
+}
+
+@utility mp-row-actions {
+  opacity: 0.55;
+  transition: opacity 200ms var(--mp-ease);
+}
+
+/* Lien de navigation : glisse de 2px, son icône respire. */
+@utility mp-nav-item {
+  transition:
+    background-color 200ms var(--mp-ease),
+    color 200ms var(--mp-ease),
+    transform 200ms var(--mp-ease);
+  &:hover {
+    transform: translateX(2px);
+  }
+  &:hover .mp-nav-icon {
+    transform: scale(1.12);
+  }
+}
+
+@utility mp-nav-icon {
+  transition: transform 260ms var(--mp-ease);
+}
+
+/* Bouton-icône isolé. */
+@utility mp-icon-btn {
+  transition:
+    background-color 180ms var(--mp-ease),
+    color 180ms var(--mp-ease),
+    transform 180ms var(--mp-ease);
+  &:hover {
+    transform: scale(1.14);
+  }
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+/* Titres et chiffres : la police d'affichage. */
+@utility font-display {
+  font-family: var(--font-head), var(--font-body), "Figtree", system-ui, sans-serif;
+}
+
+/* ============================================================
+   BACK OFFICE — rôles de colonne de tableau
+
+   Ils remplacent les largeurs réglées à la main (w-24, w-32, w-40,
+   min-w-[240px], max-w-[360px] truncate…), justes à une seule largeur
+   d'écran et fausses partout ailleurs.
+
+   Mécanique : `width: 1%` + `nowrap` fait rétrécir une cellule à son
+   contenu dans une table en `table-auto` ; les colonnes en pourcentage
+   absorbent alors TOUTE la largeur restante. D'où la règle : tout
+   tableau déclare au moins une colonne `grow`, sinon il ne prend pas
+   la pleine largeur — il va dans un rail, ou sa carte est plafonnée.
+   ============================================================ */
+@layer components {
+  .admin-scope th[data-col],
+  .admin-scope td[data-col] {
+    width: 1%;
+    white-space: nowrap;
+  }
+
+  .admin-scope :is(th, td)[data-col="num"],
+  .admin-scope :is(th, td)[data-col="date"],
+  .admin-scope :is(th, td)[data-col="money"],
+  .admin-scope :is(th, td)[data-col="actions"] {
+    text-align: right;
+  }
+
+  .admin-scope td[data-col="num"],
+  .admin-scope td[data-col="date"],
+  .admin-scope td[data-col="money"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-scope td[data-col="money"] {
+    font-weight: 500;
+    color: var(--foreground);
+  }
+
+  .admin-scope :is(th, td)[data-col="mono"],
+  .admin-scope :is(th, td)[data-col="id"] {
+    font-size: 12.5px;
+  }
+  .admin-scope td[data-col="mono"],
+  .admin-scope td[data-col="id"] {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    color: var(--muted-foreground);
+  }
+
+  /* Colonnes élastiques : les seules à grandir. Plusieurs colonnes
+     élastiques d'un même tableau se partagent la largeur restante. */
+  .admin-scope :is(th, td)[data-col="grow"] {
+    width: 100%;
+    white-space: normal;
+  }
+  .admin-scope :is(th, td)[data-col="grow-2"] {
+    width: 50%;
+    white-space: normal;
+  }
+  .admin-scope :is(th, td)[data-col="grow-3"] {
+    width: 33.333%;
+    white-space: normal;
+  }
+
+  /* max-width: 0 est la condition (non évidente, mais obligatoire) pour
+     qu'une cellule de tableau accepte de tronquer. */
+  .admin-scope td[data-truncate] {
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-lift,
+  .mp-row,
+  .mp-row-actions,
+  .mp-nav-item,
+  .mp-nav-icon,
+  .mp-icon-btn {
+    transition-duration: 1ms;
+  }
+  .mp-lift:hover,
+  .mp-lift:active,
+  .mp-nav-item:hover,
+  .mp-nav-item:hover .mp-nav-icon,
+  .mp-icon-btn:hover,
+  .mp-icon-btn:active {
+    transform: none;
+  }
 }
