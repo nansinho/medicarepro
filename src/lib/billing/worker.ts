@@ -6,8 +6,10 @@ import { billingEnv } from "@/lib/env";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
-import { providerForApp,
+import {
+  providerForApp,
   provisionCabinet,
+  notifyRenewal,
   buildProvisioningCabinet,
   ProvisioningConflictError,
   ProvisioningRequestError,
@@ -618,6 +620,39 @@ async function finalizeSuccess(
       entityId: row.id,
       diff: { reference: row.monetico_reference },
     });
+  }
+
+  /* ÉTAT D'ABONNEMENT ANNONCÉ À L'APPLICATION.
+
+     Le provisioning pose le plan, l'échéance et le quota, mais PAS
+     `subscriptionStatus` : un cabinet fraîchement payé restait donc « aucun
+     abonnement connu » chez dev B, là où le même cabinet passé par l'espace
+     abonnement affiche « ACTIVE » (attach.ts l'envoie). Constaté le 06/08/2026
+     sur la première inscription Stripe.
+
+     Ça ne coupe rien — leur contrôle d'accès ne bascule en lecture seule que
+     sur SUSPENDED, et traite NULL comme bénin — mais l'état s'affiche dans leur
+     back-office et dans le nôtre, et deux parcours qui aboutissent au même
+     contrat doivent le décrire pareil. */
+  if (criticalOk) {
+    try {
+      const sync = await notifyRenewal({
+        idempotencyKey: `${row.monetico_reference}-signup`,
+        cabinetId: provision.cabinetId,
+        plan: row.plan,
+        periodEnd: periodEndDate?.toISOString(),
+        status: "ACTIVE",
+        cancelAtPeriodEnd: false,
+        maxAssistants: row.extra_collaborators,
+      });
+      if (!sync.ok) {
+        console.error("[billing-worker] état d'abonnement :", sync.reason);
+      }
+    } catch (err) {
+      /* Sans conséquence : le compte existe, l'échéance est posée, et le
+         prochain mouvement d'abonnement réalignera l'état. */
+      console.error("[billing-worker] état d'abonnement :", errMessage(err));
+    }
   }
 
   /* --- Best-effort (chaque étape isolée : un échec ne bloque pas la suite).
