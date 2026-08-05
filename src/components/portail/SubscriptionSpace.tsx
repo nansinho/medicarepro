@@ -143,10 +143,19 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
      indisponible) : l'écran affiche alors le tarif sans détail plutôt que de
      bloquer le changement. */
   const [apercu, setApercu] = useState<
-    | { prorationCents: number; nextInvoiceCents: number; nextInvoiceDate: string | null }
+    | {
+        prorationCents: number;
+        nextInvoiceCents: number;
+        nextInvoiceDate: string | null;
+      }
     | false
     | null
   >(null);
+  /* Une AUGMENTATION est encaissée sur-le-champ ; une baisse laisse un avoir
+     sur la facture suivante. L'écran doit dire lequel des deux se produit :
+     annoncer « ajouté à votre prochaine facture » avant un prélèvement
+     immédiat, c'est faire cliquer quelqu'un qui croit ne rien payer. */
+  const augmente = apercu !== null && apercu !== false && apercu.prorationCents > 0;
   const drawerRef = useRef<HTMLDivElement>(null);
 
   /* Le panneau s'ouvre sous la grille : sur un écran court, il naîtrait hors
@@ -548,7 +557,7 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
           <div className={s.drawerTitle}>Changer de formule</div>
           <p className={s.drawerLead}>
             {props.immediateChanges
-              ? "Votre nouvelle formule s'applique immédiatement. Le temps déjà payé n'est pas perdu : il est déduit, et seule la différence est ajoutée à votre prochaine facture."
+              ? "Votre nouvelle formule s'applique immédiatement. Le temps déjà payé n'est pas perdu : il est déduit, et vous ne réglez que la différence — tout de suite si vous ajoutez, en avoir sur votre prochaine facture si vous réduisez."
               : `Choisissez ce que vous voulez à partir du ${props.periodEndLabel}. Rien n'est débité aujourd'hui.`}
           </p>
         </div>
@@ -688,9 +697,11 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
               {apercu && !planUnchanged && (
                 <div className={s.recap}>
                   <span className={s.recapLabel}>
-                    {apercu.prorationCents >= 0
-                      ? "Ajouté à votre prochaine facture"
-                      : "Déduit de votre prochaine facture"}
+                    {apercu.prorationCents > 0
+                      ? "À régler maintenant"
+                      : apercu.prorationCents < 0
+                        ? "Avoir sur votre prochaine facture"
+                        : "Rien à régler"}
                   </span>
                   <span className={s.recapValue}>
                     {(Math.abs(apercu.prorationCents) / 100)
@@ -738,6 +749,12 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
                 </>
               ) : planUnchanged ? (
                 "C'est déjà votre formule"
+              ) : augmente && apercu ? (
+                /* Le montant DANS le bouton : c'est la dernière chose lue avant
+                   le clic, et la seule qui dise qu'on va être débité. */
+                `Payer ${(apercu.prorationCents / 100)
+                  .toFixed(2)
+                  .replace(".", ",")} € et appliquer`
               ) : (
                 "Enregistrer ce changement"
               )}
