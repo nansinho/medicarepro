@@ -2,7 +2,6 @@ import { type NextRequest } from "next/server";
 import { serviceClient } from "@/lib/supabase/service";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { clientIpFrom } from "@/lib/http/client-ip";
-import { REFUSED_CODE } from "@/lib/monetico";
 
 /* ============================================================
    GET /api/checkout/status?ref=<référence> — suivi du dossier
@@ -81,14 +80,15 @@ export async function GET(request: NextRequest) {
     row.next_retry_at === null &&
     row.last_error !== null;
 
-  /* Un paiement qui n'aboutira pas, quel que soit le prestataire. Chez Monetico
-     c'est un code de retour bancaire ; chez Stripe, un prélèvement SEPA rejeté
-     ou une page de paiement expirée. Sans ce signal, l'écran de suivi tourne
-     indéfiniment sur « nous attendons la confirmation ». */
-  const REFUS_STRIPE = ["stripe_refused", "stripe_expired"];
-  const refuse =
-    row.code_retour === REFUSED_CODE ||
-    (row.code_retour !== null && REFUS_STRIPE.includes(row.code_retour));
+  /* Un paiement qui n'aboutira pas : prélèvement SEPA rejeté, ou page de
+     paiement expirée. Sans ce signal, l'écran de suivi tourne indéfiniment sur
+     « nous attendons la confirmation ».
+
+     « Annulation » est le code de refus hérité de Monetico : il ne sera plus
+     jamais écrit, mais des dossiers de 2026 le portent encore et leur écran de
+     suivi doit continuer à dire la vérité. */
+  const REFUS = ["stripe_refused", "stripe_expired", "Annulation"];
+  const refuse = row.code_retour !== null && REFUS.includes(row.code_retour);
 
   return Response.json({
     status: row.status,

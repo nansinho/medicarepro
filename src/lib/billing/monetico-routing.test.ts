@@ -23,8 +23,6 @@ import { describe, expect, it } from "vitest";
 
 /** Toute route qui construit un formulaire de paiement Monetico. */
 const BUILDERS = [
-  "src/app/api/checkout/route.ts",
-  "src/app/api/checkout/retry/route.ts",
   "src/lib/billing/orders.ts",
 ];
 

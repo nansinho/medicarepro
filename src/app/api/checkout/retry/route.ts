@@ -1,122 +1,59 @@
 import { type NextRequest } from "next/server";
-import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  env,
-  billingEnv,
-  paymentProvider,
-  canCollectPayment,
-} from "@/lib/env";
+import { canCollectPayment } from "@/lib/env";
 import { createSubscriptionCheckout } from "@/lib/stripe/checkout";
 import { createSignupCustomer } from "@/lib/stripe/customer";
 import { serviceClient } from "@/lib/supabase/service";
-import {
-  encryptSecret,
-  decryptSecret,
-  timingSafeEqualString,
-} from "@/lib/crypto";
-import { buildPaymentForm } from "@/lib/monetico";
-import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
-import { invoicePrefixCandidates } from "@/lib/checkout/invoice-prefix";
-import {
-  checkAvailability,
-  ProvisioningUnavailableError,
-} from "@/lib/provisioning";
+import { timingSafeEqualString } from "@/lib/crypto";
 import { clientIpFrom } from "@/lib/http/client-ip";
 import { isSameOriginJsonPost } from "@/lib/http/origin-guard";
-import { logAudit } from "@/lib/audit";
-import { MANDATE_TEXT_VERSION, mandateText } from "@/lib/sepa/mandate-text";
-import { mandateTextSha256 } from "@/lib/sepa/mandate-hash";
-import { maskIban } from "@/lib/sepa/iban";
 
 /* ============================================================
-   POST /api/checkout/retry — nouvelle tentative après un refus
-   de paiement. Crée une NOUVELLE ligne pending_signups (nouvelle
-   référence Monetico, nouveau RUM, nouveau token) chaînée à
-   l'ancienne (root_id hérité, parent_id = ancien dossier), puis
-   marque l'ancienne 'superseded'. Les secrets sont RE-chiffrés :
-   l'AAD change avec la référence.
-   Réponses : même contrat que POST /api/checkout.
+   POST /api/checkout/retry — rouvrir la page de paiement d'un dossier
+   d'inscription resté impayé.
+
+   CE QUE CETTE ROUTE FAISAIT AVANT, ET POURQUOI ELLE NE LE FAIT PLUS.
+   Une commande Monetico refusée ne peut pas être repayée : il fallait donc
+   créer un NOUVEAU dossier — nouvelle référence, secrets re-chiffrés parce que
+   l'AAD change avec elle, nouvelle RUM, nouveau texte de mandat, nouveau jeton
+   de suivi — chaîner l'ancien en `superseded`, et re-vérifier les
+   disponibilités auprès de l'application. Quatre cents lignes pour contourner
+   une limite bancaire.
+
+   Stripe rouvre une session sur la même référence. Le dossier ne bouge pas, ses
+   secrets restent déchiffrables, sa preuve de consentement reste rattachée.
+
+   Deux défauts connus ont disparu avec l'ancienne branche : elle n'écrivait
+   jamais `monetico_order_date` (d'où une résiliation automatique impossible),
+   et son plafond de 5 tentatives par heure contredisait celui du tunnel, à 30.
    ============================================================ */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const GENERIC_CONFLICT =
-  "Ces informations ne permettent pas de créer un compte. Vérifiez vos saisies ou contactez-nous.";
-
 const GENERIC_FAILURE =
   "Une erreur technique est survenue. Réessayez dans quelques minutes.";
 
 const RetrySchema = z.object({
-  reference: z
-    .string()
-    .regex(/^[A-Z0-9]{12}$/, "Référence invalide"),
+  reference: z.string().regex(/^[A-Z0-9]{12}$/, "Référence invalide"),
 });
-
-/* Référence Monetico : "MP" + 10 caractères Crockford base32
-   (A-Z0-9 sans I, L, O, U). 256 % 32 === 0 : tirage sans biais. */
-const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-
-function newMoneticoReference(): string {
-  const bytes = randomBytes(10);
-  let out = "MP";
-  for (let i = 0; i < 10; i++) out += CROCKFORD[bytes[i] % 32];
-  return out;
-}
-
-/** Même durée que le tunnel : celle de la page de paiement, pas une heure. */
-function checkoutCookie(reference: string, statusToken: string): string {
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  const DUREE = 24 * 3600;
-  return `mp_checkout=${reference}.${statusToken}; Path=/; Max-Age=${DUREE}; HttpOnly; SameSite=Lax${secure}`;
-}
-
-/** Violation de l'index unique du préfixe de facturation. */
-function isPrefixConflict(error: {
-  code?: string;
-  message?: string;
-  details?: string;
-}): boolean {
-  if (error.code !== "23505") return false;
-  const text = `${error.message ?? ""} ${error.details ?? ""}`;
-  return (
-    text.includes("pending_signups_prefix_live_idx") ||
-    text.includes("invoice_prefix")
-  );
-}
-
-type ContractCabinet = {
-  name: string;
-  email: string;
-  phone: string;
-  mobilePhone: string;
-  address: string;
-  city: string;
-  postalCode: string;
-  siretNumber?: string;
-  rppsNumber: string;
-};
 
 type OldRow = {
   id: string;
-  root_id: string;
   monetico_reference: string;
   status: string;
   status_token: string;
   plan: "MONTHLY" | "ANNUAL";
   extra_collaborators: number;
-  amount_cents: number;
-  currency: string;
-  cabinet: ContractCabinet;
-  user_info: { firstName: string; lastName: string; email: string };
   password_enc: string | null;
-  sepa_payload_enc: string | null;
-  cgv_accepted_at: string;
-  mandate_accepted_at: string;
-  client_ip: string | null;
-  user_agent: string | null;
+  cabinet: {
+    name: string;
+    email: string;
+    address: string;
+    city: string;
+    postalCode: string;
+  };
   stripe_customer_id: string | null;
 };
 
@@ -151,38 +88,40 @@ export async function POST(request: NextRequest) {
       { status: 422 },
     );
   }
-  const oldReference = parsed.data.reference;
+  const reference = parsed.data.reference;
 
   // Cookie porteur : même contrôle que /api/checkout/status.
   const cookie = request.cookies.get("mp_checkout")?.value ?? "";
   const dot = cookie.indexOf(".");
   const cookieRef = dot > 0 ? cookie.slice(0, dot) : "";
   const cookieToken = dot > 0 ? cookie.slice(dot + 1) : "";
-  if (!cookieRef || !cookieToken || cookieRef !== oldReference) {
+  if (!cookieRef || !cookieToken || cookieRef !== reference) {
     return Response.json({ error: "Accès refusé." }, { status: 403 });
   }
 
-  const { data: oldData, error: loadError } = await supabase
+  const { data, error: loadError } = await supabase
     .from("pending_signups")
     .select(
-      "id, root_id, monetico_reference, status, status_token, plan, extra_collaborators, amount_cents, currency, cabinet, user_info, password_enc, sepa_payload_enc, cgv_accepted_at, mandate_accepted_at, client_ip, user_agent, stripe_customer_id",
+      "id, monetico_reference, status, status_token, plan, extra_collaborators, password_enc, cabinet, stripe_customer_id",
     )
-    .eq("monetico_reference", oldReference)
+    .eq("monetico_reference", reference)
     .maybeSingle();
-  if (loadError || !oldData) {
+  if (loadError || !data) {
     return Response.json({ error: "Accès refusé." }, { status: 403 });
   }
-  const old = oldData as OldRow;
+  const dossier = data as OldRow;
 
-  if (!timingSafeEqualString(cookieToken, old.status_token)) {
+  if (!timingSafeEqualString(cookieToken, dossier.status_token)) {
     return Response.json({ error: "Accès refusé." }, { status: 403 });
   }
 
-  // Rate-limit : même seau que la création de dossier.
+  /* Plafond par IP. Aligné sur celui du tunnel : rouvrir une page de paiement
+     ne coûte rien de plus que d'en ouvrir une, et un praticien dont la carte
+     est refusée deux fois n'a pas à être bloqué une heure. */
   const ip = clientIpFrom(request.headers);
   const { data: allowed, error: rlError } = await supabase.rpc(
     "hit_rate_limit",
-    { p_bucket: `checkout:${ip}`, p_limit: 5, p_window_seconds: 3600 },
+    { p_bucket: `checkout:${ip}`, p_limit: 30, p_window_seconds: 3600 },
   );
   if (rlError) {
     return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
@@ -194,18 +133,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Rejouable UNIQUEMENT depuis un dossier non payé (refus) ou déjà remplacé.
-  if (old.status !== "payment_pending" && old.status !== "superseded") {
+  /* Rejouable UNIQUEMENT depuis un dossier non payé. Un dossier déjà réglé
+     rouvrirait une caisse sur un abonnement qui existe. */
+  if (dossier.status !== "payment_pending") {
     return Response.json(
       { error: "Ce dossier ne peut plus être rejoué." },
       { status: 409 },
     );
   }
-  // Le mandat SEPA n'est requis que si le dossier d'origine en portait un
-  // (créé quand l'étape SEPA était active). Sans SEPA, seul le mot de passe
-  // doit être présent.
-  const hadSepa = Boolean(old.sepa_payload_enc);
-  if (!old.password_enc) {
+  if (!dossier.password_enc) {
     // Secrets purgés (dossier trop ancien) : repasser par le formulaire.
     return Response.json(
       { error: "Ce dossier a expiré. Recommencez votre inscription." },
@@ -213,271 +149,50 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  /* --- REPRISE CHEZ STRIPE : on rouvre la caisse sur LE MÊME DOSSIER.
-     Toute la machinerie qui suit — nouveau dossier, nouvelle référence,
-     re-chiffrement des secrets, nouvelle RUM, nouveau texte de mandat — n'existe
-     que parce qu'une commande Monetico refusée ne peut pas être repayée. Stripe
-     n'a pas cette limite : la session est rouverte sur la même référence, donc
-     les secrets déjà chiffrés restent déchiffrables et la preuve de consentement
-     reste rattachée. */
-  if (paymentProvider() === "stripe") {
-    try {
-      const customerId =
-        old.stripe_customer_id ??
-        (await createSignupCustomer({
-          reference: old.monetico_reference,
-          name: old.cabinet.name,
-          email: old.cabinet.email,
-          address: old.cabinet.address,
-          postalCode: old.cabinet.postalCode,
-          city: old.cabinet.city,
-        }));
-
-      /* Idempotent sur la référence : dans les 24 heures, Stripe rend la MÊME
-         session, toujours ouverte, plutôt que d'en créer une seconde sur
-         laquelle le client pourrait payer une deuxième fois. Passé ce délai la
-         session a expiré et une nouvelle est ouverte, ce qui est le
-         comportement voulu. */
-      const { url, sessionId } = await createSubscriptionCheckout({
-        reference: old.monetico_reference,
-        plan: old.plan,
-        extraCollaborators: old.extra_collaborators,
-        customerId,
-        successPath: "/inscription/confirmation",
-        errorPath: "/inscription/echec",
-        metadata: { kind: "signup" },
-      });
-
-      await supabase
-        .from("pending_signups")
-        .update({
-          stripe_checkout_session_id: sessionId,
-          stripe_customer_id: customerId,
-          /* Le motif du refus précédent est effacé : sans quoi l'écran de suivi
-             continuerait d'annoncer un paiement refusé pendant que le client
-             est en train d'en faire un nouveau. */
-          code_retour: null,
-        })
-        .eq("id", old.id);
-
-      return Response.json({ redirectUrl: url, reference: old.monetico_reference });
-    } catch (err) {
-      console.error(
-        "[checkout-retry] session Stripe :",
-        err instanceof Error ? err.message : String(err),
-      );
-      return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
-    }
-  }
-
-  const billing = billingEnv();
-  const cabinet = old.cabinet;
-  const user = old.user_info;
-
-  // RE-chiffrement des secrets : l'AAD est la référence Monetico — elle
-  // change, donc on déchiffre avec l'ancienne et on rechiffre avec la nouvelle.
-  const newReference = newMoneticoReference();
-  let passwordEnc: string;
-  let sepaPayloadEnc: string | null = null;
-  let reservedRum: string | null = null;
-  let mandateSha: string | null = null;
   try {
-    const password = decryptSecret(old.password_enc, old.monetico_reference);
-    passwordEnc = encryptSecret(password, newReference);
-    if (hadSepa) {
-      const sepaJson = decryptSecret(
-        old.sepa_payload_enc!,
-        old.monetico_reference,
-      );
-      const sepaPayload = JSON.parse(sepaJson) as {
-        iban: string;
-        bic?: string;
-        accountHolder: string;
-      };
-      sepaPayloadEnc = encryptSecret(sepaJson, newReference);
+    const customerId =
+      dossier.stripe_customer_id ??
+      (await createSignupCustomer({
+        reference: dossier.monetico_reference,
+        name: dossier.cabinet.name,
+        email: dossier.cabinet.email,
+        address: dossier.cabinet.address,
+        postalCode: dossier.cabinet.postalCode,
+        city: dossier.cabinet.city,
+      }));
 
-      // Nouveau RUM : le texte du mandat (donc son empreinte) en dépend.
-      const { data: rumData, error: rumError } =
-        await supabase.rpc("next_sepa_rum");
-      if (rumError || typeof rumData !== "string") {
-        return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
-      }
-      reservedRum = rumData;
-
-      const debtorAddress = `${cabinet.address}, ${cabinet.postalCode} ${cabinet.city}`;
-      mandateSha = mandateTextSha256(
-        mandateText({
-          rum: reservedRum,
-          ics: billing.sepaIcs,
-          debtorName: cabinet.name,
-          accountHolder: sepaPayload.accountHolder,
-          debtorAddress,
-          ibanMasked: maskIban(sepaPayload.iban),
-        }),
-      );
-    }
-  } catch {
-    return Response.json(
-      { error: "Ce dossier a expiré. Recommencez votre inscription." },
-      { status: 409 },
-    );
-  }
-
-  const newId = randomUUID();
-  const statusToken = randomBytes(16).toString("hex");
-
-  /* --- Re-vérification des disponibilités + INSERT (même logique de
-     préfixe que /api/checkout). L'ancien dossier est encore « vivant »
-     dans l'index unique : son préfixe sera refusé, le candidat suivant
-     prendra le relais. */
-  const candidates = invoicePrefixCandidates(cabinet.name);
-  let invoicePrefix: string | null = null;
-
-  for (const candidate of candidates) {
-    let availability;
-    try {
-      availability = await checkAvailability({
-        cabinet: {
-          email: cabinet.email,
-          siretNumber: cabinet.siretNumber,
-          invoicePrefix: candidate,
-        },
-        user: { email: user.email },
-      });
-    } catch (err) {
-      if (err instanceof ProvisioningUnavailableError) {
-        return Response.json(
-          {
-            error:
-              "Notre service d'inscription est momentanément indisponible. Réessayez dans quelques minutes.",
-          },
-          { status: 502 },
-        );
-      }
-      console.error(
-        "[checkout-retry] check-availability :",
-        err instanceof Error ? err.message : String(err),
-      );
-      return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
-    }
-
-    if (!availability.available) {
-      const onlyPrefix =
-        availability.conflicts.length > 0 &&
-        availability.conflicts.every((c) => c === "cabinet.invoicePrefix");
-      if (onlyPrefix) continue;
-      return Response.json({ error: GENERIC_CONFLICT }, { status: 409 });
-    }
-
-    const { error: insertError } = await supabase.from("pending_signups").insert({
-      id: newId,
-      root_id: old.root_id, // chaîne héritée du premier dossier
-      parent_id: old.id,
-      monetico_reference: newReference,
-      /* Écrite dès l'insert : ce chemin n'a pas d'update post-scellement où la
-         poser plus tard, contrairement au tunnel. Le mode ne dépend pas du
-         plan, seuls le TPE et la clé en dépendent. */
-      payment_environment: billingEnv().moneticoMode,
-      payment_provider: "monetico",
-      plan: old.plan,
-      extra_collaborators: old.extra_collaborators,
-      amount_cents: old.amount_cents,
-      currency: old.currency,
-      cabinet: old.cabinet,
-      user_info: old.user_info,
-      invoice_prefix: candidate,
-      password_enc: passwordEnc,
-      sepa_payload_enc: sepaPayloadEnc,
-      reserved_rum: reservedRum,
-      mandate_text_version: sepaPayloadEnc ? MANDATE_TEXT_VERSION : null,
-      mandate_text_sha256: mandateSha,
-      // Consentements : ceux réellement donnés au checkout d'origine
-      // (l'IP/UA de preuve restent ceux du moment du consentement).
-      cgv_accepted_at: old.cgv_accepted_at,
-      mandate_accepted_at: old.mandate_accepted_at,
-      client_ip: old.client_ip,
-      user_agent: old.user_agent,
-      status_token: statusToken,
+    /* Idempotent sur la référence : dans les 24 heures, Stripe rend la MÊME
+       session, toujours ouverte, plutôt que d'en créer une seconde sur laquelle
+       le client pourrait payer une deuxième fois. Passé ce délai la session a
+       expiré et une nouvelle est ouverte, ce qui est le comportement voulu. */
+    const { url, sessionId } = await createSubscriptionCheckout({
+      reference: dossier.monetico_reference,
+      plan: dossier.plan,
+      extraCollaborators: dossier.extra_collaborators,
+      customerId,
+      successPath: "/inscription/confirmation",
+      errorPath: "/inscription/echec",
+      metadata: { kind: "signup" },
     });
 
-    if (!insertError) {
-      invoicePrefix = candidate;
-      break;
-    }
-    if (isPrefixConflict(insertError)) continue;
-    console.error(
-      "[checkout-retry] insert pending_signups :",
-      insertError.message,
-    );
-    return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
-  }
+    await supabase
+      .from("pending_signups")
+      .update({
+        stripe_checkout_session_id: sessionId,
+        stripe_customer_id: customerId,
+        /* Le motif du refus précédent est effacé : sans quoi l'écran de suivi
+           continuerait d'annoncer un paiement refusé pendant que le client est
+           en train d'en faire un nouveau. */
+        code_retour: null,
+      })
+      .eq("id", dossier.id);
 
-  if (!invoicePrefix) {
-    return Response.json({ error: GENERIC_CONFLICT }, { status: 409 });
-  }
-
-  // L'ancien dossier est remplacé (seulement s'il attend encore un paiement).
-  await supabase
-    .from("pending_signups")
-    .update({ status: "superseded" })
-    .eq("id", old.id)
-    .eq("status", "payment_pending");
-
-  const siteUrl = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
-  /* Deux adresses DISTINCTES (exigence Monetico) : `url_retour_ok` et
-     `url_retour_err` ne peuvent pas être la même. */
-  const returnUrl = `${siteUrl}/inscription/confirmation?ref=${newReference}`;
-  const errorUrl = `${siteUrl}/inscription/echec?ref=${newReference}`;
-  let form;
-  try {
-    form = buildPaymentForm(
-      {
-        reference: newReference,
-        amountCents: old.amount_cents,
-        email: user.email,
-        urlRetourOk: returnUrl,
-        urlRetourErr: errorUrl,
-        billingContext: {
-          addressLine1: cabinet.address,
-          city: cabinet.city,
-          postalCode: cabinet.postalCode,
-          country: "FR",
-        },
-      },
-      /* Router par le PLAN, comme la commande d'origine (monetico-routing.ts).
-         La relance reprenait en dur le TPE récurrent : une offre 12 mois
-         relancée repartait sur NB8179R, dont le code site porte la
-         périodicité MENSUELLE. Un client qui relançait son annuel après un
-         refus se serait retrouvé prélevé de 478,08 € TOUS LES MOIS. Observé
-         en production le 05/08/2026 (MPW6J1QVJ4P7, MP7WEVH8JM3V,
-         MP44K6ZA2Q7A : plan ANNUAL, TPE NB8179R dans l'IPN) — sans
-         conséquence uniquement parce que la banque a refusé les trois. */
-      moneticoConfigForPlan(old.plan),
-    );
+    return Response.json({ redirectUrl: url, reference: dossier.monetico_reference });
   } catch (err) {
     console.error(
-      "[checkout-retry] buildPaymentForm :",
+      "[checkout-retry] session Stripe :",
       err instanceof Error ? err.message : String(err),
     );
     return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
   }
-
-  await logAudit({
-    action: "checkout.retried",
-    entityType: "pending_signup",
-    entityId: newId,
-    diff: {
-      reference: newReference,
-      parentId: old.id,
-      rootId: old.root_id,
-      invoicePrefix,
-    },
-    ip,
-    userAgent: (request.headers.get("user-agent") ?? "").slice(0, 400),
-  });
-
-  return Response.json(
-    { action: form.action, fields: form.fields, reference: newReference },
-    { headers: { "set-cookie": checkoutCookie(newReference, statusToken) } },
-  );
 }

@@ -1,16 +1,9 @@
 import { type NextRequest } from "next/server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  env,
-  billingEnv,
-  paymentProvider,
-  canCollectPayment,
-} from "@/lib/env";
+import { billingEnv, canCollectPayment } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { encryptSecret } from "@/lib/crypto";
-import { buildPaymentForm } from "@/lib/monetico";
-import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
 import { createSubscriptionCheckout } from "@/lib/stripe/checkout";
 import { createSignupCustomer } from "@/lib/stripe/customer";
 import { stripeLiveMode } from "@/lib/stripe/client";
@@ -469,105 +462,22 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
   }
 
-  /* --- Le paiement lui-même. Deux prestataires, deux formes de réponse : une
-     adresse où rediriger (Stripe), ou un formulaire à auto-soumettre
-     (Monetico). Le dossier, ses secrets et sa preuve de consentement sont déjà
-     écrits : ce qui suit ne fait qu'ouvrir la caisse. */
-  if (paymentProvider() === "stripe") {
-    return openStripeCheckout({
-      supabase,
-      id,
-      reference,
-      plan: input.plan,
-      extraCollaborators: input.extraCollaborators,
-      cabinet,
-      user,
-      invoicePrefix,
-      amountCents,
-      statusToken,
-      ip,
-      userAgent,
-    });
-  }
-
-  // Formulaire Monetico scellé (auto-submit côté client).
-  const siteUrl = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
-  /* DEUX adresses DISTINCTES : Monetico refuse `url_retour_ok` et
-     `url_retour_err` identiques, et l'a signalé sur ce contrat. Au-delà de la
-     conformité, c'est le seul signal qui arrive dans le navigateur avant la
-     notification serveur : sans lui, un client dont la carte vient d'être
-     refusée atterrit sur un écran de confirmation. */
-  const returnUrl = `${siteUrl}/inscription/confirmation?ref=${reference}`;
-  const errorUrl = `${siteUrl}/inscription/echec?ref=${reference}`;
-  // TPE choisi selon la formule : récurrent (mensuel) ou immédiat (annuel).
-  // Nommé plutôt qu'inline : la plateforme qu'il porte est enregistrée juste
-  // après, et les deux doivent venir de la même décision.
-  const config = moneticoConfigForPlan(input.plan);
-  let form;
-  try {
-    form = buildPaymentForm(
-      {
-        reference,
-        amountCents,
-        email: user.email,
-        urlRetourOk: returnUrl,
-        urlRetourErr: errorUrl,
-        billingContext: {
-          addressLine1: cabinet.address,
-          city: cabinet.city,
-          postalCode: cabinet.postalCode,
-          country: "FR",
-        },
-      },
-      config,
-    );
-  } catch (err) {
-    console.error(
-      "[checkout] buildPaymentForm :",
-      err instanceof Error ? err.message : String(err),
-    );
-    return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
-  }
-
-  /* Date de commande figée telle qu'elle vient d'être scellée : le service
-     de capture (arrêt de récurrence) la réclame à l'identique, et la
-     re-dériver de created_at serait faux à cheval sur minuit. */
-  const { error: orderDateError } = await supabase
-    .from("pending_signups")
-    .update({
-      monetico_order_date: form.fields["date"].slice(0, 10),
-      payment_environment: config.mode,
-      payment_provider: "monetico",
-    })
-    .eq("id", id);
-  if (orderDateError) {
-    // Non bloquant : le paiement peut avoir lieu, seule la résiliation
-    // automatique en pâtirait — on la rattrape à la main si besoin.
-    console.error(
-      "[checkout] monetico_order_date :",
-      orderDateError.message,
-    );
-  }
-
-  await logAudit({
-    action: "checkout.created",
-    entityType: "pending_signup",
-    entityId: id,
-    diff: {
-      reference,
-      plan: input.plan,
-      extraCollaborators: input.extraCollaborators,
-      amountCents,
-      invoicePrefix,
-    },
+  /* --- Le paiement. Le dossier, ses secrets et sa preuve de consentement sont
+     déjà écrits : il ne reste qu'à ouvrir la caisse et à envoyer le client. */
+  return openStripeCheckout({
+    supabase,
+    id,
+    reference,
+    plan: input.plan,
+    extraCollaborators: input.extraCollaborators,
+    cabinet,
+    user,
+    invoicePrefix,
+    amountCents,
+    statusToken,
     ip,
     userAgent,
   });
-
-  return Response.json(
-    { action: form.action, fields: form.fields, reference },
-    { headers: { "set-cookie": checkoutCookie(reference, statusToken) } },
-  );
 }
 
 /* ------------------------------------------------------------

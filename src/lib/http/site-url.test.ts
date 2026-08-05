@@ -24,8 +24,6 @@ const GUARDED = [
   "src/proxy.ts",
   "src/app/(portail)/mon-abonnement/entrer/route.ts",
   "src/app/api/portal/subscribe/route.ts",
-  "src/app/api/checkout/route.ts",
-  "src/app/api/checkout/retry/route.ts",
   "src/app/api/draft/enable/route.ts",
   "src/app/api/draft/disable/route.ts",
   "src/lib/billing/orders.ts",
