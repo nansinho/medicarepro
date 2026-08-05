@@ -186,8 +186,19 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        if (url.endsWith("/pay")) {
-          setRedirect((await res.json()) as Redirect);
+        const reponse = (await res.json().catch(() => null)) as
+          | (Redirect & { url?: string })
+          | null;
+        /* Une adresse : la suite se passe chez Stripe (changement de carte,
+           paiement). Un formulaire scellé : c'est Monetico, il faut le
+           soumettre en POST. On distingue par la forme de la réponse, pour que
+           le navigateur n'ait aucune décision de configuration à prendre. */
+        if (reponse?.url) {
+          window.location.assign(reponse.url);
+          return true;
+        }
+        if (url.endsWith("/pay") && reponse) {
+          setRedirect(reponse);
         }
         return true;
       }

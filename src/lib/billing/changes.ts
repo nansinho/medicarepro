@@ -92,11 +92,14 @@ export type ChangeableSubscription = {
      l'alerte, laquelle arreter a la main quand le service refuse. */
   monetico_reference: string;
   monetico_order_date: string | null;
+  payment_provider: "monetico" | "stripe" | null;
+  stripe_subscription_id: string | null;
+  stripe_customer_id: string | null;
   first_payment_cents: number;
 };
 
 export const CHANGEABLE_SUBSCRIPTION_COLUMNS =
-  "id, app_cabinet_id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, status, current_period_end, recurrence_stopped_at, monetico_reference, monetico_order_date, first_payment_cents";
+  "id, app_cabinet_id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, status, current_period_end, recurrence_stopped_at, monetico_reference, monetico_order_date, first_payment_cents, payment_provider, stripe_subscription_id, stripe_customer_id";
 
 /** États dans lesquels un contrat accepte encore une demande. */
 const OPEN_STATUSES = new Set([
