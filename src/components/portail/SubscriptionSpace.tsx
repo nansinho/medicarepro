@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MoneticoRedirectForm from "@/components/checkout/MoneticoRedirectForm";
 import { LEGAL_DOCUMENTS, TERMS_LABEL } from "@/lib/legal/registry";
+import { MAX_EXTRA_COLLABORATORS } from "@/lib/checkout/pricing";
 import s from "./Portal.module.css";
 
 /* ============================================================
@@ -86,7 +87,9 @@ export type SubscriptionSpaceProps = {
   };
 };
 
-const MAX_COLLABS = 20;
+/* Repris de la grille tarifaire, jamais recopié : c'est cette valeur que le
+   serveur applique. */
+const MAX_COLLABS = MAX_EXTRA_COLLABORATORS;
 type Drawer = "plan" | "card" | "cancel" | "pay" | null;
 type Redirect = { action: string; fields: Record<string, string> };
 
@@ -633,9 +636,23 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
               >
                 −
               </button>
-              <span className={s.counterVal} aria-live="polite">
-                {extra}
-              </span>
+              <input
+                type="number"
+                inputMode="numeric"
+                className={s.counterVal}
+                value={extra}
+                min={0}
+                max={MAX_COLLABS}
+                onChange={(e) => {
+                  const n = Number.parseInt(e.target.value, 10);
+                  const v = Number.isNaN(n)
+                    ? 0
+                    : Math.max(0, Math.min(MAX_COLLABS, n));
+                  setExtra(v);
+                  void demanderApercu(plan, v);
+                }}
+                aria-label="Nombre de collaborateurs supplémentaires"
+              />
               <button
                 type="button"
                 className={s.counterBtn}

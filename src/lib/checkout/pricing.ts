@@ -45,7 +45,20 @@ export const BASE_ANNUAL_MONTHLY_CENTS = 2484;
 /** Supplément mensuel TTC par collaborateur. */
 export const COLLABORATOR_MONTHLY_CENTS = 1500;
 
-export const MAX_EXTRA_COLLABORATORS = 20;
+/**
+ * Plafond de collaborateurs supplémentaires.
+ *
+ * IL N'Y A PAS DE MAXIMUM COMMERCIAL : confirmé par le client le 05/08/2026, un
+ * cabinet peut déclarer autant de collaborateurs qu'il en emploie. Le plafond
+ * précédent, à 20, refusait donc une vente parfaitement légitime.
+ *
+ * Ce qui reste est un garde-fou de SAISIE, pas une limite d'offre. La valeur
+ * arrive par une requête JSON : sans borne, un `99999` posté à la main
+ * ouvrirait un abonnement à un million et demi d'euros par mois chez Stripe,
+ * avec la facture qui va avec. Deux cents dépasse de très loin le plus grand
+ * cabinet de podologie français, et se relève d'une ligne si le besoin apparaît.
+ */
+export const MAX_EXTRA_COLLABORATORS = 200;
 
 function assertCollaborators(n: number): void {
   if (!Number.isInteger(n) || n < 0 || n > MAX_EXTRA_COLLABORATORS) {

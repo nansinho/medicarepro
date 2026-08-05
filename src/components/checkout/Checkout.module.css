@@ -425,13 +425,31 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+/* Saisissable, et pas seulement incrémentable : il n'y a plus de maximum de
+   collaborateurs, et atteindre trente au clic serait absurde. */
 .counterVal {
   font-family: var(--font-head);
   font-weight: 800;
   font-size: 1.2rem;
-  width: 32px;
+  width: 56px;
   text-align: center;
   color: var(--color-navy);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  background: #fff;
+  height: 36px;
+  padding: 0 4px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.counterVal::-webkit-outer-spin-button,
+.counterVal::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.counterVal:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 .collabCalc {
   font-size: 0.86rem;

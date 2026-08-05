@@ -114,9 +114,16 @@ describe("buildCheckoutParams", () => {
     const { buildCheckoutParams } = await charger();
     expect(() => buildCheckoutParams({ ...BASE, extraCollaborators: -1 })).toThrow();
     expect(() => buildCheckoutParams({ ...BASE, extraCollaborators: 1.5 })).toThrow();
-    expect(() => buildCheckoutParams({ ...BASE, extraCollaborators: 99 })).toThrow(
-      /maximum/,
-    );
+    /* Au-delà du garde-fou de saisie : sans lui, un nombre absurde posté à la
+       main ouvrirait un abonnement de plusieurs centaines de milliers d'euros
+       chez Stripe. Il ne s'agit plus d'une limite d'offre — un cabinet peut
+       déclarer autant de collaborateurs qu'il en emploie. */
+    expect(() =>
+      buildCheckoutParams({ ...BASE, extraCollaborators: 99999 }),
+    ).toThrow(/maximum/);
+    expect(() =>
+      buildCheckoutParams({ ...BASE, extraCollaborators: 25 }),
+    ).not.toThrow();
   });
 
   /* Le piège 0.0.0.0 : en production le serveur standalone dérive son URL de

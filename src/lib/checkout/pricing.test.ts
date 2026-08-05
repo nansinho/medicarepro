@@ -5,6 +5,7 @@ import {
   monthlyPriceCents,
   planFromPlanKey,
   renewalAmountCents,
+  MAX_EXTRA_COLLABORATORS,
 } from "./pricing";
 import { baseInvoicePrefix, invoicePrefixCandidates } from "./invoice-prefix";
 import { CheckoutSchema } from "./schema";
@@ -32,11 +33,20 @@ describe("pricing (barème CMS : 29,88 / 24,84 / +15,00)", () => {
     expect(renewalAmountCents("MONTHLY", 0)).toBe(2988);
   });
 
-  it("borne les collaborateurs (0-20)", () => {
+  /* Il n'y a plus de maximum COMMERCIAL de collaborateurs (confirmé par le
+     client le 05/08/2026) : le plafond restant est un garde-fou de saisie
+     contre un nombre absurde posté à la main. Le test porte donc sur la borne
+     effective, pas sur une valeur figée. */
+  it("borne les collaborateurs (0 à MAX_EXTRA_COLLABORATORS)", () => {
     expect(() => monthlyPriceCents("MONTHLY", -1)).toThrow();
-    expect(() => monthlyPriceCents("MONTHLY", 21)).toThrow();
+    expect(() =>
+      monthlyPriceCents("MONTHLY", MAX_EXTRA_COLLABORATORS + 1),
+    ).toThrow();
     expect(() => monthlyPriceCents("MONTHLY", 1.5)).toThrow();
     expect(monthlyPriceCents("MONTHLY", 20)).toBe(2988 + 30000);
+    /* 25 collaborateurs : refusé jusqu'au 05/08/2026, ce qui perdait la vente
+       d'un cabinet plus grand que la grille ne l'avait prévu. */
+    expect(monthlyPriceCents("MONTHLY", 25)).toBe(2988 + 25 * 1500);
   });
 
   it("mapping planKey CMS ↔ plan API", () => {

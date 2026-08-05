@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { electronicFormatIBAN, isValidIBAN } from "ibantools";
 import { isValidSiret } from "./siret";
+import { MAX_EXTRA_COLLABORATORS } from "./pricing";
 
 /* ============================================================
    Validation du dossier d'inscription (tunnel checkout).
@@ -81,7 +82,12 @@ export const SepaSchema = z.object({
 
 export const CheckoutSchema = z.object({
   plan: z.enum(["MONTHLY", "ANNUAL"]),
-  extraCollaborators: z.coerce.number().int().min(0).max(20).default(0),
+  extraCollaborators: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_EXTRA_COLLABORATORS)
+    .default(0),
   cabinet: CabinetSchema,
   user: UserSchema,
   /** Mandat SEPA : présent uniquement si l'étape SEPA est active (flag

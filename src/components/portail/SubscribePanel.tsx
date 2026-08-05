@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import MoneticoRedirectForm from "@/components/checkout/MoneticoRedirectForm";
 import { LEGAL_DOCUMENTS, TERMS_LABEL } from "@/lib/legal/registry";
+import { MAX_EXTRA_COLLABORATORS } from "@/lib/checkout/pricing";
 import s from "./Portal.module.css";
 
 /* ============================================================
@@ -26,7 +27,9 @@ type PriceRow = { monthlyLabel: string; totalLabel: string };
 type Prices = { MONTHLY: PriceRow[]; ANNUAL: PriceRow[] };
 type Redirect = { action: string; fields: Record<string, string> };
 
-const MAX_COLLABS = 20;
+/* Repris de la grille tarifaire, jamais recopié : c'est cette valeur que le
+   serveur applique. */
+const MAX_COLLABS = MAX_EXTRA_COLLABORATORS;
 
 export default function SubscribePanel({
   prices,
@@ -163,9 +166,20 @@ export default function SubscribePanel({
             >
               −
             </button>
-            <span className={s.counterVal} aria-live="polite">
-              {extra}
-            </span>
+            <input
+              type="number"
+              inputMode="numeric"
+              className={s.counterVal}
+              value={extra}
+              min={0}
+              max={MAX_COLLABS}
+              onChange={(e) => {
+                const n = Number.parseInt(e.target.value, 10);
+                if (Number.isNaN(n)) return setExtra(0);
+                setExtra(Math.max(0, Math.min(MAX_COLLABS, n)));
+              }}
+              aria-label="Nombre de collaborateurs supplémentaires"
+            />
             <button
               type="button"
               className={s.counterBtn}
