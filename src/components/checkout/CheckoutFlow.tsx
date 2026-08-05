@@ -45,6 +45,15 @@ type Props = {
   /** Étape « Mandat SEPA » active ? Coupée → tunnel à 5 étapes, aucun mandat. */
   sepaEnabled: boolean;
   prices: PriceTable;
+  /* --- Ce que le tunnel PROMET, et qui dépend de qui encaisse. Ce sont des
+     engagements contractuels affichés juste avant le paiement : le navigateur
+     ne doit pas les deviner, le serveur les lui dit. --- */
+  /** L'offre 12 mois se reconduit-elle ? Vrai chez Stripe, faux chez Monetico. */
+  annualRenews: boolean;
+  /** Le prestataire nommé au client (« Stripe », « Monetico — CIC »). */
+  payBrand: string;
+  /** Peut-il résilier depuis son espace, ou doit-il nous écrire ? */
+  selfServiceCancel: boolean;
 };
 
 /* ---- Cloudflare Turnstile (rendu explicite) ---- */
@@ -173,6 +182,8 @@ type FieldProps = {
   onChange: (v: string) => void;
   error?: string;
   hint?: string;
+  /** Confirmation en vert sous le champ, quand il n'y a pas d'erreur. */
+  okMessage?: string;
   optional?: boolean;
   type?: string;
   autoComplete?: string;
@@ -190,6 +201,7 @@ function Field({
   onChange,
   error,
   hint,
+  okMessage,
   optional,
   type = "text",
   autoComplete,
@@ -219,7 +231,12 @@ function Field({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
       />
-      {hint && !error && (
+      {okMessage && !error && (
+        <p className={s.ibanOk} id={`${id}-ok`}>
+          ✓ {okMessage}
+        </p>
+      )}
+      {hint && !error && !okMessage && (
         <p className={s.hint} id={`${id}-hint`}>
           {hint}
         </p>
@@ -241,6 +258,9 @@ export default function CheckoutFlow({
   sepaIcs,
   sepaEnabled,
   prices,
+  annualRenews,
+  payBrand,
+  selfServiceCancel,
 }: Props) {
   /* Étapes réellement affichées (clés + libellés) et helpers d'index —
      tout est dérivé de sepaEnabled, aucun index en dur ailleurs. */
@@ -273,6 +293,8 @@ export default function CheckoutFlow({
     password: "",
   });
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  /** Le champ a-t-il été quitté ? On ne contredit personne pendant sa frappe. */
+  const [confirmTouched, setConfirmTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [sepa, setSepa] = useState({ iban: "", bic: "", accountHolder: "" });
   const [ibanTouched, setIbanTouched] = useState(false);
@@ -943,30 +965,45 @@ export default function CheckoutFlow({
                     (Monetico&nbsp;— CIC). Les renouvellements seront prélevés
                     par mandat SEPA, mis en place à l&apos;étape suivante.
                   </span>
-                ) : plan === "ANNUAL" ? (
-                  /* Offre 12 mois : paiement UNIQUE, sans reconduction. */
+                ) : plan === "ANNUAL" && !annualRenews ? (
+                  /* Offre 12 mois CHEZ MONETICO : paiement unique par le TPE
+                     immédiat, aucune reconduction possible. */
                   <span>
-                    Le règlement s&apos;effectue par carte bancaire
-                    (Monetico&nbsp;— CIC). L&apos;offre 12 mois est un{" "}
+                    Le règlement s&apos;effectue par carte bancaire ({payBrand}
+                    ). L&apos;offre 12 mois est un{" "}
                     <b>paiement unique de {row.totalLabel} TTC</b>{" "}
                     qui vous donne accès pendant 12 mois, <b>sans reconduction
                     automatique</b>. Nous vous préviendrons par email avant
                     l&apos;échéance pour renouveler si vous le souhaitez.
                   </span>
                 ) : (
-                  /* Mensuel : reconduction tacite — montant, périodicité et
-                     modalités d'arrêt connus du client AVANT le paiement. */
+                  /* Reconduction tacite — montant, périodicité et modalités
+                     d'arrêt connus du client AVANT le paiement. Chez Stripe,
+                     l'annuelle se reconduit comme la mensuelle : annoncer
+                     l'inverse serait faux sur le point qui engage le plus. */
                   <span>
-                    Le règlement s&apos;effectue par carte bancaire
-                    (Monetico&nbsp;— CIC). Votre abonnement est ensuite{" "}
-                    <b>reconduit automatiquement chaque mois</b>{" "}
-                    pour{" "}
-                    {row.totalLabel} TTC, sur la même carte, jusqu&apos;à ce que
-                    vous y mettiez fin. Vous pouvez arrêter la reconduction à
-                    tout moment en nous écrivant à{" "}
-                    <a href="mailto:contact@medicarepro.fr">
-                      contact@medicarepro.fr
-                    </a>
+                    Le règlement s&apos;effectue par carte bancaire ({payBrand}
+                    ). Votre abonnement est ensuite{" "}
+                    <b>
+                      reconduit automatiquement chaque{" "}
+                      {plan === "ANNUAL" ? "année" : "mois"}
+                    </b>{" "}
+                    pour {row.totalLabel} TTC, sur la même carte, jusqu&apos;à ce
+                    que vous y mettiez fin.{" "}
+                    {selfServiceCancel ? (
+                      <>
+                        Vous pouvez l&apos;arrêter à tout moment depuis votre
+                        espace abonnement
+                      </>
+                    ) : (
+                      <>
+                        Vous pouvez arrêter la reconduction à tout moment en nous
+                        écrivant à{" "}
+                        <a href="mailto:contact@medicarepro.fr">
+                          contact@medicarepro.fr
+                        </a>
+                      </>
+                    )}
                     &nbsp;: votre accès reste ouvert jusqu&apos;au terme de la
                     période déjà réglée.
                   </span>
@@ -1059,6 +1096,23 @@ export default function CheckoutFlow({
                 placeholder="cabinet@exemple.fr"
                 maxLength={180}
               />
+              {/* Le PORTABLE d'abord : c'est lui qui est obligatoire, et c'est
+                  lui que l'application exige. Le fixe passait devant, sur la
+                  même ligne que l'email, pendant que l'obligatoire se retrouvait
+                  seul en dessous — l'œil lisait donc le facultatif comme le
+                  champ principal. */}
+              <Field
+                id="cab-mobile"
+                label="Téléphone portable"
+                type="tel"
+                value={cabinet.mobilePhone}
+                onChange={(v) => setCabinet((p) => ({ ...p, mobilePhone: v }))}
+                error={errors["cabinet.mobilePhone"]}
+                autoComplete="tel"
+                inputMode="tel"
+                placeholder="06 00 00 00 00"
+                maxLength={30}
+              />
               <Field
                 id="cab-phone"
                 label="Téléphone fixe"
@@ -1070,18 +1124,6 @@ export default function CheckoutFlow({
                 autoComplete="tel"
                 inputMode="tel"
                 placeholder="04 42 00 00 00"
-                maxLength={30}
-              />
-              <Field
-                id="cab-mobile"
-                label="Téléphone portable"
-                type="tel"
-                value={cabinet.mobilePhone}
-                onChange={(v) => setCabinet((p) => ({ ...p, mobilePhone: v }))}
-                error={errors["cabinet.mobilePhone"]}
-                autoComplete="tel"
-                inputMode="tel"
-                placeholder="06 00 00 00 00"
                 maxLength={30}
               />
               <Field
@@ -1219,13 +1261,33 @@ export default function CheckoutFlow({
                 <PasswordStrength password={user.password} />
               </div>
 
+              {/* La concordance se dit TOUT DE SUITE, comme pour l'IBAN et le
+                  SIRET. Sans ça, le praticien ne savait qu'au clic sur
+                  « Continuer » qu'il avait mal ressaisi — et il devait
+                  retaper les deux champs sans savoir lequel était fautif.
+                  Le vert dès que ça correspond, le rouge seulement après avoir
+                  quitté le champ : personne ne veut être contredit pendant
+                  qu'il tape. */}
               <Field
                 id="usr-password2"
                 label="Confirmez le mot de passe"
                 type={showPassword ? "text" : "password"}
                 value={passwordConfirm}
                 onChange={setPasswordConfirm}
-                error={errors["user.passwordConfirm"]}
+                onBlur={() => setConfirmTouched(true)}
+                error={
+                  errors["user.passwordConfirm"] ??
+                  (confirmTouched &&
+                  passwordConfirm.length > 0 &&
+                  passwordConfirm !== user.password
+                    ? "Les deux mots de passe ne correspondent pas"
+                    : undefined)
+                }
+                okMessage={
+                  passwordConfirm.length > 0 && passwordConfirm === user.password
+                    ? "Les mots de passe correspondent"
+                    : undefined
+                }
                 autoComplete="new-password"
                 maxLength={200}
                 className={s.col2}
@@ -1504,14 +1566,15 @@ export default function CheckoutFlow({
                       TTC {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
                     </span>
                     {!sepaEnabled &&
-                      (plan === "ANNUAL" ? (
+                      (plan === "ANNUAL" && !annualRenews ? (
                         <span>
                           Paiement unique, accès 12 mois — sans reconduction
                           automatique.
                         </span>
                       ) : (
                         <span>
-                          Puis {row.totalLabel} TTC chaque mois, par
+                          Puis {row.totalLabel} TTC chaque{" "}
+                          {plan === "ANNUAL" ? "année" : "mois"}, par
                           reconduction automatique sur la même carte.
                         </span>
                       ))}

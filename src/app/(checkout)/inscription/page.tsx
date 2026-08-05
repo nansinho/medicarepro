@@ -76,6 +76,14 @@ export default async function InscriptionPage({
       sepaIcs={sepaIcs}
       sepaEnabled={sepaEnabled}
       prices={prices}
+      /* Ce que le tunnel PROMET dépend de qui encaisse, et ce sont des
+         engagements contractuels affichés juste avant le paiement. Chez
+         Monetico, l'offre 12 mois passait par le TPE immédiat : un paiement
+         unique, sans reconduction. Chez Stripe elle se reconduit comme le
+         mensuel. Le navigateur ne peut pas le deviner, on le lui dit. */
+      annualRenews={parStripe}
+      payBrand={parStripe ? "Stripe" : "Monetico — CIC"}
+      selfServiceCancel={parStripe}
     />
   );
 }
