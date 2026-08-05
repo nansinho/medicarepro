@@ -143,7 +143,7 @@ export default function SubscribeLinkForm() {
           </div>
 
           {search && !search.ok && (
-            <Notice tone="bad" title="Cabinet introuvable">
+            <Notice tone="bad" title={search.title}>
               {search.error}
             </Notice>
           )}

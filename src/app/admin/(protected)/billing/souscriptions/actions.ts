@@ -60,7 +60,11 @@ export type FoundCabinet = {
 
 export type SearchState =
   | { ok: true; cabinet: FoundCabinet }
-  | { ok: false; error: string }
+  /* `title` accompagne TOUJOURS le message : l'écran affichait « Cabinet
+     introuvable » en titre au-dessus de n'importe quel refus, y compris
+     « ce cabinet a été supprimé » — deux phrases qui se contredisent, et un
+     lecteur qui ne sait plus laquelle croire. */
+  | { ok: false; title: string; error: string }
   | null;
 
 export async function rechercherCabinet(
@@ -72,7 +76,11 @@ export async function rechercherCabinet(
 
     const query = String(formData.get("query") ?? "").trim();
     if (!query) {
-      return { ok: false, error: "Saisissez l'email ou l'identifiant du cabinet." };
+      return {
+        ok: false,
+        title: "Recherche vide",
+        error: "Saisissez l'email ou l'identifiant du cabinet.",
+      };
     }
 
     /* Une adresse email est reconnue à son arobase ; tout le reste est traité
@@ -82,11 +90,25 @@ export async function rechercherCabinet(
     );
 
     if (!outcome.ok) {
+      if (outcome.notFound) {
+        return {
+          ok: false,
+          title: "Cabinet introuvable",
+          error:
+            "Aucun cabinet ne correspond. Vérifiez l'adresse, ou collez l'identifiant relevé dans le back-office de l'application.",
+        };
+      }
+      /* Trois situations très différentes, trois titres : un cabinet supprimé
+         demande une intervention, une application injoignable demande de
+         réessayer, une clé refusée demande un administrateur. Les confondre
+         sous « introuvable » envoyait chercher une faute de frappe qui
+         n'existait pas. */
       return {
         ok: false,
-        error: outcome.notFound
-          ? "Aucun cabinet ne correspond. Vérifiez l'adresse, ou collez l'identifiant relevé dans le back-office de l'application."
-          : outcome.reason,
+        title: outcome.deleted
+          ? "Cabinet supprimé dans l'application"
+          : "Recherche impossible",
+        error: outcome.reason,
       };
     }
 
@@ -114,7 +136,11 @@ export async function rechercherCabinet(
       "[souscriptions] recherche :",
       err instanceof Error ? err.message : String(err),
     );
-    return { ok: false, error: "La recherche a échoué. Réessayez." };
+    return {
+      ok: false,
+      title: "Recherche impossible",
+      error: "La recherche a échoué. Réessayez.",
+    };
   }
 }
 
