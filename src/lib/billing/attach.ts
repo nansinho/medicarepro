@@ -57,7 +57,9 @@ type OrderRow = {
   monetico_reference: string;
   monetico_order_date: string | null;
   /** Plateforme où vit la commande. NULL pour les lignes antérieures à 0033. */
-  monetico_platform: "test" | "production" | null;
+  payment_environment: "test" | "production" | null;
+  /** Prestataire qui a encaissé. NULL pour les lignes antérieures à 0034. */
+  payment_provider: "monetico" | "stripe" | null;
   applied_at: string | null;
   billing_snapshot: {
     cabinetName?: string;
@@ -111,7 +113,7 @@ function addMonthsClamped(date: Date, months: number): Date {
 }
 
 const ORDER_COLUMNS =
-  "id, subscription_id, app_cabinet_id, app_user_id, kind, plan, role, extra_collaborators, amount_cents, currency, status, monetico_reference, monetico_order_date, monetico_platform, applied_at, billing_snapshot";
+  "id, subscription_id, app_cabinet_id, app_user_id, kind, plan, role, extra_collaborators, amount_cents, currency, status, monetico_reference, monetico_order_date, payment_environment, payment_provider, applied_at, billing_snapshot";
 
 /**
  * Point d'entrée unique des paiements portant sur une commande hors tunnel.
@@ -372,7 +374,8 @@ async function finalizeChangeOrder(
     .from("billing_ledger")
     .insert({
       event_type: "card_payment",
-      monetico_platform: order.monetico_platform ?? null,
+      payment_environment: order.payment_environment ?? null,
+      payment_provider: order.payment_provider ?? null,
       amount_cents: paidCents,
       currency,
       occurred_at: paidAtIso,
@@ -667,7 +670,8 @@ async function finalizeAttach(
     .from("subscriptions")
     .insert({
       pending_signup_id: null, // né hors tunnel : aucun dossier d'inscription
-      monetico_platform: order.monetico_platform ?? null,
+      payment_environment: order.payment_environment ?? null,
+      payment_provider: order.payment_provider ?? null,
       app_cabinet_id: order.app_cabinet_id,
       app_user_id: order.app_user_id ?? "",
       cabinet_name: cabinetName,
@@ -726,7 +730,8 @@ async function finalizeAttach(
     .from("billing_ledger")
     .insert({
       event_type: "card_payment",
-      monetico_platform: order.monetico_platform ?? null,
+      payment_environment: order.payment_environment ?? null,
+      payment_provider: order.payment_provider ?? null,
       amount_cents: paidCents,
       currency,
       occurred_at: paidAtIso,

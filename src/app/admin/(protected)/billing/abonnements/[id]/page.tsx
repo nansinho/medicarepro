@@ -60,7 +60,7 @@ type SubscriptionRow = {
   current_period_end: string;
   monetico_reference: string;
   monetico_order_date: string | null;
-  monetico_platform: "test" | "production" | null;
+  payment_environment: "test" | "production" | null;
   renewal_count: number;
   last_renewal_at: string | null;
   recurrence_stopped_at: string | null;
@@ -173,7 +173,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
   const { data: subData } = await service
     .from("subscriptions")
     .select(
-      "id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, monetico_order_date, monetico_platform, renewal_count, last_renewal_at, recurrence_stopped_at, dunning_started_at, dunning_failure_count, last_failure_at, last_failure_code, grace_until, sepa_mandate_id, notes, created_at",
+      "id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, monetico_order_date, payment_environment, renewal_count, last_renewal_at, recurrence_stopped_at, dunning_started_at, dunning_failure_count, last_failure_at, last_failure_code, grace_until, sepa_mandate_id, notes, created_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -200,7 +200,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
      colonne fait foi (migration 0033) ; à défaut, le code retour des
      notifications reçues, car « payetest » n'existe que sur l'essai. */
   const plateformeCommande =
-    sub.monetico_platform ??
+    sub.payment_environment ??
     (ipnRows.some((i) => i.code_retour === "payetest") ? "test" : null);
   const surAutrePlateforme =
     plateformeCommande !== null && plateformeCommande !== moneticoMode;

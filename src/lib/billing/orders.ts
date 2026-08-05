@@ -129,7 +129,7 @@ type OrderRow = {
   subscription_id: string | null;
   monetico_reference: string;
   monetico_order_date: string | null;
-  monetico_platform: "test" | "production" | null;
+  payment_environment: "test" | "production" | null;
   plan: BillingPlan;
   amount_cents: number;
   role: OrderRole;
@@ -138,7 +138,7 @@ type OrderRow = {
 };
 
 const ORDER_COLUMNS =
-  "id, subscription_id, monetico_reference, monetico_order_date, monetico_platform, plan, amount_cents, role, kind, created_at";
+  "id, subscription_id, monetico_reference, monetico_order_date, payment_environment, plan, amount_cents, role, kind, created_at";
 
 /**
  * Retrouve les paramètres bancaires attachés à une référence.
@@ -171,7 +171,7 @@ export async function orderContext(
       amountCents: order.amount_cents,
       role: order.role,
       kind: order.kind,
-      platform: order.monetico_platform,
+      platform: order.payment_environment,
     };
   }
 
@@ -180,7 +180,7 @@ export async function orderContext(
   const { data: subData } = await supabase
     .from("subscriptions")
     .select(
-      "id, monetico_reference, monetico_order_date, monetico_platform, started_at, first_payment_cents, plan",
+      "id, monetico_reference, monetico_order_date, payment_environment, started_at, first_payment_cents, plan",
     )
     .eq("monetico_reference", reference)
     .maybeSingle();
@@ -190,7 +190,7 @@ export async function orderContext(
     id: string;
     monetico_reference: string;
     monetico_order_date: string | null;
-    monetico_platform: "test" | "production" | null;
+    payment_environment: "test" | "production" | null;
     started_at: string;
     first_payment_cents: number;
     plan: BillingPlan;
@@ -205,7 +205,7 @@ export async function orderContext(
     amountCents: sub.first_payment_cents,
     role: sub.plan === "MONTHLY" ? "recurring" : "oneshot",
     kind: null,
-    platform: sub.monetico_platform,
+    platform: sub.payment_environment,
   };
 }
 
@@ -234,7 +234,7 @@ export async function currentRecurringOrder(
     amountCents: order.amount_cents,
     role: order.role,
     kind: order.kind,
-    platform: order.monetico_platform,
+    platform: order.payment_environment,
   };
 }
 
@@ -360,7 +360,8 @@ export async function openOrder(
       /* La plateforme est constatée ICI, au seul instant où on la connaît de
          source sûre. La déduire plus tard de MONETICO_MODE reviendrait à lire
          la configuration d'aujourd'hui pour une commande d'hier. */
-      monetico_platform: config.mode,
+      payment_environment: config.mode,
+      payment_provider: "monetico",
       monetico_order_date: form.fields["date"].slice(0, 10),
       status: "pending",
       supersedes_order_id: input.supersedesOrderId ?? null,

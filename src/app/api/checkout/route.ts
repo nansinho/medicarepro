@@ -495,7 +495,8 @@ export async function POST(request: NextRequest) {
     .from("pending_signups")
     .update({
       monetico_order_date: form.fields["date"].slice(0, 10),
-      monetico_platform: config.mode,
+      payment_environment: config.mode,
+      payment_provider: "monetico",
     })
     .eq("id", id);
   if (orderDateError) {

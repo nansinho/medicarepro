@@ -85,7 +85,9 @@ type PendingSignupRow = {
   monetico_reference: string;
   monetico_order_date: string | null;
   /** Plateforme où vit la commande. NULL pour les lignes antérieures à 0033. */
-  monetico_platform: "test" | "production" | null;
+  payment_environment: "test" | "production" | null;
+  /** Prestataire qui a encaissé. NULL pour les lignes antérieures à 0034. */
+  payment_provider: "monetico" | "stripe" | null;
   status: string;
   plan: BillingPlan;
   extra_collaborators: number;
@@ -450,7 +452,8 @@ async function finalizeSuccess(
       .from("subscriptions")
       .insert({
         pending_signup_id: row.id,
-        monetico_platform: row.monetico_platform ?? null,
+        payment_environment: row.payment_environment ?? null,
+        payment_provider: row.payment_provider ?? null,
         app_cabinet_id: provision.cabinetId,
         app_user_id: provision.userId,
         cabinet_name: cabinet.name,
@@ -540,7 +543,8 @@ async function finalizeSuccess(
       .from("billing_ledger")
       .insert({
         event_type: "card_payment",
-        monetico_platform: row.monetico_platform ?? null,
+        payment_environment: row.payment_environment ?? null,
+        payment_provider: row.payment_provider ?? null,
         amount_cents: row.amount_cents,
         currency: row.currency,
         occurred_at: paidAtIso,

@@ -310,7 +310,8 @@ export async function POST(request: NextRequest) {
       /* Écrite dès l'insert : ce chemin n'a pas d'update post-scellement où la
          poser plus tard, contrairement au tunnel. Le mode ne dépend pas du
          plan, seuls le TPE et la clé en dépendent. */
-      monetico_platform: billingEnv().moneticoMode,
+      payment_environment: billingEnv().moneticoMode,
+      payment_provider: "monetico",
       plan: old.plan,
       extra_collaborators: old.extra_collaborators,
       amount_cents: old.amount_cents,
