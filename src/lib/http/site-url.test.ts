@@ -30,6 +30,7 @@ const GUARDED = [
   "src/app/api/draft/enable/route.ts",
   "src/app/api/draft/disable/route.ts",
   "src/lib/billing/orders.ts",
+  "src/lib/stripe/checkout.ts",
   "src/lib/billing/portal.ts",
   "src/lib/billing/renewal-link.ts",
 ];
