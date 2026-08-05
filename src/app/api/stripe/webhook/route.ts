@@ -54,6 +54,16 @@ function ack(message: string, status = 200): Response {
   });
 }
 
+/** Une date telle qu'on l'écrit dans un email : « 17 août 2026 ». */
+function frDate(date: Date): string {
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Paris",
+  });
+}
+
 /** Alerte interne — best-effort, ne jette jamais. */
 async function alerte(title: string, lines: string[]): Promise<void> {
   try {
@@ -392,7 +402,18 @@ async function applyStripeInvoicePaid(
     status: "ACTIVE",
   });
   if (!sync.ok) {
-    console.error("[stripe-webhook] remontée d'échéance :", sync.reason);
+    /* Une échéance encaissée mais non remontée laisse le logiciel du praticien
+       sur l'ancienne date : il verra son abonnement expirer alors qu'il vient de
+       payer. L'encaissement est bon, seule la date affichée est à reposer — mais
+       personne ne le saura si ça ne sort que dans les journaux. */
+    await alerte("Échéance non remontée à l'application", [
+      `Cabinet : ${sub.cabinet_name}`,
+      `Cabinet applicatif : ${sub.app_cabinet_id}`,
+      `Facture Stripe : ${invoice.number ?? invoice.id ?? "(inconnue)"}`,
+      `Nouvelle échéance : ${finDePeriode ? frDate(finDePeriode) : "(inchangée)"}`,
+      `Erreur : ${sync.reason}`,
+      "L'encaissement, le contrat et la facture sont faits ; seule la date affichée dans l'application reste à poser à la main.",
+    ]);
   }
 }
 

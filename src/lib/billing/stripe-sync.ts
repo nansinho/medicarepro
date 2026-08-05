@@ -4,6 +4,8 @@ import { notifyRenewal } from "@/lib/provisioning";
 import { logAudit } from "@/lib/audit";
 import { sendMail } from "@/lib/email";
 import { renewalAmountCents, planLabel, type BillingPlan } from "@/lib/checkout/pricing";
+import { billingAlertEmail } from "@/lib/emails/checkout-templates";
+import { billingEnv, hasBilling } from "@/lib/env";
 import { cancellationScheduledEmail } from "@/lib/emails/portal-templates";
 import type { ChangeableSubscription } from "@/lib/billing/changes";
 
@@ -19,6 +21,29 @@ import type { ChangeableSubscription } from "@/lib/billing/changes";
    l'abonnement reste correct chez Stripe et le prochain `invoice.paid` remettra
    notre copie d'aplomb.
    ============================================================ */
+
+/**
+ * Alerte interne — best-effort, ne jette jamais.
+ *
+ * POURQUOI ELLE EXISTE. Le 05/08/2026, un échec de remontée ne produisait qu'une
+ * ligne dans les journaux. Pour un cabinet réel, ça donne un praticien qui paie
+ * neuf collaborateurs et dont le logiciel continue d'en refuser huit, sans que
+ * personne ne l'apprenne avant qu'il n'appelle. L'encaissement, lui, a bien eu
+ * lieu : c'est un défaut de synchronisation, réparable à la main, à condition de
+ * le savoir.
+ */
+async function sendBillingAlert(title: string, lines: string[]): Promise<void> {
+  try {
+    if (!hasBilling()) return;
+    const mail = billingAlertEmail({ title, lines });
+    await sendMail({ to: billingEnv().billingAlertsTo, ...mail });
+  } catch (err) {
+    console.error(
+      "[stripe-sync] échec alerte :",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
 
 function frDate(iso: string | Date): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
@@ -75,7 +100,17 @@ export async function applyPlanLocally(
     maxAssistants: extraCollaborators,
   });
   if (!sync.ok) {
-    console.error("[stripe-sync] remontée du changement :", sync.reason);
+    /* Le cas le plus coûteux : le praticien a payé son nouvel effectif, Stripe
+       l'a encaissé, et son logiciel refuse toujours les collaborateurs. */
+    await sendBillingAlert("Changement de formule non remonté à l'application", [
+      `Cabinet : ${sub.cabinet_name}`,
+      `Cabinet applicatif : ${sub.app_cabinet_id}`,
+      `Nouvelle formule : ${planLabel(plan, extraCollaborators)}`,
+      `Collaborateurs supplémentaires : ${extraCollaborators}`,
+      `Échéance : ${currentPeriodEnd ? frDate(currentPeriodEnd) : "(inchangée)"}`,
+      `Erreur : ${sync.reason}`,
+      "Le changement est appliqué chez Stripe et chez nous ; seul le quota affiché dans l'application reste à poser à la main.",
+    ]);
   }
 
   await logAudit({
@@ -127,7 +162,23 @@ export async function noteCancellation(
     cancelAtPeriodEnd: cancelling,
   });
   if (!sync.ok) {
-    console.error("[stripe-sync] remontée de résiliation :", sync.reason);
+    /* Moins grave qu'un quota, mais visible : sans cette remontée, le logiciel
+       n'annonce pas la fin à venir — ou continue de l'annoncer après que le
+       praticien a annulé sa résiliation. */
+    await sendBillingAlert(
+      cancelling
+        ? "Résiliation non remontée à l'application"
+        : "Annulation de résiliation non remontée à l'application",
+      [
+        `Cabinet : ${sub.cabinet_name}`,
+        `Cabinet applicatif : ${sub.app_cabinet_id}`,
+        `Fin d'accès : ${frDate(currentPeriodEnd ?? sub.current_period_end)}`,
+        `Erreur : ${sync.reason}`,
+        cancelling
+          ? "La résiliation est programmée chez Stripe et chez nous ; seul l'affichage dans l'application reste à poser à la main."
+          : "La reconduction est bien rétablie chez Stripe et chez nous ; seul l'affichage dans l'application reste à poser à la main.",
+      ],
+    );
   }
 
   if (cancelling && sub.admin_email) {
