@@ -45,6 +45,10 @@ beforeEach(() => {
   delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   delete process.env.MONETICO_KEY_PROD;
   delete process.env.MONETICO_TPE_IMMEDIATE;
+  for (const k of Object.keys(process.env)) {
+    if (k.startsWith("STRIPE_")) delete process.env[k];
+  }
+  delete process.env.PAYMENT_PROVIDER;
 });
 
 describe("missingCheckoutEnv", () => {
@@ -344,5 +348,83 @@ describe("reconnaissance d'un sceau de l'autre plateforme", () => {
       verifyIpnSeal(champs, c.key),
     );
     expect(reconnue).toBeUndefined();
+  });
+});
+
+/* ============================================================
+   Configuration Stripe : refuser d'encaisser à moitié.
+
+   Le 05/08/2026, la vente a été bloquée toute la journée par des
+   configurations qui se croyaient complètes. Deux leçons sont fixées ici :
+   un secret de webhook manquant n'est pas un détail, et un prix de
+   collaborateur manquant ne se voit qu'au moment où un cabinet en déclare un,
+   c'est-à-dire trop tard.
+   ============================================================ */
+describe("configuration Stripe", () => {
+  const SK = "sk_test_51AbCdEfGhIjKlMnOp";
+  const WH = "whsec_AbCdEfGhIjKlMnOpQrSt";
+
+  it("exige la clé, le secret de webhook et au moins un prix", async () => {
+    const { missingStripeEnv, hasStripeCheckout } = await loadEnv({});
+    expect(missingStripeEnv()).toEqual([
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "STRIPE_PRICE_MONTHLY ou STRIPE_PRICE_ANNUAL",
+    ]);
+    expect(hasStripeCheckout()).toBe(false);
+  });
+
+  /* Sans secret de webhook, un `invoice.paid` fabriqué prolongerait une période
+     sans qu'un centime soit entré. Ce n'est pas une variable de confort. */
+  it("refuse d'encaisser sans secret de webhook", async () => {
+    const { missingStripeEnv } = await loadEnv({
+      STRIPE_SECRET_KEY: SK,
+      STRIPE_PRICE_MONTHLY: "price_m",
+      STRIPE_PRICE_COLLABORATOR_MONTHLY: "price_cm",
+    });
+    expect(missingStripeEnv()).toEqual(["STRIPE_WEBHOOK_SECRET"]);
+  });
+
+  it("exige le prix collaborateur de chaque formule vendue", async () => {
+    const { missingStripeEnv } = await loadEnv({
+      STRIPE_SECRET_KEY: SK,
+      STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_PRICE_MONTHLY: "price_m",
+    });
+    expect(missingStripeEnv()).toEqual(["STRIPE_PRICE_COLLABORATOR_MONTHLY"]);
+  });
+
+  it("se tait quand tout est là", async () => {
+    const { missingStripeEnv, hasStripeCheckout } = await loadEnv({
+      STRIPE_SECRET_KEY: SK,
+      STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_PRICE_MONTHLY: "price_m",
+      STRIPE_PRICE_COLLABORATOR_MONTHLY: "price_cm",
+    });
+    expect(missingStripeEnv()).toEqual([]);
+    expect(hasStripeCheckout()).toBe(true);
+  });
+
+  /* Le piège qu'on veut rendre impossible : annoncer Stripe sans avoir posé
+     les clés, et laisser le tunnel proposer un paiement qui échouera après que
+     le client a saisi tout son dossier. */
+  it("canCollectPayment suit le prestataire déclaré", async () => {
+    const sansCles = await loadEnv({ PAYMENT_PROVIDER: "stripe" });
+    expect(sansCles.paymentProvider()).toBe("stripe");
+    expect(sansCles.canCollectPayment()).toBe(false);
+
+    const avecCles = await loadEnv({
+      PAYMENT_PROVIDER: "stripe",
+      STRIPE_SECRET_KEY: SK,
+      STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_PRICE_ANNUAL: "price_a",
+      STRIPE_PRICE_COLLABORATOR_ANNUAL: "price_ca",
+    });
+    expect(avecCles.canCollectPayment()).toBe(true);
+  });
+
+  it("par défaut, c'est encore Monetico qui encaisse", async () => {
+    const { paymentProvider } = await loadEnv({});
+    expect(paymentProvider()).toBe("monetico");
   });
 });

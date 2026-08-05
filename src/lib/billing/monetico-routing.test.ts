@@ -41,14 +41,29 @@ function read(relativePath: string): string {
   );
 }
 
+/* Le passage à Stripe (05/08/2026) retire progressivement `buildPaymentForm`
+   de ces fichiers. La garde reste utile tant qu'il y est : elle protège le
+   chemin Monetico sans forcer le chemin Stripe à en prendre la forme. On
+   n'assère donc QUE sur les fichiers qui construisent encore un formulaire
+   Monetico — et la garde disparaîtra d'elle-même avec le dernier. */
+const MONETICO_BUILDERS = BUILDERS.filter((f) =>
+  read(f).includes("buildPaymentForm("),
+);
+
 describe("routage des TPE Monetico", () => {
-  it.each(BUILDERS)("%s passe par moneticoConfigForPlan", (file) => {
+  it("la liste des constructeurs Monetico reste connue", () => {
+    /* Si ce nombre tombe à zéro, tout le bloc ci-dessous devient vide et ne
+       protège plus rien : c'est le moment de supprimer ce fichier, pas de le
+       laisser passer vert par vacuité. */
+    expect(MONETICO_BUILDERS.length).toBeGreaterThan(0);
+  });
+
+  it.each(MONETICO_BUILDERS)("%s passe par moneticoConfigForPlan", (file) => {
     const source = read(file);
-    expect(source).toContain("buildPaymentForm(");
     expect(source).toContain("moneticoConfigForPlan(");
   });
 
-  it.each(BUILDERS)("%s ne compose aucune config de TPE à la main", (file) => {
+  it.each(MONETICO_BUILDERS)("%s ne compose aucune config de TPE à la main", (file) => {
     const source = read(file);
     /* Le seul endroit autorisé à lire ces champs est monetico-routing.ts.
        Ailleurs, les assembler revient à choisir un TPE sans regarder le plan. */

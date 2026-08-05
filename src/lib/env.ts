@@ -109,6 +109,39 @@ const EnvSchema = z.object({
   /* Alertes internes billing (incidents, synchro, remises) */
   BILLING_ALERTS_TO: z.string().default("contact@medicarepro.fr"),
 
+  /* ---------- Stripe ----------
+     Le prestataire d'encaissement retenu le 05/08/2026, après qu'aucun paiement
+     réel n'ait jamais abouti chez Monetico : le TPE « Paiement Récurrent »
+     n'authentifie pas en 3D Secure (doc §1.5.3/§1.5.4), et depuis la DSP2 les
+     émetteurs français refusent le non-authentifié.
+
+     Aucune variable de MODE ici, volontairement : Stripe porte le mode dans la
+     clé (`sk_test_` ou `sk_live_`). On le LIT au lieu de le déclarer, parce
+     qu'une déclaration peut mentir — MONETICO_MODE affirmait « production »
+     pendant que les commandes vivaient sur la plateforme d'essai. */
+  STRIPE_SECRET_KEY: z
+    .string()
+    .regex(/^sk_(test|live)_[A-Za-z0-9]+$/, "Clé secrète Stripe invalide")
+    .optional(),
+  /* Signature des notifications entrantes. Sans elle, le webhook refuse tout :
+     un événement non signé peut être fabriqué par n'importe qui. */
+  STRIPE_WEBHOOK_SECRET: z
+    .string()
+    .regex(/^whsec_[A-Za-z0-9+/=]+$/, "Secret de webhook Stripe invalide")
+    .optional(),
+  /* Identifiants de prix, créés dans le tableau de bord Stripe. Le montant
+     facturé vient de LÀ, jamais du navigateur ni de notre grille : celle-ci
+     ne sert plus qu'à afficher. */
+  STRIPE_PRICE_MONTHLY: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_ANNUAL: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_COLLABORATOR_MONTHLY: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_COLLABORATOR_ANNUAL: z.string().startsWith("price_").optional(),
+
+  /* Qui encaisse. Ferme les routes de l'autre prestataire au lieu de les
+     laisser joignables : un chemin de paiement oublié mais atteignable est
+     exactement ce qui produit un débit qu'on ne sait plus arrêter. */
+  PAYMENT_PROVIDER: z.enum(["monetico", "stripe"]).default("monetico"),
+
   /* Cloudflare Turnstile (anti-bot du checkout) */
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
   TURNSTILE_SECRET_KEY: z.string().optional(),
@@ -395,6 +428,61 @@ export function paymentsInTestModeOnLiveSite(): boolean {
   return !/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(
     e.NEXT_PUBLIC_SITE_URL,
   );
+}
+
+/* ------------------------------------------------------------
+   Stripe — configuration d'encaissement.
+   ------------------------------------------------------------ */
+
+/** Qui encaisse aujourd'hui. */
+export function paymentProvider(): "monetico" | "stripe" {
+  return env().PAYMENT_PROVIDER;
+}
+
+/**
+ * Variables manquantes pour encaisser par Stripe.
+ *
+ * Le secret de webhook est EXIGÉ au même titre que la clé secrète, et ce n'est
+ * pas une précaution de confort : sans lui, la route de notification ne peut
+ * pas distinguer un événement de Stripe d'un message fabriqué. Un paiement
+ * inventé créerait un abonnement gratuit, et un `invoice.paid` inventé
+ * prolongerait une période sans qu'un centime soit entré.
+ */
+export function missingStripeEnv(): string[] {
+  const e = env();
+  const missing: string[] = [];
+  if (!e.STRIPE_SECRET_KEY) missing.push("STRIPE_SECRET_KEY");
+  if (!e.STRIPE_WEBHOOK_SECRET) missing.push("STRIPE_WEBHOOK_SECRET");
+  if (!e.STRIPE_PRICE_MONTHLY && !e.STRIPE_PRICE_ANNUAL) {
+    missing.push("STRIPE_PRICE_MONTHLY ou STRIPE_PRICE_ANNUAL");
+  }
+  /* Un prix de collaborateur manquant ne se voit qu'au moment où un cabinet en
+     déclare un : la souscription partirait alors au tarif du titulaire seul. */
+  if (e.STRIPE_PRICE_MONTHLY && !e.STRIPE_PRICE_COLLABORATOR_MONTHLY) {
+    missing.push("STRIPE_PRICE_COLLABORATOR_MONTHLY");
+  }
+  if (e.STRIPE_PRICE_ANNUAL && !e.STRIPE_PRICE_COLLABORATOR_ANNUAL) {
+    missing.push("STRIPE_PRICE_COLLABORATOR_ANNUAL");
+  }
+  return missing;
+}
+
+/** Peut-on encaisser par Stripe ? */
+export function hasStripeCheckout(): boolean {
+  return missingStripeEnv().length === 0;
+}
+
+/**
+ * Le prestataire retenu est-il réellement utilisable ?
+ *
+ * C'est la question que les routes doivent poser, plutôt que d'interroger un
+ * prestataire en particulier. Elle évite le cas le plus vicieux : déclarer
+ * `PAYMENT_PROVIDER=stripe` sans avoir posé les clés, et laisser le tunnel
+ * proposer un paiement qui échouera à la dernière seconde, après que le client
+ * a saisi tout son dossier.
+ */
+export function canCollectPayment(): boolean {
+  return paymentProvider() === "stripe" ? hasStripeCheckout() : hasCheckout();
 }
 
 /** Le socle billing est-il là ? (MAC de l'IPN, base, secrets) */
