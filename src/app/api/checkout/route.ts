@@ -216,20 +216,33 @@ export async function POST(request: NextRequest) {
     .update(input.user.email.trim().toLowerCase())
     .digest("hex");
 
-  const ipAllowed = await hitRateLimit(supabase, `checkout:${ip}`, 5, 3600);
+  /* Plafonds desserrés le 05/08/2026. Les précédents (5 par IP, 3 par email et
+     par heure) ont bloqué un cabinet qui essayait simplement de payer : un
+     refus bancaire, un 3D Secure abandonné ou une carte mal tapée consomment
+     une tentative chacun, et trois suffisent à enfermer le client une heure
+     devant « Trop de tentatives ». Sur un tunnel de paiement, c'est une vente
+     perdue, pas une protection.
+     Ce qui protège vraiment contre les robots, c'est Turnstile, en place et
+     armé de vraies clés depuis aujourd'hui ; ces compteurs ne sont plus qu'un
+     garde-fou contre le martèlement. Une IP partagée (cabinet, coworking)
+     justifie à elle seule d'être large. */
+  const ipAllowed = await hitRateLimit(supabase, `checkout:${ip}`, 30, 3600);
   if (ipAllowed === null) {
     return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
   }
   if (!ipAllowed) {
     return Response.json(
-      { error: "Trop de tentatives. Réessayez dans une heure." },
+      {
+        error:
+          "Trop de tentatives depuis cette connexion. Réessayez dans un moment, ou écrivez-nous à contact@medicarepro.fr et nous finalisons avec vous.",
+      },
       { status: 429 },
     );
   }
   const idAllowed = await hitRateLimit(
     supabase,
     `checkout-id:${emailHash}`,
-    3,
+    12,
     3600,
   );
   if (idAllowed === null) {
@@ -237,7 +250,10 @@ export async function POST(request: NextRequest) {
   }
   if (!idAllowed) {
     return Response.json(
-      { error: "Trop de tentatives. Réessayez dans une heure." },
+      {
+        error:
+          "Trop de tentatives pour cette adresse email. Réessayez dans un moment, ou écrivez-nous à contact@medicarepro.fr et nous finalisons avec vous.",
+      },
       { status: 429 },
     );
   }
