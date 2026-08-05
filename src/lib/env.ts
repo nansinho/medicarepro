@@ -312,7 +312,65 @@ export function billingConfigWarnings(): string[] {
     );
   }
 
+  /* Turnstile en clés de démonstration. Cloudflare en publie une poignée, de
+     forme « 1x000…AA » : elles laissent TOUT passer, et affichent au visiteur
+     « À des fins de test uniquement. Si vous le voyez, signalez-le au
+     propriétaire du site. » Vu en production le 05/08/2026, en bas du
+     récapitulatif de commande, juste au-dessus du bouton de paiement.
+     Deux dégâts, pas un : la protection anti-robot du tunnel n'existe pas, et
+     le client lit un avertissement rouge au moment de sortir sa carte. */
+  if (usesTurnstileDemoKeys()) {
+    warnings.push(
+      "Cloudflare Turnstile tourne avec les clés de démonstration : la protection anti-robot du tunnel laisse tout passer, et un bandeau rouge « à des fins de test uniquement » s'affiche au client avant le paiement. Créer un widget pour medicarepro.fr dans le tableau de bord Cloudflare, puis renseigner NEXT_PUBLIC_TURNSTILE_SITE_KEY et TURNSTILE_SECRET_KEY.",
+    );
+  }
+
   return warnings;
+}
+
+/**
+ * Les clés Turnstile sont-elles celles de démonstration publiées par
+ * Cloudflare ? Elles partagent toutes la même forme : un chiffre, « x », puis
+ * une longue file de zéros. Les reconnaître par cette forme plutôt que par une
+ * liste figée évite de rater celle que Cloudflare ajoutera demain.
+ */
+export function usesTurnstileDemoKeys(): boolean {
+  const e = env();
+  const demo = /^[0-9]x0{16,}/i;
+  return (
+    demo.test(e.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "") ||
+    demo.test(e.TURNSTILE_SECRET_KEY ?? "")
+  );
+}
+
+/**
+ * Le site encaisse-t-il en MODE TEST alors qu'il est en ligne pour de vrai ?
+ *
+ * CE QUE ÇA A COÛTÉ, LE 05/08/2026 : un praticien a tenté quatre fois de régler
+ * son offre 12 mois (478,08 €) et s'est fait refuser à chaque essai, motif
+ * bancaire « Interdit ». La configuration était bonne à un détail près :
+ * MONETICO_MODE valait `test`, donc les cartes partaient sur
+ * `p.monetico-services.com/test/paiement.cgi`, où AUCUNE carte réelle n'est
+ * acceptée. Rien, nulle part, ne le signalait — ni dans le back office, ni
+ * dans le tunnel. Le client est parti, et personne ne l'a su avant qu'il ne le
+ * dise.
+ *
+ * D'où cette fonction, et les bandeaux qu'elle allume. Le mode test est
+ * parfaitement légitime ; ce qui ne l'est pas, c'est qu'il soit invisible.
+ *
+ * La détection croise DEUX signaux, parce qu'aucun ne suffit seul :
+ * `NODE_ENV=production` vaut aussi pour un `next start` local, et une URL
+ * publique ne dit rien du mode. Ensemble, ils ne laissent passer que le cas
+ * qui fait perdre des clients : un site servi sur son vrai domaine et une
+ * caisse branchée sur la plateforme d'essai.
+ */
+export function paymentsInTestModeOnLiveSite(): boolean {
+  const e = env();
+  if (e.MONETICO_MODE !== "test") return false;
+  if (process.env.NODE_ENV !== "production") return false;
+  return !/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(
+    e.NEXT_PUBLIC_SITE_URL,
+  );
 }
 
 /** Le socle billing est-il là ? (MAC de l'IPN, base, secrets) */
