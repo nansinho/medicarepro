@@ -1,5 +1,5 @@
 import { after, type NextRequest } from "next/server";
-import { hasBilling, billingEnv } from "@/lib/env";
+import { hasBilling, billingEnv, missingBillingEnv } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
@@ -8,7 +8,7 @@ import { finalizeRenewal } from "@/lib/billing/renewals";
 import { finalizeAnnualRenewal } from "@/lib/billing/renewal-payment";
 import { finalizeOrderPayment } from "@/lib/billing/attach";
 import { registerPaymentFailure } from "@/lib/billing/dunning";
-import { moneticoKeyForTpe } from "@/lib/billing/monetico-routing";
+import { moneticoIpnKeyCandidates } from "@/lib/billing/monetico-routing";
 import {
   parseIpnBody,
   verifyIpnSeal,
@@ -72,18 +72,82 @@ export async function POST(request: NextRequest) {
   try {
     // Sans configuration billing ou base : impossible de vérifier/traiter —
     // cdr=1, Monetico re-présentera la notification.
-    if (!hasBilling()) return ackKo();
+    if (!hasBilling()) {
+      /* Refus muet corrigé le 05/08/2026. hasBilling() devient faux dès qu'une
+         variable disparaît de Coolify, typiquement pendant une bascule mal
+         terminée — c'est-à-dire au pire moment. missingBillingEnv() ne rend
+         que des NOMS de variables, jamais de valeur. */
+      console.error(
+        "[monetico-ipn] notification refusée, configuration billing incomplète :",
+        missingBillingEnv().join(", "),
+      );
+      return ackKo();
+    }
     const supabase = serviceClient();
-    if (!supabase) return ackKo();
+    if (!supabase) {
+      console.error("[monetico-ipn] notification refusée : base non configurée.");
+      return ackKo();
+    }
 
     const rawBody = await request.text();
     const fields = parseIpnBody(rawBody);
 
-    // Authenticité : MAC recalculé sur tous les champs reçus (sauf MAC),
-    // avec la clé du TPE qui a émis l'IPN (récurrent NB8179R ou immédiat
-    // NB8179I pour l'annuel). Invalide → cdr=1 SANS mutation ni journal.
-    if (!verifyIpnSeal(fields, moneticoKeyForTpe(fields["TPE"] ?? ""))) {
+    /* Authenticité : MAC recalculé sur tous les champs reçus (sauf MAC).
+       On ESSAIE les clés des deux plateformes, la courante d'abord, parce que
+       le numéro de TPE ne les distingue pas et qu'une notification vient de la
+       plateforme où vit la commande, pas de celle configurée aujourd'hui.
+
+       CE QUE CE SILENCE A FAILLI COÛTER : jusqu'au 05/08/2026, un sceau non
+       reconnu renvoyait cdr=1 sans un mot. Ni log, ni alerte, ni ligne dans
+       ipn_events. Le jour où le mode et la clé se désalignent — ce qui est
+       arrivé ce jour-là, le site ayant tourné en test alors qu'il était en
+       ligne — un client réellement débité disparaissait sans laisser de trace,
+       et Monetico re-présentait dans le vide. */
+    const tpeRecu = fields["TPE"] ?? "";
+    const reconnue = moneticoIpnKeyCandidates(tpeRecu).find((c) =>
+      verifyIpnSeal(fields, c.key),
+    );
+
+    if (!reconnue) {
+      /* Jamais le payload, jamais le MAC, jamais la clé : seulement de quoi
+         retrouver la transaction dans le tableau de bord de la banque. */
+      console.error(
+        "[monetico-ipn] SCEAU NON RECONNU — TPE",
+        tpeRecu,
+        "référence",
+        fields["reference"] ?? "(absente)",
+        "code-retour",
+        fields["code-retour"] ?? "(absent)",
+      );
+      await sendIpnAlert("URGENT — Notification bancaire non authentifiée", [
+        `TPE : ${tpeRecu}`,
+        `Référence : ${fields["reference"] ?? "(absente)"}`,
+        `Code retour : ${fields["code-retour"] ?? "(absent)"}`,
+        "Aucune des clés configurées ne valide le sceau. Si cette notification est authentique, un client a pu être débité SANS que rien ne soit enregistré.",
+        "À vérifier : MONETICO_KEY_PROD et MONETICO_KEY_TEST dans Coolify, et la transaction dans le tableau de bord CIC.",
+      ]);
       return ackKo();
+    }
+
+    if (reconnue.platform !== billingEnv().moneticoMode) {
+      /* Sceau valide, mais émis par l'AUTRE plateforme. On ne mute rien : la
+         RPC prolongerait une période sur un paiement qui n'a pas déplacé
+         d'argent. On acquitte pour couper la re-présentation, et on alerte. */
+      console.error(
+        "[monetico-ipn] notification d'une autre plateforme (",
+        reconnue.platform,
+        ") — référence",
+        fields["reference"] ?? "(absente)",
+      );
+      await sendIpnAlert("Notification bancaire d'une autre plateforme", [
+        `Plateforme d'origine : ${reconnue.platform}`,
+        `Site configuré en : ${billingEnv().moneticoMode}`,
+        `TPE : ${tpeRecu}`,
+        `Référence : ${fields["reference"] ?? "(absente)"}`,
+        `Code retour : ${fields["code-retour"] ?? "(absent)"}`,
+        "Rien n'a été enregistré : une échéance de la plateforme d'essai ne déplace pas d'argent réel, et la prolonger fausserait le contrat.",
+      ]);
+      return ackOk();
     }
 
     const reference = fields["reference"] ?? "";

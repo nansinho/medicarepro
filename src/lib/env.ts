@@ -226,6 +226,30 @@ export function moneticoKeyForModeImmediate(e: Env): string | undefined {
   return specific ?? moneticoKeyForMode(e);
 }
 
+/**
+ * Clés d'une plateforme DONNÉE, indépendamment de MONETICO_MODE.
+ *
+ * Pourquoi ce doublon : `moneticoKeyForMode` répond « quelle clé pour ÉMETTRE
+ * maintenant », ce qui est juste. Mais pour VÉRIFIER un sceau reçu, la question
+ * est autre : la notification vient de la plateforme où vit la commande, qui
+ * n'est pas forcément celle configurée aujourd'hui. Le numéro de TPE ne les
+ * distingue pas (il est identique en test et en production), donc le sceau est
+ * le seul discriminant. Il faut pouvoir l'essayer avec les deux clés.
+ */
+export function moneticoKeysOfPlatform(
+  e: Env,
+  mode: "test" | "production",
+): { recurrent?: string; immediate?: string } {
+  const recurrent =
+    (mode === "production" ? e.MONETICO_KEY_PROD : e.MONETICO_KEY_TEST) ??
+    e.MONETICO_KEY;
+  const immediate =
+    (mode === "production"
+      ? e.MONETICO_KEY_IMMEDIATE_PROD
+      : e.MONETICO_KEY_IMMEDIATE_TEST) ?? recurrent;
+  return { recurrent, immediate };
+}
+
 /** L'offre annuelle est-elle vendable (donc le TPE immédiat requis) ? */
 function annualSellable(e: Env): boolean {
   return e.CHECKOUT_PLANS === "all" || e.CHECKOUT_PLANS === "annual";
@@ -405,6 +429,16 @@ export type BillingEnv = {
   billingAlertsTo: string;
   turnstileSecretKey: string;
   checkoutPlans: "annual" | "monthly" | "all";
+  /**
+   * Clés des DEUX plateformes, pour la seule vérification des sceaux entrants.
+   * Ne JAMAIS s'en servir pour émettre : l'émission suit `moneticoMode`.
+   * Une clé absente vaut undefined (par exemple MONETICO_KEY_TEST retiré de la
+   * production) ; l'appelant doit simplement l'ignorer.
+   */
+  moneticoIpnKeys: {
+    test: { recurrent?: string; immediate?: string };
+    production: { recurrent?: string; immediate?: string };
+  };
 };
 
 /**
@@ -441,5 +475,9 @@ export function billingEnv(): BillingEnv {
     billingAlertsTo: e.BILLING_ALERTS_TO,
     turnstileSecretKey: e.TURNSTILE_SECRET_KEY!,
     checkoutPlans: e.CHECKOUT_PLANS,
+    moneticoIpnKeys: {
+      test: moneticoKeysOfPlatform(e, "test"),
+      production: moneticoKeysOfPlatform(e, "production"),
+    },
   };
 }

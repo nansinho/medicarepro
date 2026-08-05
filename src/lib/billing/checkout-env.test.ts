@@ -28,9 +28,14 @@ const BASE_ENV = {
 async function loadEnv(overrides: Record<string, string>) {
   vi.resetModules();
   for (const [k, v] of Object.entries({ ...BASE_ENV, ...overrides })) {
-    process.env[k] = v;
+    // Chaîne vide = variable ABSENTE, pour pouvoir tester ce qui manque.
+    if (v === "") delete process.env[k];
+    else process.env[k] = v;
   }
-  return import("@/lib/env");
+  return {
+    ...(await import("@/lib/env")),
+    ...(await import("@/lib/billing/monetico-routing")),
+  };
 }
 
 beforeEach(() => {
@@ -38,6 +43,8 @@ beforeEach(() => {
   delete process.env.MONETICO_SOCIETE_IMMEDIATE;
   delete process.env.CHECKOUT_PLANS;
   delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  delete process.env.MONETICO_KEY_PROD;
+  delete process.env.MONETICO_TPE_IMMEDIATE;
 });
 
 describe("missingCheckoutEnv", () => {
@@ -183,5 +190,80 @@ describe("paymentsInTestModeOnLiveSite", () => {
       NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
     });
     expect(paymentsInTestModeOnLiveSite()).toBe(false);
+  });
+});
+
+/* ============================================================
+   Vérification des sceaux entrants : les DEUX plateformes.
+
+   Ce que le silence a failli coûter, le 05/08/2026 : une notification dont le
+   sceau n'était pas reconnu repartait avec cdr=1, sans log ni alerte. Le site
+   ayant tourné en mode test alors qu'il était en ligne, un client réellement
+   débité aurait disparu sans laisser de trace. Le numéro de TPE ne distingue
+   pas les deux plateformes : seul le sceau le fait, donc il faut pouvoir
+   l'essayer avec les deux clés.
+   ============================================================ */
+describe("moneticoIpnKeyCandidates", () => {
+  const CLE_PROD = "A".repeat(40);
+  const CLE_TEST = "B".repeat(40);
+
+  it("essaie la plateforme courante d'abord, puis l'autre", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: CLE_TEST,
+    });
+    expect(moneticoIpnKeyCandidates("NB8179R")).toEqual([
+      { key: CLE_PROD, platform: "production" },
+      { key: CLE_TEST, platform: "test" },
+    ]);
+  });
+
+  it("inverse l'ordre en mode test", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "test",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: CLE_TEST,
+    });
+    expect(
+      moneticoIpnKeyCandidates("NB8179R").map((c) => c.platform),
+    ).toEqual(["test", "production"]);
+  });
+
+  /* Le TPE immédiat n'a pas de clé propre aujourd'hui : Monetico n'en délivre
+     qu'une par société. Le repli doit rester silencieux et correct. */
+  it("replie le TPE immédiat sur la clé du récurrent", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: CLE_TEST,
+      MONETICO_TPE_IMMEDIATE: "NB8179I",
+    });
+    expect(moneticoIpnKeyCandidates("NB8179I")).toEqual([
+      { key: CLE_PROD, platform: "production" },
+      { key: CLE_TEST, platform: "test" },
+    ]);
+  });
+
+  /* MONETICO_KEY_TEST peut très bien être absent de la production. On ne doit
+     ni jeter, ni fabriquer une candidate vide qui validerait n'importe quoi. */
+  it("ignore une plateforme dont la clé n'est pas configurée", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: "",
+    });
+    expect(moneticoIpnKeyCandidates("NB8179R")).toEqual([
+      { key: CLE_PROD, platform: "production" },
+    ]);
+  });
+
+  it("ne propose pas deux fois la même clé", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: CLE_PROD,
+    });
+    expect(moneticoIpnKeyCandidates("NB8179R")).toHaveLength(1);
   });
 });

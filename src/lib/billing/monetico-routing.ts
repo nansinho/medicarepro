@@ -53,3 +53,35 @@ export function moneticoKeyForTpe(tpe: string): string {
   }
   return b.moneticoKey;
 }
+
+/**
+ * Clés à ESSAYER pour authentifier un IPN, plateforme courante en premier.
+ *
+ * On n'élit plus la clé, on l'identifie : le sceau est le seul discriminant
+ * fiable, car le numéro de TPE est le même en test et en production. Une
+ * notification émise par la plateforme où vit la commande doit être reconnue
+ * même si le site est configuré sur l'autre, sinon elle est rejetée en
+ * silence — et un client réellement débité passe inaperçu.
+ *
+ * L'ordre compte : la plateforme courante d'abord, pour que le cas normal ne
+ * coûte qu'une vérification.
+ */
+export function moneticoIpnKeyCandidates(
+  tpe: string,
+): Array<{ key: string; platform: "test" | "production" }> {
+  const b = billingEnv();
+  const immediate = Boolean(b.moneticoTpeImmediate && tpe === b.moneticoTpeImmediate);
+  const ordre: Array<"test" | "production"> =
+    b.moneticoMode === "production" ? ["production", "test"] : ["test", "production"];
+
+  const candidates: Array<{ key: string; platform: "test" | "production" }> = [];
+  for (const platform of ordre) {
+    const jeu = b.moneticoIpnKeys[platform];
+    const key = immediate ? jeu.immediate : jeu.recurrent;
+    // Une clé peut manquer (l'autre environnement n'est pas toujours configuré).
+    if (key && !candidates.some((c) => c.key === key)) {
+      candidates.push({ key, platform });
+    }
+  }
+  return candidates;
+}
