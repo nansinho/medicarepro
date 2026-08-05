@@ -4,7 +4,8 @@ import { billingEnv } from "@/lib/env";
 import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { formatEuros } from "@/lib/checkout/pricing";
-import { markOrderFailed } from "@/lib/billing/orders";
+/* `markOrderFailed` n'est plus appelé ici : un refus ne clôt PAS une commande
+   (cf. le bloc ci-dessous, phase 7 de l'annexe technique Monetico). */
 import { notifyRenewal } from "@/lib/provisioning";
 import {
   paymentFailedEmail,
@@ -215,10 +216,28 @@ export async function registerPaymentFailure(input: {
     };
     if (order.status !== "pending") return; // déjà tranché
 
-    await markOrderFailed(supabase, order.id);
+    /* ⚠️ LA COMMANDE RESTE OUVERTE. Ne pas la clore sur un refus.
 
-    /* Pas d'email : le client vient de voir le refus sur sa page de retour et
-       peut relancer immédiatement. L'équipe, elle, doit savoir qu'une
+       Documentation Monetico, annexe « Techniques et échanges », phase (7) :
+       « la commande doit être persistante dans le système commerçant dès le
+       début du processus et ne doit pas être détruite même après un premier
+       avis de refus de paiement. En effet, un refus peut être suivi d'un
+       accord (l'interface Retour peut donc être appelée plusieurs fois pour
+       une même commande), par exemple en cas d'erreur de saisie ou de plafond
+       CB atteint ; l'acheteur peut donc vouloir utiliser une autre carte. »
+
+       La marquer close ici avait un prix concret : le client qui ressaie avec
+       une seconde carte SUR LA PAGE DE LA BANQUE est débité, la notification
+       arrive sur une commande « failed », et la finalisation se contente
+       d'alerter au lieu de créer le contrat. Argent encaissé, rien livré.
+
+       La commande s'éteint donc d'elle-même à son expiration (ORDER_TTL) ou
+       quand une nouvelle la remplace, jamais sur un refus. Le tunnel
+       d'inscription se comporte déjà ainsi : `record_monetico_ipn` laisse le
+       dossier en 'payment_pending' sur un refus. */
+
+    /* Pas d'email au client : il vient de voir le refus sur sa page de retour
+       et peut relancer immédiatement. L'équipe, elle, doit savoir qu'une
        souscription a échoué — c'est un client perdu si personne ne rappelle. */
     /* Une commande rattachée à un contrat existant (changement de formule ou
        de carte, reprise) laisse ce contrat INTACT : rien n'a été appliqué, et
