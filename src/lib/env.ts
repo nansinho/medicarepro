@@ -123,7 +123,21 @@ const EnvSchema = z.object({
      temps : c'est ce sélecteur qui tranche, et il est VÉRIFIÉ contre la clé
      qu'il désigne (voir missingStripeEnv). Un sélecteur qui ment était
      exactement le défaut de MONETICO_MODE. */
-  STRIPE_MODE: z.enum(["test", "live"]).default("test"),
+  STRIPE_MODE: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const brut = (v ?? "").trim().replace(/^["']|["']$/g, "").toLowerCase();
+      if (brut === "live" || brut === "production") return "live" as const;
+      if (brut === "" || brut === "test") return "test" as const;
+      /* Repli sur « test » : le côté sûr est celui qui n'encaisse pas pour de
+         vrai. Et la garde de concordance refusera de toute façon d'encaisser si
+         la clé servie contredit ce repli. */
+      console.error(
+        `[env] STRIPE_MODE = « ${v} » n'est ni « test » ni « live » : repli sur test.`,
+      );
+      return "test" as const;
+    }),
 
   /* Clé publique. Elle ne sert PAS à la redirection vers Stripe Checkout : la
      session est créée côté serveur et le navigateur ne parle jamais à Stripe.
@@ -196,7 +210,30 @@ const EnvSchema = z.object({
   /* Qui encaisse. Ferme les routes de l'autre prestataire au lieu de les
      laisser joignables : un chemin de paiement oublié mais atteignable est
      exactement ce qui produit un débit qu'on ne sait plus arrêter. */
-  PAYMENT_PROVIDER: z.enum(["monetico", "stripe"]).default("monetico"),
+  /* Tolérant à la saisie, et JAMAIS fatal.
+
+     Constaté en production le 05/08/2026 : une valeur qui ne tombait pas au
+     caractère près sur l'énumération faisait échouer la validation de TOUT
+     l'environnement, donc planter chaque route en 500. Une coquille dans une
+     variable de confort ne doit pas mettre le site à terre.
+
+     On normalise donc (espaces, casse, guillemets collés par un copier-coller),
+     et une valeur qu'on ne reconnaît toujours pas retombe sur « monetico » avec
+     un log bruyant : la vente s'arrête, ce qui est le côté sûr de l'erreur,
+     mais le site reste debout. */
+  PAYMENT_PROVIDER: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const brut = (v ?? "").trim().replace(/^["']|["']$/g, "").toLowerCase();
+      if (brut === "" ) return "monetico" as const;
+      if (brut === "stripe") return "stripe" as const;
+      if (brut === "monetico") return "monetico" as const;
+      console.error(
+        `[env] PAYMENT_PROVIDER = « ${v} » n'est ni « monetico » ni « stripe » : repli sur monetico, aucune vente par Stripe.`,
+      );
+      return "monetico" as const;
+    }),
 
   /* Cloudflare Turnstile (anti-bot du checkout) */
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),

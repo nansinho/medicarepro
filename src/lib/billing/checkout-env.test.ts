@@ -555,6 +555,38 @@ describe("configuration Stripe", () => {
     expect(missingStripeEnv().join(" ")).toContain("clé publique");
   });
 
+  /* ------------------------------------------------------------
+     Une coquille ne doit pas mettre le site à terre.
+
+     Constaté en production le 05/08/2026 : PAYMENT_PROVIDER saisie avec une
+     casse ou un espace en trop faisait échouer la validation de TOUT
+     l'environnement, donc planter chaque route en 500. Le site entier tombait
+     pour une variable de confort.
+     ------------------------------------------------------------ */
+  it("tolère la casse, les espaces et les guillemets d'un copier-coller", async () => {
+    for (const saisie of [" stripe", "Stripe", "STRIPE ", '"stripe"', "'stripe'"]) {
+      const { paymentProvider } = await loadEnv({ PAYMENT_PROVIDER: saisie });
+      expect(paymentProvider(), `saisie « ${saisie} »`).toBe("stripe");
+    }
+  });
+
+  it("retombe sur Monetico sans jeter quand la valeur est inconnue", async () => {
+    const { paymentProvider, env } = await loadEnv({ PAYMENT_PROVIDER: "stripes" });
+    expect(() => env()).not.toThrow();
+    // Le côté sûr de l'erreur : la vente s'arrête, le site reste debout.
+    expect(paymentProvider()).toBe("monetico");
+  });
+
+  it("applique la même tolérance au mode Stripe", async () => {
+    const { stripeConfig: c1 } = await loadEnv({ STRIPE_MODE: " LIVE " });
+    expect(c1().mode).toBe("live");
+    const { stripeConfig: c2 } = await loadEnv({ STRIPE_MODE: "production" });
+    expect(c2().mode).toBe("live");
+    // Valeur incomprise : repli sur le monde qui n'encaisse pas pour de vrai.
+    const { stripeConfig: c3 } = await loadEnv({ STRIPE_MODE: "prod" });
+    expect(c3().mode).toBe("test");
+  });
+
   it("par défaut, c'est encore Monetico qui encaisse", async () => {
     const { paymentProvider } = await loadEnv({});
     expect(paymentProvider()).toBe("monetico");
