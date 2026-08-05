@@ -129,6 +129,21 @@ const ORDER_COLUMNS =
  * tant qu'elle est 'pending', c'est le premier paiement ; une fois 'applied',
  * tout nouveau débit est une reconduction.
  */
+/**
+ * Ce que Stripe nous apprend et que nous ne pouvons pas deviner.
+ *
+ * Chez Monetico, la période était RECALCULÉE localement à partir de la date de
+ * commande, faute de mieux. Stripe, lui, connaît la vraie échéance de
+ * l'abonnement : la recalculer de notre côté ferait dériver les deux dates, et
+ * la nôtre finirait par mentir au praticien.
+ */
+export type StripeFacts = {
+  subscriptionId: string;
+  customerId: string | null;
+  /** L'échéance telle que Stripe la tient. Fait autorité. */
+  currentPeriodEnd: Date;
+};
+
 export async function finalizeOrderPayment(input: {
   reference: string;
   occurredAt: Date;
@@ -136,6 +151,8 @@ export async function finalizeOrderPayment(input: {
   currency: string | null;
   /** La notification avait-elle déjà été journalisée ? (rejeu bancaire) */
   isReplay: boolean;
+  /** Renseigné pour un encaissement Stripe, absent pour Monetico. */
+  stripe?: StripeFacts;
 }): Promise<void> {
   const supabase = serviceClient();
   if (!supabase) return;
@@ -622,16 +639,35 @@ async function finalizeAttach(
     occurredAt: Date;
     amountCents: number | null;
     currency: string | null;
+    stripe?: StripeFacts;
   },
 ): Promise<void> {
   const paidCents = input.amountCents ?? order.amount_cents;
+  /* Stripe encaisse lui-même, tarifie lui-même, et connaît l'échéance. Trois
+     règles écrites pour Monetico changent donc de sens ici. */
+  const parStripe = order.payment_provider === "stripe";
   const snap = order.billing_snapshot ?? {};
   const cabinetName = snap.cabinetName ?? "(cabinet sans nom)";
 
-  /* Garde montant : l'argent encaissé doit être EXACTEMENT l'attendu. Un écart
-     ne crée pas de contrat — sinon un montant manipulé achèterait un
-     abonnement au rabais. */
-  if (paidCents !== order.amount_cents) {
+  /* Garde montant. Chez Monetico, le montant partait dans le formulaire et
+     n'était protégé que par un sceau : un écart pouvait signer une
+     manipulation, donc on refusait de créer le contrat.
+
+     Chez Stripe, le montant vient de LEUR catalogue et le navigateur n'y touche
+     jamais (orders.ts documente ce montant comme indicatif). Un écart y est
+     normal — proratisation, arrondi de TVA, coupon — et refuser bloquerait une
+     souscription réellement payée. On alerte donc au lieu de refuser, et c'est
+     le montant ENCAISSÉ qui fait foi. */
+  if (parStripe && paidCents !== order.amount_cents) {
+    await sendBillingAlert("Souscription Stripe : montant différent de l'estimation", [
+      `Cabinet : ${cabinetName}`,
+      `Référence : ${input.reference}`,
+      `Montant encaissé : ${formatEuros(paidCents)}`,
+      `Montant estimé à l'ouverture : ${formatEuros(order.amount_cents)}`,
+      "L'abonnement EST créé : le catalogue Stripe fait foi. À vérifier si l'écart n'a pas d'explication (proratisation, TVA, remise).",
+    ]);
+  }
+  if (!parStripe && paidCents !== order.amount_cents) {
     await supabase
       .from("subscription_orders")
       .update({ status: "amount_mismatch", paid_at: input.occurredAt.toISOString() })
@@ -658,10 +694,14 @@ async function finalizeAttach(
       )
     : input.occurredAt;
   const startedAt = input.occurredAt;
-  const periodEnd = addMonthsClamped(
-    Number.isNaN(periodStart.getTime()) ? startedAt : periodStart,
-    order.plan === "ANNUAL" ? 12 : 1,
-  );
+  /* L'échéance de Stripe fait autorité : la recalculer ferait dériver notre
+     date de la sienne, et c'est la nôtre qui s'afficherait au praticien. */
+  const periodEnd =
+    input.stripe?.currentPeriodEnd ??
+    addMonthsClamped(
+      Number.isNaN(periodStart.getTime()) ? startedAt : periodStart,
+      order.plan === "ANNUAL" ? 12 : 1,
+    );
 
   const currency = input.currency ?? order.currency;
 
@@ -691,10 +731,17 @@ async function finalizeAttach(
       current_period_end: periodEnd.toISOString(),
       monetico_reference: order.monetico_reference,
       monetico_order_date: order.monetico_order_date,
-      /* L'annuel est un paiement UNIQUE : aucune reconduction carte à
-         attendre, on le marque tout de suite (même règle que le worker). */
+      /* Sans eux, aucune action du portail n'est possible ensuite : résilier,
+         changer de formule ou de carte passe par l'abonnement Stripe. */
+      stripe_subscription_id: input.stripe?.subscriptionId ?? null,
+      stripe_customer_id: input.stripe?.customerId ?? null,
+      /* L'annuel MONETICO est un paiement unique : aucune reconduction carte à
+         attendre, on le marque arrêté tout de suite. L'annuel STRIPE, lui, se
+         reconduit tout seul — le marquer ainsi le ferait passer pour éteint,
+         et le praticien lirait « ne se reconduit plus » sur un abonnement bien
+         vivant. */
       recurrence_stopped_at:
-        order.plan === "ANNUAL" ? startedAt.toISOString() : null,
+        !parStripe && order.plan === "ANNUAL" ? startedAt.toISOString() : null,
       notes: "Souscription depuis l'espace abonnement (cabinet existant).",
     })
     .select("id")
@@ -735,7 +782,12 @@ async function finalizeAttach(
       amount_cents: paidCents,
       currency,
       occurred_at: paidAtIso,
-      captured_at: order.plan === "ANNUAL" ? paidAtIso : null,
+      /* `captured_at` distingue « autorisé » de « encaissé », distinction née
+         du TPE récurrent Monetico qui autorise sans prélever. Stripe prélève
+         tout de suite : l'écriture naît encaissée, et il n'y a rien à
+         recouvrer ensuite. */
+      captured_at: parStripe || order.plan === "ANNUAL" ? paidAtIso : null,
+      stripe_invoice_id: null,
       reference: order.monetico_reference,
       subscription_id: subscriptionId,
       cabinet_name: cabinetName,
@@ -744,8 +796,11 @@ async function finalizeAttach(
     .select("id")
     .maybeSingle();
 
-  // 3. Encaissement effectif (récurrent seulement).
-  if (ledger && order.plan !== "ANNUAL") {
+  /* 3. Encaissement effectif — récurrent MONETICO seulement. Appeler le service
+     de capture du CIC sur une commande Stripe partirait avec une référence que
+     la banque ne connaît pas, et le cron de rattrapage réessaierait
+     indéfiniment en alertant à chaque passage. */
+  if (ledger && !parStripe && order.plan !== "ANNUAL") {
     try {
       await captureLedgerEntry((ledger as { id: number }).id);
     } catch (err) {

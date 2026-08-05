@@ -1,10 +1,13 @@
-import { type NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
+import type Stripe from "stripe";
 import { serviceClient } from "@/lib/supabase/service";
 import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import { billingEnv, hasBilling } from "@/lib/env";
+import { finalizeOrderPayment } from "@/lib/billing/attach";
 import {
   eventMatchesEnvironment,
+  factsFromCompletedSession,
   projectStripeEvent,
   verifyStripeEvent,
 } from "@/lib/stripe/webhook";
@@ -137,9 +140,82 @@ export async function POST(request: NextRequest) {
     return ack("journal indisponible", 503);
   }
 
-  /* Les effets viendront ici (lot suivant). `processed_at` reste NULL tant
-     qu'ils ne sont pas appliqués : c'est ce qui distingue « reçu » de
-     « traité », et ce qui rend un oubli visible au lieu de silencieux. */
+  /* EFFETS. Après le journal, jamais avant : c'est l'ordre qui a manqué le
+     04/08/2026, quand un renouvellement était aiguillé avant d'être enregistré
+     et n'entrait donc jamais dans le journal.
+
+     Ils tournent dans `after()` : Stripe attend son acquittement en quelques
+     secondes, et une création de cabinet peut prendre plus longtemps. Le
+     journal étant déjà écrit, un échec ici ne perd rien — il laisse
+     `processed_at` à NULL, ce qui rend l'oubli visible. */
+  after(async () => {
+    try {
+      await applyStripeEvent(event, record.eventId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[stripe-webhook] effets :", message);
+      await supabase
+        .from("stripe_events")
+        .update({ process_error: message.slice(0, 500) })
+        .eq("event_id", record.eventId);
+      await alerte("Événement Stripe reçu mais non traité", [
+        `Type : ${record.type}`,
+        `Référence : ${record.reference ?? "(absente)"}`,
+        `Erreur : ${message.slice(0, 300)}`,
+        "L'événement est enregistré : il peut être rejoué depuis le tableau de bord Stripe une fois la cause corrigée.",
+      ]);
+    }
+  });
 
   return ack("reçu");
+}
+
+/**
+ * Applique les effets métier d'un événement déjà journalisé.
+ *
+ * Chaque branche marque `processed_at` elle-même, à la fin : ce qui distingue
+ * « reçu » de « traité ». Un type qu'on ne traite pas reste donc visible comme
+ * non traité, au lieu de se confondre avec un succès.
+ */
+async function applyStripeEvent(
+  event: Stripe.Event,
+  eventId: string,
+): Promise<void> {
+  const supabase = serviceClient();
+  if (!supabase) return;
+
+  const marquerTraite = async () => {
+    await supabase
+      .from("stripe_events")
+      .update({ processed_at: new Date().toISOString(), process_error: null })
+      .eq("event_id", eventId);
+  };
+
+  if (event.type === "checkout.session.completed") {
+    const faits = await factsFromCompletedSession(event);
+    if (!faits.ok) {
+      /* Pas une erreur : une session peut aboutir sans paiement acquis
+         (prélèvement SEPA en cours). On le note sans alerter. */
+      await supabase
+        .from("stripe_events")
+        .update({ process_error: `ignoré : ${faits.reason}` })
+        .eq("event_id", eventId);
+      return;
+    }
+    await finalizeOrderPayment({
+      reference: faits.reference,
+      occurredAt: faits.occurredAt,
+      amountCents: faits.amountCents,
+      currency: faits.currency,
+      /* Toujours faux ici : l'unicité de `event_id` a déjà écarté les
+         re-livraisons avant qu'on arrive jusqu'à ces effets. */
+      isReplay: false,
+      stripe: faits.stripe,
+    });
+    await marquerTraite();
+    return;
+  }
+
+  /* Les autres types sont journalisés et attendent leur lot. `processed_at`
+     reste NULL : un oubli se voit, il ne se confond pas avec un succès. */
 }

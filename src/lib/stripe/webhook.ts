@@ -150,3 +150,89 @@ export function projectStripeEvent(event: Stripe.Event): StripeEventRecord {
     payload,
   };
 }
+
+/**
+ * Les faits d'une session de paiement aboutie, tels qu'ils doivent atteindre la
+ * finalisation.
+ *
+ * On relit l'abonnement chez Stripe plutôt que de se contenter de la session :
+ * `current_period_end` n'y figure pas, et c'est pourtant lui qui doit faire
+ * autorité sur l'échéance. Recalculer la nôtre la ferait dériver de la sienne,
+ * et c'est la nôtre qui s'afficherait au praticien.
+ */
+export async function factsFromCompletedSession(
+  event: Stripe.Event,
+): Promise<
+  | {
+      ok: true;
+      reference: string;
+      amountCents: number | null;
+      currency: string | null;
+      occurredAt: Date;
+      stripe: {
+        subscriptionId: string;
+        customerId: string | null;
+        currentPeriodEnd: Date;
+      };
+    }
+  | { ok: false; reason: string }
+> {
+  const session = event.data.object as Stripe.Checkout.Session;
+
+  const reference =
+    session.client_reference_id ?? session.metadata?.reference ?? null;
+  if (!reference) {
+    return { ok: false, reason: "session sans référence MediCare Pro" };
+  }
+
+  /* Une session peut aboutir sans que le paiement soit acquis : virement en
+     attente, prélèvement SEPA en cours de traitement. On ne crée un contrat que
+     sur un paiement effectif. */
+  if (session.payment_status !== "paid") {
+    return {
+      ok: false,
+      reason: `paiement non acquis (payment_status = ${session.payment_status})`,
+    };
+  }
+
+  const subscriptionId =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : (session.subscription?.id ?? null);
+  if (!subscriptionId) {
+    return { ok: false, reason: "session sans abonnement rattaché" };
+  }
+
+  let currentPeriodEnd: Date;
+  try {
+    const sub = await stripe().subscriptions.retrieve(subscriptionId);
+    /* `items.data[0].current_period_end` dans les versions récentes de l'API :
+       l'échéance vit sur la ligne d'abonnement, pas sur l'abonnement lui-même. */
+    const fin =
+      (sub as unknown as { current_period_end?: number }).current_period_end ??
+      sub.items?.data?.[0]?.current_period_end;
+    if (typeof fin !== "number") {
+      return { ok: false, reason: "abonnement Stripe sans échéance lisible" };
+    }
+    currentPeriodEnd = new Date(fin * 1000);
+  } catch (err) {
+    return {
+      ok: false,
+      reason: `abonnement illisible : ${err instanceof Error ? err.message.slice(0, 120) : "?"}`,
+    };
+  }
+
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : (session.customer?.id ?? null);
+
+  return {
+    ok: true,
+    reference,
+    amountCents: session.amount_total ?? null,
+    currency: session.currency?.toUpperCase() ?? null,
+    occurredAt: new Date(event.created * 1000),
+    stripe: { subscriptionId, customerId, currentPeriodEnd },
+  };
+}
