@@ -467,7 +467,10 @@ export type CabinetLookupResult = {
   postalCode: string;
   siretNumber: string | null;
   invoicePrefix: string;
+  /** « ACTIVE », « DELETED »… Un cabinet supprimé répond quand même. */
   status: string;
+  /** Renseigné quand le cabinet a été supprimé dans l'application. */
+  deletedAt?: string | null;
   subscriptionPlan: string | null;
   subscriptionStatus: string | null;
   subscriptionExpiresAt: string | null;
@@ -483,7 +486,10 @@ export type CabinetLookupResult = {
 export type CabinetLookupOutcome =
   | { ok: true; cabinet: CabinetLookupResult }
   | { ok: false; notFound: true }
-  | { ok: false; notFound: false; reason: string };
+  /* `deleted` distingue « il n'existe pas » de « il a été supprimé » : le
+     premier est une faute de frappe, le second demande une intervention de
+     l'équipe de l'application. Le message affiché n'est pas le même. */
+  | { ok: false; notFound: false; deleted?: boolean; reason: string };
 
 /** Recherche par email OU par identifiant. Ne jette jamais. */
 export async function lookupCabinet(input: {
@@ -531,5 +537,26 @@ export async function lookupCabinet(input: {
       reason: `Recherche en erreur (HTTP ${response.status}).`,
     };
   }
-  return { ok: true, cabinet: envelope.data };
+  /* UN CABINET SUPPRIMÉ RÉPOND QUAND MÊME, avec toutes ses coordonnées.
+     L'application ne l'efface pas, elle le marque (`status: "DELETED"`,
+     `deletedAt`) — ce qui est juste pour des données de santé, mais rend le
+     404 attendu impossible.
+
+     Le 05/08/2026, l'écran de souscription a donc chargé HARUA NANS, supprimé
+     le 11/07, et proposé de lui créer un lien de paiement : on aurait encaissé
+     pour un compte qui n'existe plus, et le praticien n'aurait jamais pu se
+     connecter. On le signale ici, une fois, plutôt que d'attendre que chaque
+     appelant y pense. */
+  const c = envelope.data;
+  if (c.status === "DELETED" || c.deletedAt) {
+    return {
+      ok: false,
+      notFound: false,
+      deleted: true,
+      reason: `Ce cabinet a été SUPPRIMÉ dans l'application${
+        c.deletedAt ? ` le ${c.deletedAt.slice(0, 10)}` : ""
+      } : aucun abonnement ne peut lui être vendu. Il doit d'abord être rétabli par l'équipe de l'application.`,
+    };
+  }
+  return { ok: true, cabinet: c };
 }

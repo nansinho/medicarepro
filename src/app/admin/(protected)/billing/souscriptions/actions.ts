@@ -170,6 +170,21 @@ export async function creerLienSouscription(
       };
     }
 
+    /* SECONDE VÉRIFICATION, à l'instant d'engager. La recherche a pu avoir lieu
+       il y a dix minutes, et le formulaire porte des champs modifiables : rien
+       ne garantit que l'identifiant soumis est celui qui a été contrôlé. On
+       redemande donc l'état du cabinet à l'application juste avant d'ouvrir la
+       caisse — c'est le dernier moment où le refus ne coûte rien. */
+    const etat = await lookupCabinet({ id: cabinetId });
+    if (!etat.ok) {
+      return {
+        ok: false,
+        error: etat.notFound
+          ? "Ce cabinet n'existe plus dans l'application : aucun lien ne peut être créé."
+          : etat.reason,
+      };
+    }
+
     const { url, expiresAt } = await createPortalLink(service, {
       appCabinetId: cabinetId,
       cabinet,
