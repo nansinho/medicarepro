@@ -38,8 +38,18 @@ export function cancellationScheduledEmail(d: {
   cabinetName: string;
   currentPlanLabel: string;
   accessUntilLabel: string;
+  /* Voir changeScheduledEmail : tant que la banque n'a pas accusé l'arrêt,
+     on ne l'écrit pas au client. L'engagement « aucun prélèvement » tient
+     quand même, il est simplement tenu par nous et non par la banque. */
+  bankStopPending?: boolean;
 }): EmailContent {
   const subject = "Votre résiliation est enregistrée — MediCare Pro";
+  const stopHtml = d.bankStopPending
+    ? "nous finalisons l'arrêt de la reconduction auprès de votre banque, et si un montant était malgré tout débité, il vous serait remboursé sans démarche de votre part."
+    : "votre banque a confirmé l'arrêt de la reconduction.";
+  const stopText = d.bankStopPending
+    ? "vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué : si un\nmontant était malgré tout débité, il vous serait remboursé sans démarche."
+    : "vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué.";
 
   const rows: KvRow[] = [
     { label: "Cabinet", valueHtml: escHtml(d.cabinetName) },
@@ -55,7 +65,7 @@ export function cancellationScheduledEmail(d: {
     ) +
     kvCard(rows) +
     callout(
-      `<strong style="color:${NAVY};">Vous gardez l'accès complet jusqu'au ${escHtml(d.accessUntilLabel)}</strong>, période que vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué : votre banque a confirmé l'arrêt de la reconduction.`,
+      `<strong style="color:${NAVY};">Vous gardez l'accès complet jusqu'au ${escHtml(d.accessUntilLabel)}</strong>, période que vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué&nbsp;: ${stopHtml}`,
     ) +
     paragraph(
       `Vos données restent les vôtres. Pensez à faire vos exports depuis le logiciel avant la fin de l'accès, et écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a> si vous avez besoin d'aide.`,
@@ -77,7 +87,7 @@ export function cancellationScheduledEmail(d: {
     `Prochain prélèvement  aucun`,
     "",
     `Vous gardez l'accès complet jusqu'au ${d.accessUntilLabel}, période que`,
-    "vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué.",
+    stopText,
     "",
     "Pensez à faire vos exports depuis le logiciel avant la fin de l'accès.",
     "Vous changez d'avis ? Vous pouvez reprendre votre abonnement à tout",
@@ -117,8 +127,23 @@ export function changeScheduledEmail(d: {
   targetPlanLabel: string;
   targetAmountLabel: string;
   effectiveAtLabel: string;
+  /* Le changement est réglable immédiatement (cas de l'annuel : paiement
+     unique, la période s'ajoute au terme en cours, rien ne se perd). Sans
+     ce drapeau, l'email annonçait une date de règlement que l'espace
+     contredisait en proposant de payer sur-le-champ. */
+  payableNow?: boolean;
+  /* La banque n'a PAS accusé l'arrêt de la reconduction : il reste à poser
+     à la main. Ne jamais écrire au client qu'il est arrêté tant que c'est
+     le cas — c'est une affirmation vérifiable sur son relevé. */
+  bankStopPending?: boolean;
 }): EmailContent {
   const isCard = d.kind === "card_update";
+  const stopSentence = d.bankStopPending
+    ? "Nous finalisons l'arrêt de votre reconduction automatique auprès de votre banque et vous le confirmons par courriel"
+    : "Votre reconduction automatique est arrêtée";
+  const actionSentence = d.payableNow
+    ? "Vous pouvez valider dès maintenant depuis votre espace."
+    : `Une action vous sera demandée le ${d.effectiveAtLabel}.`;
   const subject = isCard
     ? "Votre changement de carte est enregistré — MediCare Pro"
     : "Votre changement de formule est enregistré — MediCare Pro";
@@ -134,7 +159,10 @@ export function changeScheduledEmail(d: {
     });
   }
   rows.push(
-    { label: "À régler le", valueHtml: escHtml(d.effectiveAtLabel) },
+    {
+      label: "À régler",
+      valueHtml: escHtml(d.payableNow ? "dès maintenant" : `le ${d.effectiveAtLabel}`),
+    },
     { label: "Montant TTC", valueHtml: escHtml(d.targetAmountLabel) },
   );
 
@@ -147,7 +175,7 @@ export function changeScheduledEmail(d: {
     ) +
     kvCard(rows) +
     callout(
-      `<strong style="color:${NAVY};">Une action vous sera demandée le ${escHtml(d.effectiveAtLabel)}.</strong> Votre reconduction automatique est arrêtée&nbsp;: ${isCard ? "votre nouvelle carte ne peut pas remplacer l'ancienne sur un prélèvement déjà programmé" : "le montant d'un prélèvement en cours ne peut pas être modifié"}. Vous validerez donc ${isCard ? "votre nouvelle carte" : "votre nouvelle formule"} par un paiement depuis votre espace, et tout repartira automatiquement ensuite. Nous vous préviendrons une semaine avant, puis la veille.`,
+      `<strong style="color:${NAVY};">${escHtml(actionSentence)}</strong> ${escHtml(stopSentence)}&nbsp;: ${isCard ? "votre nouvelle carte ne peut pas remplacer l'ancienne sur un prélèvement déjà programmé" : "le montant d'un prélèvement en cours ne peut pas être modifié"}. Vous validerez donc ${isCard ? "votre nouvelle carte" : "votre nouvelle formule"} par un paiement depuis votre espace, et tout repartira automatiquement ensuite.${d.payableNow ? "" : " Nous vous préviendrons une semaine avant, puis la veille."}`,
     ) +
     paragraph(
       `D'ici là, rien ne change&nbsp;: vous gardez l'accès complet et aucun montant ne sera débité. Vous pouvez aussi revenir sur cette demande depuis votre espace.`,
@@ -166,11 +194,11 @@ export function changeScheduledEmail(d: {
     `Cabinet            ${d.cabinetName}`,
     `Formule actuelle   ${d.currentPlanLabel}`,
     ...(isCard ? [] : [`Nouvelle formule   ${d.targetPlanLabel}`]),
-    `À régler le        ${d.effectiveAtLabel}`,
+    `À régler           ${d.payableNow ? "dès maintenant" : `le ${d.effectiveAtLabel}`}`,
     `Montant TTC        ${d.targetAmountLabel}`,
     "",
-    `IMPORTANT : une action vous sera demandée le ${d.effectiveAtLabel}.`,
-    "Votre reconduction automatique est arrêtée. Vous validerez",
+    `IMPORTANT : ${actionSentence}`,
+    `${stopSentence}. Vous validerez`,
     isCard ? "votre nouvelle carte" : "votre nouvelle formule",
     "par un paiement depuis votre espace, et tout repartira",
     "automatiquement ensuite. Nous vous préviendrons une semaine",

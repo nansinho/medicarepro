@@ -24,6 +24,11 @@ import SubscriptionSpace, {
   type PortalInvoice,
 } from "@/components/portail/SubscriptionSpace";
 import s from "@/components/checkout/Checkout.module.css";
+/* L'écran d'activation appartient à l'espace abonnement, pas au tunnel de
+   vente : il en emprunte donc la mise en page (colonne de 1060 px, en-tête
+   « hero »), sinon le praticien change de largeur et de typographie entre
+   la souscription et la console qui la suit. */
+import p from "@/components/portail/Portal.module.css";
 
 /* ============================================================
    /mon-abonnement — espace abonnement du praticien.
@@ -176,38 +181,41 @@ export default async function MonAbonnementPage({
   /* --- Aucun abonnement (ou abonnement terminé) : souscription. --- */
   if (!sub || OVER.has(sub.status)) {
     return (
-      <div className={s.shell}>
-        <div className={s.head}>
-          <h1 className={s.title}>
-            {sub ? "Reprendre un abonnement" : "Activer votre abonnement"}
-          </h1>
-          <p className={s.subtitle}>
-            {sub
-              ? `L'abonnement de ${cabinetName} est terminé. Vous pouvez en reprendre un, sans rien perdre de vos données.`
-              : `${cabinetName} utilise MediCare Pro sans abonnement. Choisissez votre formule pour le mettre en place.`}
-          </p>
-        </div>
-        <div className={s.card}>
-          <div className={s.cardBody}>
-            {monthlyEnabled || annualEnabled ? (
-              <SubscribePanel
-                prices={priceTable()}
-                monthlyEnabled={monthlyEnabled}
-                annualEnabled={annualEnabled}
-                cabinetName={cabinetName}
-              />
-            ) : (
-              <div className={s.alert}>
-                <span>
-                  La souscription en ligne est momentanément indisponible.
-                  Écrivez-nous à{" "}
-                  <a href="mailto:contact@medicarepro.fr">contact@medicarepro.fr</a>{" "}
-                  et nous la mettons en place avec vous.
-                </span>
-              </div>
-            )}
+      <div className={p.space}>
+        <div className={p.hero}>
+          <div className={p.heroText}>
+            <h1 className={p.title}>
+              {sub ? "Reprendre un abonnement" : "Activer votre abonnement"}
+            </h1>
+            <p className={p.subtitle}>
+              {sub
+                ? `L'abonnement de ${cabinetName} est terminé. Vous pouvez en reprendre un, sans rien perdre de vos données.`
+                : `${cabinetName} utilise MediCare Pro sans abonnement. Choisissez votre formule pour le mettre en place.`}
+            </p>
           </div>
         </div>
+        {monthlyEnabled || annualEnabled ? (
+          <SubscribePanel
+            prices={priceTable()}
+            monthlyEnabled={monthlyEnabled}
+            annualEnabled={annualEnabled}
+            cabinetName={cabinetName}
+          />
+        ) : (
+          <div className={`${p.notice} ${p.noticeWarn}`}>
+            <span className={p.noticeAccent} aria-hidden="true" />
+            <div className={p.noticeBody}>
+              <div className={p.noticeTitle}>
+                Souscription momentanément indisponible
+              </div>
+              <div className={p.noticeText}>
+                Écrivez-nous à{" "}
+                <a href="mailto:contact@medicarepro.fr">contact@medicarepro.fr</a>{" "}
+                et nous la mettons en place avec vous.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

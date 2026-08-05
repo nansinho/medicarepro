@@ -49,6 +49,15 @@ export type StopRecurrenceOutcome = {
   lib: string;
   /** Message prêt à afficher dans l'admin. */
   message: string;
+  /**
+   * La commande RÉELLEMENT visée par l'appel, telle qu'envoyée à la banque.
+   *
+   * Ce n'est pas forcément celle portée par le contrat : après un changement
+   * de carte ou de formule, l'abonnement pointe une commande plus récente.
+   * L'alerte d'échec doit citer celle-ci, sinon l'arrêt manuel est posé sur
+   * la mauvaise commande et le client est prélevé quand même.
+   */
+  target?: { reference: string; orderDateLabel: string; amountCents: number };
 };
 
 function errMessage(err: unknown): string {
@@ -162,6 +171,14 @@ export async function stopRecurrence(
      « commande non authentifiee » le jour où ce ne sera plus vrai. */
   const config = moneticoConfigForPlan(live?.plan ?? "MONTHLY");
 
+  const orderDateLabel = orderDate.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Paris",
+  });
+  const target = { reference, orderDateLabel, amountCents: orderAmountCents };
+
   const attempt = async (alreadyCapturedCents: number) => {
     const { url, fields } = buildStopRecurrenceRequest(
       {
@@ -201,6 +218,7 @@ export async function stopRecurrence(
     await sendBillingAlert("URGENT — Arrêt de récurrence REFUSÉ", [
       `Cabinet : ${sub.cabinet_name}`,
       `Référence : ${reference}`,
+      `Date de commande : ${orderDateLabel}`,
       `Réponse de la banque : ${result.lib || "(aucun libellé)"}`,
       `Montant de la commande : ${formatEuros(orderAmountCents)} — déjà capturé déclaré : ${formatEuros(capturedCents)}`,
       "La reconduction est TOUJOURS ACTIVE : le client sera prélevé à la prochaine échéance. Arrêter l'abonnement depuis le tableau de bord CIC.",
@@ -209,6 +227,7 @@ export async function stopRecurrence(
       ok: false,
       lib: result.lib,
       message: `Refus de Monetico : ${result.lib || "sans libellé"} — la reconduction reste active.`,
+      target,
     };
   }
 

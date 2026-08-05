@@ -227,18 +227,18 @@ export default async function SouscriptionsPage() {
               </CardHeader>
               <div className="flex flex-col gap-2.5 p-5 text-xs leading-relaxed text-muted-foreground">
                 <p>
-                  <b className="text-foreground">Usage unique, 15 minutes.</b> Il
-                  n&apos;est jamais envoyé par email : il serait périmé à
+                  <b className="text-foreground">Usage unique, 15 minutes.</b>{" "}
+                  Il n&apos;est jamais envoyé par email : il serait périmé à
                   l&apos;ouverture. Transmettez-le par téléphone ou message.
                 </p>
                 <p>
-                  <b className="text-foreground">Aucun compte créé.</b> Le cabinet
-                  existe déjà dans l&apos;application ; ses dossiers ne sont pas
+                  <b className="text-foreground">Aucun compte créé.</b>{" "}
+                  Le cabinet existe déjà dans l&apos;application ; ses dossiers ne sont pas
                   touchés.
                 </p>
                 <p>
-                  <b className="text-foreground">Affiché une seule fois.</b> Il
-                  n&apos;est pas conservé et ne réapparaîtra pas après avoir
+                  <b className="text-foreground">Affiché une seule fois.</b>{" "}
+                  Il n&apos;est pas conservé et ne réapparaîtra pas après avoir
                   quitté la page.
                 </p>
               </div>
@@ -337,7 +337,8 @@ export default async function SouscriptionsPage() {
                 </span>
                 {oStuck > 0 && (
                   <span className="text-[color:var(--warn)]">
-                    <b className="font-mono tabular-nums">{oStuck}</b> à traiter
+                    <b className="font-mono tabular-nums">{oStuck}</b>{" "}
+                    à traiter
                   </span>
                 )}
                 <span className="ml-auto">

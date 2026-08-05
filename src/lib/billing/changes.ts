@@ -311,6 +311,12 @@ export async function scheduleChange(
      CIC. Se relit ailleurs sans colonne nouvelle : une demande active alors
      que subscriptions.recurrence_stopped_at est vide, c'est exactement ça. */
   let bankStopPending = false;
+  /* Commande réellement visée par l'appel bancaire — pas forcément celle du
+     contrat après un changement antérieur. C'est elle que l'alerte doit citer
+     pour que l'arrêt manuel porte sur la bonne. */
+  let stopTarget: NonNullable<
+    Awaited<ReturnType<typeof stopRecurrence>>["target"]
+  > | null = null;
 
   if (!sub.recurrence_stopped_at) {
     const outcome = await stopRecurrence(sub.id);
@@ -331,6 +337,7 @@ export async function scheduleChange(
          entier avant la prochaine échéance pour le faire. */
       bankStopPending = true;
       stopLib = outcome.lib || outcome.message.slice(0, 200);
+      stopTarget = outcome.target ?? null;
     }
   }
 
@@ -385,9 +392,9 @@ export async function scheduleChange(
     await sendBillingAlert("URGENT — Arrêt de récurrence à poser À LA MAIN", [
       `Cabinet : ${sub.cabinet_name}`,
       `Demande : ${input.kind}`,
-      `Référence Monetico : ${sub.monetico_reference}`,
-      `Date de commande : ${sub.monetico_order_date ?? "(inconnue)"}`,
-      `Montant : ${formatEuros(sub.first_payment_cents)}`,
+      `Référence Monetico : ${stopTarget?.reference ?? sub.monetico_reference}`,
+      `Date de commande : ${stopTarget?.orderDateLabel ?? sub.monetico_order_date ?? "(inconnue)"}`,
+      `Montant : ${formatEuros(stopTarget?.amountCents ?? sub.first_payment_cents)}`,
       `Réponse de la banque : ${stopLib ?? "(sans libellé)"}`,
       `Prochaine échéance : ${frDate(effectiveAt)} — c'est le délai pour agir.`,
       "À FAIRE : arrêter la reconduction de cette commande depuis le tableau de bord CIC. La demande du client EST enregistrée et il a reçu sa confirmation ; sans ce geste, il sera prélevé malgré tout.",
@@ -432,6 +439,7 @@ export async function scheduleChange(
               cabinetName: sub.cabinet_name,
               currentPlanLabel: planLabel(sub.plan, sub.extra_collaborators),
               accessUntilLabel: frDate(effectiveAt),
+              bankStopPending,
             })
           : changeScheduledEmail({
               adminFirstName: firstName,
@@ -446,6 +454,12 @@ export async function scheduleChange(
                 targetAmount ?? renewalAmountCents(sub.plan, sub.extra_collaborators),
               ),
               effectiveAtLabel: frDate(effectiveAt),
+              /* La date d'effet n'est PAS la date de règlement. Sur un passage
+                 à l'annuel, `payableFrom` ouvre le paiement tout de suite : le
+                 client voyait « à régler le 1er septembre » et trouvait le
+                 bouton de paiement actif dans son espace le jour même. */
+              payableNow: isPayableNow(change, sub),
+              bankStopPending,
             });
       await sendMail({ to: sub.admin_email, ...mail });
     }

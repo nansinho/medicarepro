@@ -899,8 +899,8 @@ export default function CheckoutFlow({
                   <span>
                     Le règlement s&apos;effectue par carte bancaire
                     (Monetico&nbsp;— CIC). L&apos;offre 12 mois est un{" "}
-                    <b>paiement unique de {row.totalLabel} TTC</b> qui vous
-                    donne accès pendant 12 mois, <b>sans reconduction
+                    <b>paiement unique de {row.totalLabel} TTC</b>{" "}
+                    qui vous donne accès pendant 12 mois, <b>sans reconduction
                     automatique</b>. Nous vous préviendrons par email avant
                     l&apos;échéance pour renouveler si vous le souhaitez.
                   </span>
@@ -910,7 +910,8 @@ export default function CheckoutFlow({
                   <span>
                     Le règlement s&apos;effectue par carte bancaire
                     (Monetico&nbsp;— CIC). Votre abonnement est ensuite{" "}
-                    <b>reconduit automatiquement chaque mois</b> pour{" "}
+                    <b>reconduit automatiquement chaque mois</b>{" "}
+                    pour{" "}
                     {row.totalLabel} TTC, sur la même carte, jusqu&apos;à ce que
                     vous y mettiez fin. Vous pouvez arrêter la reconduction à
                     tout moment en nous écrivant à{" "}
