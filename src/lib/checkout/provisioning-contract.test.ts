@@ -79,3 +79,33 @@ describe("contrat de provisioning — aucun champ requis ne part vide", () => {
     }
   });
 });
+
+/* ============================================================
+   Deux conventions pour une même notion.
+
+   Chez nous, minuscules : colonne `payment_provider`, variable
+   `PAYMENT_PROVIDER`. Dans le contrat avec l'application métier, MAJUSCULES,
+   depuis toujours. C'est le genre d'écart qui produit un refus
+   incompréhensible le jour du premier vrai paiement.
+
+   Et une précision de l'équipe de l'application, le 05/08/2026 : le champ
+   n'est pas une énumération stricte de leur côté, mais une valeur ABSENTE est
+   enregistrée « MONETICO » par défaut. Un paiement Stripe muet serait donc
+   comptabilisé chez eux comme un paiement Monetico — d'où l'importance de
+   toujours l'envoyer, et de ne jamais renvoyer undefined.
+   ============================================================ */
+describe("providerForApp", () => {
+  it("traduit vers la convention du contrat", async () => {
+    const { providerForApp } = await import("@/lib/provisioning");
+    expect(providerForApp("stripe")).toBe("STRIPE");
+    expect(providerForApp("monetico")).toBe("MONETICO");
+  });
+
+  /* Les lignes antérieures à la migration 0034 ont la colonne à NULL : elles
+     ont toutes été encaissées par Monetico. */
+  it("rattache l'inconnu à Monetico, jamais à rien", async () => {
+    const { providerForApp } = await import("@/lib/provisioning");
+    expect(providerForApp(null)).toBe("MONETICO");
+    expect(providerForApp(undefined)).toBe("MONETICO");
+  });
+});

@@ -66,6 +66,27 @@ export type AvailabilityResult = {
   conflicts: string[]; // "cabinet.email" | "cabinet.siretNumber" | "cabinet.invoicePrefix" | "user.email"
 };
 
+/** Le prestataire, dans la convention du contrat : en MAJUSCULES. */
+export type AppPaymentProvider = "MONETICO" | "STRIPE";
+
+/**
+ * Traduit notre valeur interne vers celle attendue par l'application.
+ *
+ * Deux conventions cohabitent, chacune cohérente dans son monde : minuscules
+ * chez nous (base, environnement), majuscules dans le contrat. C'est
+ * exactement le genre de détail qui produit un refus incompréhensible le jour
+ * du premier vrai paiement, d'où une fonction nommée plutôt qu'un
+ * `.toUpperCase()` perdu dans un appel.
+ *
+ * NULL vaut MONETICO : c'est le cas des lignes antérieures à la migration
+ * 0034, toutes encaissées par Monetico.
+ */
+export function providerForApp(
+  interne: "monetico" | "stripe" | null | undefined,
+): AppPaymentProvider {
+  return interne === "stripe" ? "STRIPE" : "MONETICO";
+}
+
 export type ProvisionPayload = {
   idempotencyKey: string; // = référence Monetico
   cabinet: {
@@ -89,7 +110,17 @@ export type ProvisionPayload = {
   plan: "MONTHLY" | "ANNUAL";
   extraCollaborators: number;
   payment: {
-    provider: "MONETICO";
+    /* MAJUSCULES : c'est la convention du contrat avec l'application métier,
+       depuis toujours. Chez nous la même notion s'écrit en minuscules
+       (colonne payment_provider, variable PAYMENT_PROVIDER) — d'où la
+       conversion explicite de providerForApp(), et son test.
+
+       À ENVOYER TOUJOURS. Confirmé par l'équipe de l'application le
+       05/08/2026 : le champ n'est pas une énumération stricte de leur côté,
+       mais une valeur ABSENTE est enregistrée « MONETICO » par défaut. Un
+       paiement Stripe muet serait donc comptabilisé chez eux comme un
+       paiement Monetico. */
+    provider: AppPaymentProvider;
     reference: string;
     amount: number; // centimes
     currency: string;

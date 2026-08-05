@@ -6,7 +6,7 @@ import { billingEnv } from "@/lib/env";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
-import {
+import { providerForApp,
   provisionCabinet,
   buildProvisioningCabinet,
   ProvisioningConflictError,
@@ -863,7 +863,7 @@ export async function provisionPendingSignup(
     plan: row.plan,
     extraCollaborators: row.extra_collaborators,
     payment: {
-      provider: "MONETICO",
+      provider: providerForApp(row.payment_provider),
       reference: row.monetico_reference,
       amount: row.amount_cents,
       currency: row.currency,
