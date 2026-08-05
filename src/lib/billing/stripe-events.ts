@@ -332,18 +332,61 @@ export async function applyStripeEvent(
      reste NULL : un oubli se voit, il ne se confond pas avec un succès. */
 }
 
-/** L'abonnement porté par une facture, quelle que soit sa forme. */
-function subscriptionIdOf(invoice: Stripe.Invoice): string | null {
-  const direct = (invoice as unknown as { subscription?: unknown }).subscription;
-  if (typeof direct === "string" && direct) return direct;
-  if (direct && typeof direct === "object" && "id" in direct) {
-    const id = (direct as { id?: unknown }).id;
-    if (typeof id === "string") return id;
+/** Un identifiant d'abonnement, qu'il soit donné en clair ou développé. */
+function idAbonnement(v: unknown): string | null {
+  if (typeof v === "string" && v) return v;
+  if (v && typeof v === "object" && "id" in v) {
+    const id = (v as { id?: unknown }).id;
+    if (typeof id === "string" && id) return id;
   }
-  /* Versions récentes de l'API : l'abonnement vit sur la ligne de facture. */
+  return null;
+}
+
+/**
+ * L'abonnement porté par une facture, quelle que soit la forme de l'API.
+ *
+ * CE DÉTAIL A FAIT TOMBER TOUTE LA FACTURATION STRIPE, et silencieusement.
+ * Les versions récentes de l'API ont RETIRÉ `invoice.subscription` et
+ * `line.subscription` : l'abonnement vit maintenant sous `parent`. Le code ne
+ * regardait que les anciens emplacements, concluait « facture sans abonnement »,
+ * et s'arrêtait là.
+ *
+ * Vérifié le 05/08/2026 sur la facture réelle in_1U18ZB… : `subscription` est
+ * absent des deux niveaux, et l'abonnement n'existe que dans
+ * `parent.subscription_details.subscription`.
+ *
+ * Ce que ça coûtait, au-delà de la facture non copiée : AUCUNE reconduction
+ * n'aurait prolongé la période. Le praticien aurait été prélevé tous les mois
+ * par Stripe pendant que son abonnement expirait chez nous, et il aurait perdu
+ * l'accès à son logiciel en ayant payé. Aucun impayé n'aurait été relancé non
+ * plus, pour la même raison.
+ *
+ * On lit donc les quatre emplacements, du plus récent au plus ancien.
+ */
+export function subscriptionIdOf(invoice: Stripe.Invoice): string | null {
+  const inv = invoice as unknown as {
+    subscription?: unknown;
+    parent?: { subscription_details?: { subscription?: unknown } };
+  };
+
+  /* Forme actuelle : sur la facture, sous `parent`. */
+  const parParent = idAbonnement(inv.parent?.subscription_details?.subscription);
+  if (parParent) return parParent;
+
+  /* Forme historique, conservée tant que des points de terminaison plus anciens
+     peuvent nous livrer des événements. */
+  const direct = idAbonnement(inv.subscription);
+  if (direct) return direct;
+
   for (const line of invoice.lines?.data ?? []) {
-    const p = (line as unknown as { subscription?: unknown }).subscription;
-    if (typeof p === "string" && p) return p;
+    const l = line as unknown as {
+      subscription?: unknown;
+      parent?: { subscription_item_details?: { subscription?: unknown } };
+    };
+    const parLigne =
+      idAbonnement(l.parent?.subscription_item_details?.subscription) ??
+      idAbonnement(l.subscription);
+    if (parLigne) return parLigne;
   }
   return null;
 }

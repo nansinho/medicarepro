@@ -16,6 +16,7 @@ import { mandateText } from "@/lib/sepa/mandate-text";
 import { maskIban } from "@/lib/sepa/iban";
 import PasswordStrength from "@/components/auth/PasswordStrength";
 import MoneticoRedirectForm from "./MoneticoRedirectForm";
+import StripeRedirect from "./StripeRedirect";
 import s from "./Checkout.module.css";
 
 /* ============================================================
@@ -293,6 +294,8 @@ export default function CheckoutFlow({
     action: string;
     fields: Record<string, string>;
   } | null>(null);
+  /** Adresse de la page Stripe, une fois la caisse ouverte. */
+  const [stripeUrl, setStripeUrl] = useState<string | null>(null);
 
   /* ---- Turnstile ---- */
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -625,10 +628,12 @@ export default function CheckoutFlow({
           fields?: Record<string, string>;
         };
         if (data.redirectUrl) {
-          /* `replace` et non `assign` : le retour arrière depuis la page de
-             paiement ne doit pas ramener sur un tunnel dont le dossier est déjà
-             ouvert et les secrets déjà chiffrés. */
-          window.location.replace(data.redirectUrl);
+          /* On remplace tout l'écran AVANT de partir. Naviguer sans changer
+             d'écran laissait le bouton de paiement réactivé par le `finally`
+             pendant que Stripe chargeait : un client qui re-clique ouvre un
+             second dossier, avec une seconde référence et un préfixe de
+             facturation consommé pour rien. */
+          setStripeUrl(data.redirectUrl);
           return;
         }
         if (data.action && data.fields) {
@@ -684,6 +689,15 @@ export default function CheckoutFlow({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /* ---- Départ vers Stripe : on remplace tout le tunnel ---- */
+  if (stripeUrl) {
+    return (
+      <div className={s.shell}>
+        <StripeRedirect url={stripeUrl} />
+      </div>
+    );
   }
 
   /* ---- Redirection Monetico : on remplace tout le tunnel ---- */

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import MoneticoRedirectForm from "./MoneticoRedirectForm";
+import StripeRedirect from "./StripeRedirect";
 import s from "./Checkout.module.css";
 
 /* ============================================================
@@ -79,6 +80,8 @@ export default function ConfirmationPoller({
   const [phase, setPhase] = useState<Phase>("polling");
   const [status, setStatus] = useState("payment_pending");
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
+  /** Adresse de la page Stripe, une fois la reprise ouverte. */
+  const [stripeUrl, setStripeUrl] = useState<string | null>(null);
   const [redirect, setRedirect] = useState<{
     action: string;
     fields: Record<string, string>;
@@ -161,7 +164,11 @@ export default function ConfirmationPoller({
           fields?: Record<string, string>;
         };
         if (data.redirectUrl) {
-          window.location.replace(data.redirectUrl);
+          /* On remplace l'écran avant de partir : le `finally` réactiverait le
+             bouton pendant le chargement de Stripe, et un second clic
+             relancerait une reprise inutile — le plafond de tentatives par
+             heure étant vite atteint, le client se retrouverait bloqué. */
+          setStripeUrl(data.redirectUrl);
           return;
         }
         if (data.action && data.fields) {
@@ -193,6 +200,15 @@ export default function ConfirmationPoller({
     } finally {
       setRetrying(false);
     }
+  }
+
+  /* Reprise du paiement : on repart vers Stripe. */
+  if (stripeUrl) {
+    return (
+      <div className={s.shell}>
+        <StripeRedirect url={stripeUrl} />
+      </div>
+    );
   }
 
   /* Relance du paiement : on repart vers Monetico. */
