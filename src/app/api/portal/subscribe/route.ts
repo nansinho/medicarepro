@@ -1,11 +1,11 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { hasCheckout, billingEnv } from "@/lib/env";
+import { canCollectPayment, paymentProvider, billingEnv } from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { clientIpFrom } from "@/lib/http/client-ip";
 import { isSameOriginJsonPost } from "@/lib/http/origin-guard";
 import { openSession, PORTAL_COOKIE } from "@/lib/billing/portal";
-import { openOrder } from "@/lib/billing/orders";
+import { openOrder, openStripeOrder } from "@/lib/billing/orders";
 import {
   checkoutAmountCents,
   MAX_EXTRA_COLLABORATORS,
@@ -32,7 +32,7 @@ export const dynamic = "force-dynamic";
 const GENERIC = "La souscription est momentanément indisponible.";
 
 export async function POST(request: NextRequest) {
-  if (!hasCheckout()) {
+  if (!canCollectPayment()) {
     return Response.json({ error: GENERIC }, { status: 503 });
   }
   if (!isSameOriginJsonPost(request)) {
@@ -137,35 +137,48 @@ export async function POST(request: NextRequest) {
   }
   const consentRecordId = (consent as { id: string }).id;
 
-  try {
-    const opened = await openOrder(supabase, {
-      kind: "attach",
-      plan,
-      extraCollaborators: extra,
-      amountCents,
-      appCabinetId: session.appCabinetId,
-      appUserId: session.appUserId,
-      subscriptionId: null,
-      billingSnapshot: {
-        cabinetName: c.name,
-        cabinetAddress: c.address,
-        cabinetPostalCity: `${c.postalCode} ${c.city}`.trim(),
-        adminEmail: c.adminEmail,
-        adminName: c.adminName,
-        invoicePrefix: c.invoicePrefix,
-      },
-      consentRecordId,
-      clientIp: ip,
-      returnPath: "/mon-abonnement/merci",
-      errorPath: "/mon-abonnement/echec",
-    });
+  const commande = {
+    kind: "attach" as const,
+    plan,
+    extraCollaborators: extra,
+    amountCents,
+    appCabinetId: session.appCabinetId,
+    appUserId: session.appUserId,
+    subscriptionId: null,
+    billingSnapshot: {
+      cabinetName: c.name,
+      cabinetAddress: c.address,
+      cabinetPostalCity: `${c.postalCode} ${c.city}`.trim(),
+      adminEmail: c.adminEmail,
+      adminName: c.adminName,
+      invoicePrefix: c.invoicePrefix,
+    },
+    consentRecordId,
+    clientIp: ip,
+    returnPath: "/mon-abonnement/merci",
+    errorPath: "/mon-abonnement/echec",
+  };
 
-    // Lien retour preuve → commande (trace, best-effort).
+  /* Lien retour preuve → commande (trace, best-effort). */
+  const rattacherPreuve = async (orderId: string) => {
     await supabase
       .from("consent_records")
-      .update({ subscription_order_id: opened.orderId })
+      .update({ subscription_order_id: orderId })
       .eq("id", consentRecordId);
+  };
 
+  try {
+    /* Deux prestataires, deux formes de réponse, et le composant côté client
+       les distingue par la présence de `url`. Stripe renvoie une adresse vers
+       laquelle rediriger ; Monetico, un formulaire scellé à auto-soumettre. */
+    if (paymentProvider() === "stripe") {
+      const opened = await openStripeOrder(supabase, commande);
+      await rattacherPreuve(opened.orderId);
+      return Response.json({ url: opened.url, reference: opened.reference });
+    }
+
+    const opened = await openOrder(supabase, commande);
+    await rattacherPreuve(opened.orderId);
     return Response.json({
       action: opened.form.action,
       fields: opened.form.fields,

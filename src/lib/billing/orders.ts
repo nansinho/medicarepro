@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { buildPaymentForm, type SealedPaymentForm } from "@/lib/monetico";
 import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
+import { createSubscriptionCheckout } from "@/lib/stripe/checkout";
+import { stripeLiveMode } from "@/lib/stripe/client";
 import type { BillingPlan } from "@/lib/checkout/pricing";
 
 /* ============================================================
@@ -381,6 +383,83 @@ export async function openOrder(
   }
 
   return { orderId: data.id as string, reference, form };
+}
+
+/* ------------------------------------------------------------
+   Ouverture d'une commande STRIPE.
+
+   Même rôle qu'openOrder, et surtout mêmes garanties : la référence est
+   allouée par newOrderReference (anti-collision sur les trois espaces de noms),
+   et l'insertion se heurte aux mêmes index d'unicité, ceux qui interdisent deux
+   commandes récurrentes vivantes sur un contrat.
+
+   Ce qui change : il n'y a pas de formulaire à sceller, donc pas de montant à
+   envoyer. On ouvre une session chez Stripe, qui applique SON catalogue, et on
+   ne garde que l'adresse où envoyer le client.
+   ------------------------------------------------------------ */
+
+export type OpenedStripeOrder = {
+  orderId: string;
+  reference: string;
+  /** Adresse de la page de paiement Stripe. */
+  url: string;
+  sessionId: string;
+};
+
+export async function openStripeOrder(
+  supabase: SupabaseClient,
+  input: OpenOrderInput,
+): Promise<OpenedStripeOrder> {
+  const reference = await newOrderReference(supabase);
+
+  /* La session AVANT l'insertion : si Stripe refuse, aucune commande fantôme
+     ne reste en base à occuper l'index d'unicité. L'ordre inverse laisserait
+     un contrat incapable d'en ouvrir une seconde. */
+  const { url, sessionId } = await createSubscriptionCheckout({
+    reference,
+    plan: input.plan,
+    extraCollaborators: input.extraCollaborators,
+    customerEmail: input.billingSnapshot.adminEmail,
+    successPath: input.returnPath,
+    errorPath: input.errorPath,
+    metadata: { kind: input.kind, cabinet: input.appCabinetId },
+  });
+
+  const { data, error } = await supabase
+    .from("subscription_orders")
+    .insert({
+      subscription_id: input.subscriptionId ?? null,
+      app_cabinet_id: input.appCabinetId,
+      app_user_id: input.appUserId ?? null,
+      kind: input.kind,
+      role: input.plan === "MONTHLY" ? "recurring" : "oneshot",
+      plan: input.plan,
+      extra_collaborators: input.extraCollaborators,
+      /* Ce montant est INDICATIF : il sert aux écrans et aux alertes, pas à
+         l'encaissement. Le montant qui fait foi est celui du catalogue Stripe,
+         et il est relu sur la facture émise. */
+      amount_cents: input.amountCents,
+      currency: "EUR",
+      monetico_reference: reference,
+      payment_provider: "stripe",
+      payment_environment: stripeLiveMode() ? "production" : "test",
+      stripe_checkout_session_id: sessionId,
+      status: "pending",
+      supersedes_order_id: input.supersedesOrderId ?? null,
+      billing_snapshot: input.billingSnapshot,
+      consent_record_id: input.consentRecordId ?? null,
+      expires_at: new Date(Date.now() + ORDER_TTL_MINUTES * 60_000).toISOString(),
+      client_ip: input.clientIp ?? null,
+      created_by_admin: input.createdByAdmin ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(`insert subscription_orders : ${error?.message ?? "aucune ligne"}`);
+  }
+
+  return { orderId: data.id as string, reference, url, sessionId };
 }
 
 /* ------------------------------------------------------------

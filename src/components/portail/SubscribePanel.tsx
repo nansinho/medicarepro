@@ -65,7 +65,17 @@ export default function SubscribePanel({
         body: JSON.stringify({ plan, extraCollaborators: extra }),
       });
       if (res.ok) {
-        setRedirect((await res.json()) as Redirect);
+        const reponse = (await res.json()) as Redirect & { url?: string };
+        /* Stripe renvoie une adresse : on y va, la page de paiement est chez
+           eux. Monetico renvoie un formulaire scellé, qui doit être soumis en
+           POST — d'où le composant dédié. On distingue par la forme de la
+           réponse plutôt que par une variable, pour que le navigateur n'ait
+           aucune décision de configuration à prendre. */
+        if (reponse.url) {
+          window.location.assign(reponse.url);
+          return;
+        }
+        setRedirect(reponse);
         return;
       }
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
