@@ -30,6 +30,8 @@ type RenewalRow = {
   id: string;
   subscription_id: string;
   monetico_reference: string;
+  /** Plateforme où vit la commande. NULL pour les lignes antérieures à 0033. */
+  monetico_platform: "test" | "production" | null;
   amount_cents: number;
   currency: string;
   status: string;
@@ -108,7 +110,9 @@ export async function finalizeAnnualRenewal(input: {
 
   const { data: rData, error: rErr } = await supabase
     .from("subscription_renewals")
-    .select("id, subscription_id, monetico_reference, amount_cents, currency, status")
+    .select(
+      "id, subscription_id, monetico_reference, monetico_platform, amount_cents, currency, status",
+    )
     .eq("monetico_reference", input.reference)
     .maybeSingle();
   if (rErr || !rData) return;
@@ -190,6 +194,7 @@ export async function finalizeAnnualRenewal(input: {
   // 2. Pièce comptable — encaissée d'office (TPE immédiat).
   await supabase.from("billing_ledger").insert({
     event_type: "card_renewal",
+    monetico_platform: renewal.monetico_platform ?? null,
     amount_cents: paidCents,
     currency: input.currency ?? sub.currency,
     occurred_at: input.occurredAt.toISOString(),

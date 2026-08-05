@@ -131,6 +131,49 @@ export async function stopRecurrence(
      le client se faire prélever par la nouvelle. Repli sur les champs de
      l'abonnement pour les contrats antérieurs à la migration 0028. */
   const live = await currentRecurringOrder(supabase, sub.id);
+
+  /* COMMANDE D'UNE AUTRE PLATEFORME : il n'y a rien à arrêter.
+     Une commande passée sur la plateforme d'essai n'existe pas sur celle de
+     production, et sa reconduction n'a jamais déplacé un centime. L'interroger
+     renvoie « commande non authentifiee », ce qui partait jusqu'ici en alerte
+     « URGENT — le client sera prélevé ». C'était faux, et ça a fait perdre une
+     matinée le 05/08/2026.
+     On n'agit QUE sur une divergence constatée : `platform` à NULL veut dire
+     « inconnue », et on appelle la banque comme avant. Se tromper dans ce
+     sens-là ne coûte qu'un refus ; l'inverse laisserait un client résilié se
+     faire prélever. */
+  const platform = live?.platform ?? null;
+  const modeCourant = billingEnv().moneticoMode;
+  if (platform && platform !== modeCourant) {
+    const stoppedAt = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("subscriptions")
+      .update({
+        recurrence_stopped_at: stoppedAt,
+        current_recurring_order_id: null,
+      })
+      .eq("id", sub.id);
+    if (updateError) {
+      return {
+        ok: false,
+        lib: "",
+        message: `Registre non mis à jour : ${updateError.message}`,
+      };
+    }
+    if (live?.orderId) await supersedeOrder(supabase, live.orderId);
+    await logAudit({
+      action: "billing.recurrence_stopped",
+      entityType: "subscription",
+      entityId: sub.id,
+      diff: { reference: live?.reference, platform, skippedBank: true },
+    });
+    return {
+      ok: true,
+      lib: "",
+      message: `Cette commande a été passée sur la plateforme ${platform === "test" ? "d'essai" : "de production"} de Monetico, alors que le site encaisse en ${modeCourant === "test" ? "essai" : "production"}. Il n'y a aucune reconduction bancaire à arrêter : elle ne peut prélever personne. La reconduction est marquée arrêtée, l'accès reste ouvert jusqu'au terme de la période.`,
+    };
+  }
+
   const reference = live?.reference ?? sub.monetico_reference;
   const orderAmountCents = live?.amountCents ?? sub.first_payment_cents;
   const rawOrderDate = live?.orderDate ?? sub.monetico_order_date;
@@ -219,6 +262,11 @@ export async function stopRecurrence(
       `Cabinet : ${sub.cabinet_name}`,
       `Référence : ${reference}`,
       `Date de commande : ${orderDateLabel}`,
+      ...(platform
+        ? []
+        : [
+            "Plateforme de la commande INCONNUE (antérieure à la migration 0033) : l'appel a été tenté par précaution. Si cette commande date de la période d'essai, ce refus est normal et sans conséquence.",
+          ]),
       `Réponse de la banque : ${result.lib || "(aucun libellé)"}`,
       `Montant de la commande : ${formatEuros(orderAmountCents)} — déjà capturé déclaré : ${formatEuros(capturedCents)}`,
       "La reconduction est TOUJOURS ACTIVE : le client sera prélevé à la prochaine échéance. Arrêter l'abonnement depuis le tableau de bord CIC.",

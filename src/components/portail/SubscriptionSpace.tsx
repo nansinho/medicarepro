@@ -52,6 +52,10 @@ export type SubscriptionSpaceProps = {
   periodEndLabel: string;
   /** La période payée court-elle encore ? */
   periodRunning: boolean;
+  /** La banque a refusé un paiement. Faux = la période s'est simplement
+      terminée, ce qui n'est pas un incident et ne doit pas s'annoncer
+      comme tel. */
+  paymentFailed: boolean;
   recurrenceStopped: boolean;
   graceUntilLabel: string | null;
   change: PortalChange | null;
@@ -145,6 +149,11 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
 
   const { change } = props;
   const inArrears = props.status === "past_due" || props.status === "suspended";
+  /* Un contrat passe en past_due de deux façons : un paiement refusé, ou une
+     période échue sans reconduction. Les confondre faisait annoncer un refus
+     bancaire à des praticiens dont la carte n'avait jamais été débitée. */
+  const arrearsAfterFailure = inArrears && props.paymentFailed;
+  const arrearsAfterLapse = inArrears && !props.paymentFailed;
   const selectedRow = props.prices[plan][Math.min(extra, MAX_COLLABS)];
   const planUnchanged =
     plan === props.plan && extra === props.extraCollaborators;
@@ -216,7 +225,38 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
   /* ---------- Bandeau principal ---------- */
 
   function renderStatusNotice() {
-    if (inArrears) {
+    /* Période échue sans le moindre paiement tenté : ce n'est pas un incident,
+       c'est un abonnement qui s'est éteint. On le dit ainsi, et on propose la
+       seule action qui ait du sens. */
+    if (arrearsAfterLapse) {
+      return (
+        <div className={`${s.notice} ${s.noticeWarn}`}>
+          <span className={s.noticeAccent} aria-hidden="true" />
+          <div className={s.noticeBody}>
+            <div className={s.noticeTitle}>
+              Votre abonnement est arrivé à échéance
+            </div>
+            <p className={s.noticeText}>
+              La période réglée s&apos;est terminée le {props.periodEndLabel} et
+              rien n&apos;a été prélevé. Votre accès et vos dossiers restent
+              intacts&nbsp;: reprenez quand vous le souhaitez.
+            </p>
+            <div className={s.noticeActions}>
+              <button
+                type="button"
+                className={`${s.btn} ${s.btnPrimary}`}
+                onClick={() => openDrawer("pay")}
+                disabled={!props.checkoutOpen}
+              >
+                Reprendre mon abonnement
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (arrearsAfterFailure) {
       return (
         <div className={`${s.notice} ${s.noticeDanger}`} role="alert">
           <span className={s.noticeAccent} aria-hidden="true" />
@@ -821,8 +861,10 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
 
   /* ---------- Rendu ---------- */
 
-  const statusPill = inArrears
+  const statusPill = arrearsAfterFailure
     ? { cls: s.pillDanger, text: "Paiement en attente" }
+    : arrearsAfterLapse
+      ? { cls: s.pillWarn, text: "Abonnement échu" }
     : change?.kind === "cancel"
       ? { cls: s.pillWarn, text: `Résilié au ${props.periodEndLabel}` }
       : props.recurrenceStopped && props.plan === "MONTHLY"
@@ -864,9 +906,11 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
             <div className={s.kv}>
               <div className={s.kvRow}>
                 <span className={s.kvLabel}>
-                  {props.recurrenceStopped
-                    ? "Accès jusqu'au"
-                    : "Prochain prélèvement"}
+                  {!props.periodRunning
+                    ? "Période terminée le"
+                    : props.recurrenceStopped
+                      ? "Accès jusqu'au"
+                      : "Prochain prélèvement"}
                 </span>
                 <span className={s.kvValue}>{props.periodEndLabel}</span>
               </div>

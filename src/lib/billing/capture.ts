@@ -46,6 +46,9 @@ export type CaptureOutcome = {
   /** Libellé bancaire, vide si la banque n'a pas répondu. */
   lib: string;
   message: string;
+  /** La banque n'a PAS été appelée : il n'y avait rien à faire, ce n'est
+      donc ni un succès ni un refus, et ça ne doit jamais alerter. */
+  skipped?: boolean;
 };
 
 function errMessage(err: unknown): string {
@@ -134,6 +137,28 @@ export async function captureLedgerEntry(
      récurrent a des échéances à encaisser (l'immédiat prend l'argent d'office),
      mais se fier au plan de la commande plutôt qu'à un défaut évite un
      « commande non authentifiee » silencieux le jour où ce ne sera plus vrai. */
+  /* COMMANDE D'UNE AUTRE PLATEFORME : rien à encaisser, et surtout pas
+     d'alerte. Une échéance de la plateforme d'essai n'a jamais autorisé
+     d'argent réel ; l'appeler en production renvoie « commande non
+     authentifiee », ce qui déclenchait « URGENT — Encaissement REFUSÉ par la
+     banque » et invitait à aller encaisser une somme qui n'existe pas. Le cron
+     de rattrapage reprenant l'écriture à chaque passage, l'alerte se répétait
+     indéfiniment et aurait fini par masquer un vrai impayé.
+     `platform` à NULL veut dire « inconnue » : on encaisse comme avant. */
+  const platform = ctx?.platform ?? null;
+  const modeCourant = billingEnv().moneticoMode;
+  if (platform && platform !== modeCourant) {
+    const raison = `Commande passée sur la plateforme ${platform === "test" ? "d'essai" : "de production"} : aucun encaissement réel n'est possible, et aucun n'est dû.`;
+    /* Écrit sur l'écriture pour qu'un opérateur voie POURQUOI elle reste non
+       encaissée, au lieu de la croire oubliée. Aucune alerte : ce n'est pas un
+       refus bancaire, c'est une écriture qui n'a jamais représenté d'argent. */
+    await supabase
+      .from("billing_ledger")
+      .update({ capture_error: raison })
+      .eq("id", entry.id);
+    return { ok: false, lib: "", skipped: true, message: raison };
+  }
+
   const config = moneticoConfigForPlan(ctx?.plan ?? "MONTHLY");
 
   async function attempt(alreadyCapturedCents: number): Promise<CaptureResponse> {
@@ -261,7 +286,20 @@ export async function cancelAuthorization(input: {
      d'autorisation a un sens (l'annuel est encaissé d'office, il se rembourse,
      il ne s'annule pas). */
   plan?: BillingPlan;
+  /* Plateforme d'origine de la commande. NULL = inconnue : on appelle la banque
+     comme avant. Une autorisation posée sur la plateforme d'essai n'immobilise
+     rien sur la carte du client, il n'y a donc rien à libérer. */
+  platform?: "test" | "production" | null;
 }): Promise<CaptureOutcome> {
+  const modeCourant = billingEnv().moneticoMode;
+  if (input.platform && input.platform !== modeCourant) {
+    return {
+      ok: true,
+      lib: "",
+      message: `Commande de la plateforme ${input.platform === "test" ? "d'essai" : "de production"} : aucune autorisation réelle n'a été posée sur la carte.`,
+    };
+  }
+
   const orderDate = orderDateOf(input.orderDate, new Date().toISOString());
   if (!orderDate) {
     return { ok: false, lib: "", message: "Date de commande illisible." };

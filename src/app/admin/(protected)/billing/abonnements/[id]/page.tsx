@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
+import { billingEnv, hasBilling } from "@/lib/env";
 import { formatEuros, planLabel } from "@/lib/checkout/pricing";
 import { activeChange } from "@/lib/billing/changes";
 import { arreterReconduction, retirerDemande } from "../actions";
@@ -59,6 +60,7 @@ type SubscriptionRow = {
   current_period_end: string;
   monetico_reference: string;
   monetico_order_date: string | null;
+  monetico_platform: "test" | "production" | null;
   renewal_count: number;
   last_renewal_at: string | null;
   recurrence_stopped_at: string | null;
@@ -171,7 +173,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
   const { data: subData } = await service
     .from("subscriptions")
     .select(
-      "id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, monetico_order_date, renewal_count, last_renewal_at, recurrence_stopped_at, dunning_started_at, dunning_failure_count, last_failure_at, last_failure_code, grace_until, sepa_mandate_id, notes, created_at",
+      "id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, monetico_order_date, monetico_platform, renewal_count, last_renewal_at, recurrence_stopped_at, dunning_started_at, dunning_failure_count, last_failure_at, last_failure_code, grace_until, sepa_mandate_id, notes, created_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -191,7 +193,17 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
 
   const mandateRows = (mandates.data ?? []) as MandateRow[];
   const invoiceRows = (invoices.data ?? []) as InvoiceRow[];
+  const moneticoMode = hasBilling() ? billingEnv().moneticoMode : null;
   const ipnRows = (ipns.data ?? []) as IpnRow[];
+
+  /* Sur quelle plateforme Monetico cette commande vit-elle vraiment ? La
+     colonne fait foi (migration 0033) ; à défaut, le code retour des
+     notifications reçues, car « payetest » n'existe que sur l'essai. */
+  const plateformeCommande =
+    sub.monetico_platform ??
+    (ipnRows.some((i) => i.code_retour === "payetest") ? "test" : null);
+  const surAutrePlateforme =
+    plateformeCommande !== null && plateformeCommande !== moneticoMode;
   const taskRows = (tasks.data ?? []) as SyncTaskRow[];
   const consentRows = (consents.data ?? []) as ConsentRow[];
   const recurrenceOn = !sub.recurrence_stopped_at;
@@ -374,7 +386,24 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
                 },
               ]}
             />
-            {!sub.recurrence_stopped_at && (
+            {!sub.recurrence_stopped_at && surAutrePlateforme && (
+              /* Commande passée sur l'autre plateforme Monetico : la banque
+                 répond « commande non authentifiee » parce qu'elle ne la
+                 connaît pas, et non parce qu'elle refuse. Il n'y a rien à
+                 arrêter : une reconduction d'essai ne prélève personne.
+                 Les confondre a fait perdre une matinée le 05/08/2026. */
+              <div className="border-t border-border p-4">
+                <Notice tone="warn" title="Commande d'une autre plateforme Monetico">
+                  Cette commande a été passée sur la plateforme{" "}
+                  {plateformeCommande === "test" ? "d'essai" : "de production"}.
+                  Elle n&apos;existe pas sur celle où le site encaisse
+                  aujourd&apos;hui, donc aucune demande d&apos;arrêt ne peut
+                  aboutir — et il n&apos;y a rien à arrêter&nbsp;: cette
+                  reconduction ne peut prélever personne. Ne rien faire au CIC.
+                </Notice>
+              </div>
+            )}
+            {!sub.recurrence_stopped_at && !surAutrePlateforme && (
               /* Une demande enregistrée alors que la reconduction n'est pas
                  marquée arrêtée : la banque a refusé l'arrêt, il reste à le
                  poser à la main. Sans ce rappel à l'écran, la tâche ne vit que

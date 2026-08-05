@@ -267,3 +267,82 @@ describe("moneticoIpnKeyCandidates", () => {
     expect(moneticoIpnKeyCandidates("NB8179R")).toHaveLength(1);
   });
 });
+
+/* ============================================================
+   Une notification scellée par l'AUTRE plateforme doit être RECONNUE.
+
+   C'est le cœur de l'incident du 05/08/2026. Les 7 abonnements existants ont
+   été payés sur la plateforme d'essai, le site est passé en production, et
+   chaque notification de l'essai tombait alors sur un sceau invalide — donc
+   sur un `cdr=1` muet, sans log ni alerte. Dans l'autre sens, c'est un client
+   réellement débité qui disparaît.
+
+   Ce test vérifie ce que le balayage de source ne peut pas voir : que la
+   vérification essaie bien les deux clés, et sache DIRE laquelle a répondu.
+   ============================================================ */
+describe("reconnaissance d'un sceau de l'autre plateforme", () => {
+  const CLE_PROD = "A".repeat(40);
+  const CLE_TEST = "B".repeat(40);
+
+  /** Notification telle que Monetico l'émet, scellée avec la clé fournie. */
+  async function notification(cle: string) {
+    const { sealFields } = await import("@/lib/monetico");
+    const champs: Record<string, string> = {
+      TPE: "NB8179R",
+      date: "01/08/2026_a_13:05:23",
+      montant: "179.88EUR",
+      reference: "MPNJZE2FMEY8",
+      "code-retour": "payetest",
+      "texte-libre": "",
+    };
+    champs.MAC = sealFields(champs, cle);
+    return champs;
+  }
+
+  it("identifie la plateforme d'essai alors que le site est en production", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: CLE_TEST,
+    });
+    const { verifyIpnSeal } = await import("@/lib/monetico");
+    const champs = await notification(CLE_TEST);
+
+    const reconnue = moneticoIpnKeyCandidates(champs.TPE).find((c) =>
+      verifyIpnSeal(champs, c.key),
+    );
+    expect(reconnue?.platform).toBe("test");
+  });
+
+  it("identifie la production quand c'est elle qui a scellé", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: CLE_TEST,
+    });
+    const { verifyIpnSeal } = await import("@/lib/monetico");
+    const champs = await notification(CLE_PROD);
+
+    const reconnue = moneticoIpnKeyCandidates(champs.TPE).find((c) =>
+      verifyIpnSeal(champs, c.key),
+    );
+    expect(reconnue?.platform).toBe("production");
+  });
+
+  /* Le cas qui doit alerter : un sceau qu'aucune clé ne valide. Ni l'un ni
+     l'autre, donc on ne devine pas — on prévient. */
+  it("ne reconnaît rien quand aucune clé ne valide", async () => {
+    const { moneticoIpnKeyCandidates } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: CLE_PROD,
+      MONETICO_KEY_TEST: CLE_TEST,
+    });
+    const { verifyIpnSeal } = await import("@/lib/monetico");
+    const champs = await notification("C".repeat(40));
+
+    const reconnue = moneticoIpnKeyCandidates(champs.TPE).find((c) =>
+      verifyIpnSeal(champs, c.key),
+    );
+    expect(reconnue).toBeUndefined();
+  });
+});

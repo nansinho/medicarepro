@@ -97,10 +97,11 @@ type SubRow = {
   current_period_end: string;
   recurrence_stopped_at: string | null;
   grace_until: string | null;
+  last_failure_at: string | null;
 };
 
 const SUB_COLUMNS =
-  "id, app_cabinet_id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, renewal_amount_cents, status, current_period_end, recurrence_stopped_at, grace_until";
+  "id, app_cabinet_id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, renewal_amount_cents, status, current_period_end, recurrence_stopped_at, grace_until, last_failure_at";
 
 /** Un abonnement fini n'empêche pas d'en reprendre un. */
 const OVER = new Set(["canceled", "expired"]);
@@ -294,6 +295,11 @@ export default async function MonAbonnementPage({
       status={sub.status}
       periodEndLabel={frDate(sub.current_period_end)}
       periodRunning={periodRunning}
+      /* Distingue « la banque a refusé » de « la période s'est simplement
+         terminée ». Sans ça, un contrat dont la reconduction était arrêtée
+         affichait « Votre dernier paiement a été refusé » dès le lendemain de
+         son échéance, alors qu'aucun paiement n'avait jamais été tenté. */
+      paymentFailed={Boolean(sub.last_failure_at)}
       recurrenceStopped={Boolean(sub.recurrence_stopped_at)}
       graceUntilLabel={sub.grace_until ? frDate(sub.grace_until) : null}
       change={change}
