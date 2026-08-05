@@ -119,6 +119,7 @@ const MANDATE_BADGE: Record<string, { label: string; v: Variant }> = {
 const INVOICE_KIND: Record<string, string> = {
   card_first: "1er paiement carte",
   card_renewal: "Reconduction carte",
+  card_change: "Changement de formule",
   sdd_renewal: "Renouvellement SEPA",
   credit_note: "Avoir",
 };

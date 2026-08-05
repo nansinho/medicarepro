@@ -21,12 +21,24 @@ import { serviceClient } from "@/lib/supabase/service";
    ============================================================ */
 
 /** Le type de pièce, tel que notre registre le nomme. */
-function kindOf(invoice: Stripe.Invoice): "card_first" | "card_renewal" {
-  /* `subscription_create` est la toute première facture d'un abonnement ;
-     `subscription_cycle` et les autres sont des reconductions. */
-  return invoice.billing_reason === "subscription_create"
-    ? "card_first"
-    : "card_renewal";
+function kindOf(
+  invoice: Stripe.Invoice,
+): "card_first" | "card_renewal" | "card_change" {
+  switch (invoice.billing_reason) {
+    case "subscription_create":
+      /* La toute première facture d'un abonnement. */
+      return "card_first";
+    case "subscription_update":
+      /* Un changement de formule ou d'effectif encaissé sur-le-champ. Ce n'est
+         PAS une reconduction : dans un registre comptable, confondre un
+         supplément avec une échéance fausse la lecture de l'historique d'un
+         cabinet — l'admin affichait « Reconduction carte » pour un ajout de
+         collaborateurs. */
+      return "card_change";
+    default:
+      /* `subscription_cycle` et les autres : l'échéance suivante. */
+      return "card_renewal";
+  }
 }
 
 /**

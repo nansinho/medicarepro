@@ -38,6 +38,7 @@ const KIND_BADGE: Record<
   { label: string; variant: "blue" | "green" | "amber" | "gray" }
 > = {
   card_first: { label: "1er paiement carte", variant: "blue" },
+  card_change: { label: "Changement de formule", variant: "blue" },
   sdd_renewal: { label: "Renouvellement SEPA", variant: "green" },
   credit_note: { label: "Avoir", variant: "amber" },
 };

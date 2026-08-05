@@ -65,6 +65,7 @@ const ERRORS: Record<string, string> = {
 const INVOICE_KINDS: Record<string, string> = {
   card_first: "Première échéance",
   card_renewal: "Échéance",
+  card_change: "Changement de formule",
   sdd_renewal: "Échéance",
   credit_note: "Avoir",
 };

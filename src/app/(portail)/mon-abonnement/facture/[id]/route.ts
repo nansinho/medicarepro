@@ -59,13 +59,27 @@ export async function GET(
 
   const { data: invoice } = await supabase
     .from("invoices")
-    .select("pdf_path, subscription_id")
+    .select("pdf_path, hosted_invoice_url, subscription_id")
     .eq("id", id)
     .in("subscription_id", ids)
     .maybeSingle();
 
-  if (!invoice?.pdf_path) {
+  if (!invoice) {
     return new Response("Facture introuvable.", { status: 404 });
+  }
+
+  /* Facture émise par Stripe : le document est chez lui, notre registre n'en
+     garde que l'adresse. Le contrôle d'accès a déjà eu lieu ci-dessus — la
+     facture appartient bien à un contrat de ce cabinet — et l'adresse hébergée
+     de Stripe porte son propre jeton, elle n'est pas devinable. */
+  if (!invoice.pdf_path) {
+    if (invoice.hosted_invoice_url) {
+      return NextResponse.redirect(invoice.hosted_invoice_url as string);
+    }
+    return new Response(
+      "Cette facture n'a pas de document consultable. Écrivez-nous à contact@medicarepro.fr.",
+      { status: 404 },
+    );
   }
 
   const { data: signed, error } = await supabase.storage

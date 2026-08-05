@@ -42,12 +42,29 @@ export async function GET(
   const { id } = await params;
   const { data: invoice } = await service
     .from("invoices")
-    .select("pdf_path")
+    .select("pdf_path, hosted_invoice_url")
     .eq("id", id)
     .maybeSingle();
 
-  if (!invoice?.pdf_path) {
+  if (!invoice) {
     return new Response("Facture introuvable.", { status: 404 });
+  }
+
+  /* UNE FACTURE STRIPE N'A PAS DE PDF CHEZ NOUS : c'est Stripe qui l'émet, et
+     le document vit chez lui. Notre registre n'en garde que l'adresse hébergée.
+
+     La route ne lisait que `pdf_path` et répondait « Facture introuvable » sur
+     une facture parfaitement existante — constaté le 06/08/2026 sur la première
+     facture Stripe du registre. Le message était doublement trompeur : le
+     document n'était pas introuvable, il n'était simplement pas chez nous. */
+  if (!invoice.pdf_path) {
+    if (invoice.hosted_invoice_url) {
+      return NextResponse.redirect(invoice.hosted_invoice_url as string);
+    }
+    return new Response(
+      "Cette facture n'a pas de document associé. Vérifiez dans le tableau de bord Stripe.",
+      { status: 404 },
+    );
   }
 
   const { data: signed, error } = await service.storage
