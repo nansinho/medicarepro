@@ -58,6 +58,14 @@ export type SubscriptionSpaceProps = {
   paymentFailed: boolean;
   /** Résiliation programmée chez Stripe, et donc RÉVERSIBLE. */
   cancelAtPeriodEnd: boolean;
+  /**
+   * Les changements prennent-ils effet tout de suite, au prorata ?
+   *
+   * Vrai chez Stripe. Faux chez Monetico, où toute modification imposait
+   * d'arrêter la reconduction — définitivement — puis de repayer à l'échéance.
+   * Les deux écrans n'ont donc rien à se dire en commun.
+   */
+  immediateChanges: boolean;
   recurrenceStopped: boolean;
   graceUntilLabel: string | null;
   change: PortalChange | null;
@@ -123,6 +131,15 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [redirect, setRedirect] = useState<Redirect | null>(null);
+  /* Aperçu du prorata, demandé à Stripe. `null` tant qu'il n'a pas répondu,
+     `false` quand il n'y a rien à simuler (abonnement Monetico, ou aperçu
+     indisponible) : l'écran affiche alors le tarif sans détail plutôt que de
+     bloquer le changement. */
+  const [apercu, setApercu] = useState<
+    | { prorationCents: number; nextInvoiceCents: number; nextInvoiceDate: string | null }
+    | false
+    | null
+  >(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   /* Le panneau s'ouvre sous la grille : sur un écran court, il naîtrait hors
@@ -166,6 +183,52 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
   const payExtra =
     change?.targetExtra ?? (change ? props.extraCollaborators : extra);
   const payRow = props.prices[payPlan][Math.min(payExtra, MAX_COLLABS)];
+
+  /* Aperçu du prorata, demandé au moment du choix.
+     Appelé depuis les gestionnaires de clic plutôt que depuis un effet : un
+     effet qui pose un état est interdit ici, et surtout l'aperçu est la
+     conséquence d'une ACTION du praticien, pas d'un rendu. */
+  async function demanderApercu(prochainPlan: PortalPlan, prochainExtra: number) {
+    if (!props.immediateChanges) return;
+    if (
+      prochainPlan === props.plan &&
+      prochainExtra === props.extraCollaborators
+    ) {
+      setApercu(false);
+      return;
+    }
+    setApercu(null);
+    try {
+      const res = await fetch("/api/portal/preview", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: prochainPlan,
+          extraCollaborators: prochainExtra,
+        }),
+      });
+      const data = (await res.json()) as {
+        available?: boolean;
+        prorationCents?: number;
+        nextInvoiceCents?: number;
+        nextInvoiceDate?: string | null;
+      };
+      setApercu(
+        res.ok && data.available
+          ? {
+              prorationCents: data.prorationCents ?? 0,
+              nextInvoiceCents: data.nextInvoiceCents ?? 0,
+              nextInvoiceDate: data.nextInvoiceDate ?? null,
+            }
+          : false,
+      );
+    } catch {
+      /* Une simulation ratée n'empêche pas de changer de formule : l'écran
+         affiche le tarif sans le détail. */
+      setApercu(false);
+    }
+  }
 
   function openDrawer(next: Drawer) {
     setError(null);
@@ -477,8 +540,9 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
         <div className={s.drawerHead}>
           <div className={s.drawerTitle}>Changer de formule</div>
           <p className={s.drawerLead}>
-            Choisissez ce que vous voulez à partir du {props.periodEndLabel}.
-            Rien n&apos;est débité aujourd&apos;hui.
+            {props.immediateChanges
+              ? "Votre nouvelle formule s'applique immédiatement. Le temps déjà payé n'est pas perdu : il est déduit, et seule la différence est ajoutée à votre prochaine facture."
+              : `Choisissez ce que vous voulez à partir du ${props.periodEndLabel}. Rien n'est débité aujourd'hui.`}
           </p>
         </div>
         <div className={s.drawerBody}>
@@ -488,7 +552,11 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
               className={`${s.planCard} ${plan === "ANNUAL" ? s.planCardActive : ""} ${
                 !props.annualEnabled ? s.planCardDisabled : ""
               }`}
-              onClick={() => props.annualEnabled && setPlan("ANNUAL")}
+              onClick={() => {
+                if (!props.annualEnabled) return;
+                setPlan("ANNUAL");
+                void demanderApercu("ANNUAL", extra);
+              }}
               disabled={!props.annualEnabled}
               aria-pressed={plan === "ANNUAL"}
             >
@@ -518,7 +586,11 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
               className={`${s.planCard} ${plan === "MONTHLY" ? s.planCardActive : ""} ${
                 !props.monthlyEnabled ? s.planCardDisabled : ""
               }`}
-              onClick={() => props.monthlyEnabled && setPlan("MONTHLY")}
+              onClick={() => {
+                if (!props.monthlyEnabled) return;
+                setPlan("MONTHLY");
+                void demanderApercu("MONTHLY", extra);
+              }}
               disabled={!props.monthlyEnabled}
               aria-pressed={plan === "MONTHLY"}
             >
@@ -551,7 +623,11 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
               <button
                 type="button"
                 className={s.counterBtn}
-                onClick={() => setExtra((v) => Math.max(0, v - 1))}
+                onClick={() => {
+                  const v = Math.max(0, extra - 1);
+                  setExtra(v);
+                  void demanderApercu(plan, v);
+                }}
                 disabled={extra === 0}
                 aria-label="Retirer un collaborateur"
               >
@@ -563,7 +639,11 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
               <button
                 type="button"
                 className={s.counterBtn}
-                onClick={() => setExtra((v) => Math.min(MAX_COLLABS, v + 1))}
+                onClick={() => {
+                  const v = Math.min(MAX_COLLABS, extra + 1);
+                  setExtra(v);
+                  void demanderApercu(plan, v);
+                }}
                 disabled={extra === MAX_COLLABS}
                 aria-label="Ajouter un collaborateur"
               >
@@ -572,17 +652,48 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
             </div>
           </div>
 
-          <div className={s.recap}>
-            <span className={s.recapLabel}>
-              À régler le {props.periodEndLabel}
-            </span>
-            <span className={s.recapValue}>
-              {selectedRow.totalLabel} TTC{" "}
-              {plan === "ANNUAL" ? "(12 mois)" : "(1 mois)"}
-            </span>
-          </div>
-
-          <IrreversibleWarning effectiveAtLabel={props.periodEndLabel} />
+          {props.immediateChanges ? (
+            <>
+              <div className={s.recap}>
+                <span className={s.recapLabel}>Nouveau tarif</span>
+                <span className={s.recapValue}>
+                  {selectedRow.totalLabel} TTC{" "}
+                  {plan === "ANNUAL" ? "par an" : "par mois"}
+                </span>
+              </div>
+              {apercu === null && !planUnchanged && (
+                <p className={s.drawerLead}>Calcul de la différence…</p>
+              )}
+              {apercu && !planUnchanged && (
+                <div className={s.recap}>
+                  <span className={s.recapLabel}>
+                    {apercu.prorationCents >= 0
+                      ? "Ajouté à votre prochaine facture"
+                      : "Déduit de votre prochaine facture"}
+                  </span>
+                  <span className={s.recapValue}>
+                    {(Math.abs(apercu.prorationCents) / 100)
+                      .toFixed(2)
+                      .replace(".", ",")}
+                    &nbsp;€ TTC
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className={s.recap}>
+                <span className={s.recapLabel}>
+                  À régler le {props.periodEndLabel}
+                </span>
+                <span className={s.recapValue}>
+                  {selectedRow.totalLabel} TTC{" "}
+                  {plan === "ANNUAL" ? "(12 mois)" : "(1 mois)"}
+                </span>
+              </div>
+              <IrreversibleWarning effectiveAtLabel={props.periodEndLabel} />
+            </>
+          )}
 
           {error && <div className={s.error}>{error}</div>}
 

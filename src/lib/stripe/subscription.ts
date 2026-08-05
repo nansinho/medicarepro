@@ -175,3 +175,61 @@ export async function attachStripePaymentMethod(input: {
     default_payment_method: moyen,
   });
 }
+
+/**
+ * Ce que coûtera un changement, AVANT de le valider.
+ *
+ * POURQUOI C'EST NÉCESSAIRE. Stripe proratise par défaut sans rien prélever sur
+ * le moment : la différence s'ajoute à la prochaine facture. C'est le
+ * comportement le moins brutal, mais il est invisible — le praticien valide un
+ * changement et ne voit aucun mouvement, sans savoir ce qui l'attend. Il faut
+ * donc le lui montrer d'abord.
+ *
+ * Rien n'est modifié ici : Stripe calcule la facture qu'il émettrait, on la lit,
+ * et on la jette.
+ */
+export async function previewStripeChange(input: {
+  subscriptionId: string;
+  plan: BillingPlan;
+  extraCollaborators: number;
+}): Promise<{
+  /* Ce qui s'ajoute (ou se déduit) au titre du temps déjà payé. */
+  prorationCents: number;
+  /* Le total de la prochaine facture, prorata compris. */
+  nextInvoiceCents: number;
+  nextInvoiceDate: Date | null;
+}> {
+  const s = stripe();
+  const actuel = await s.subscriptions.retrieve(input.subscriptionId);
+
+  const apercu = await s.invoices.createPreview({
+    subscription: input.subscriptionId,
+    subscription_details: {
+      items: [
+        ...actuel.items.data.map((i) => ({ id: i.id, deleted: true as const })),
+        ...itemsFor(input.plan, input.extraCollaborators),
+      ],
+      proration_behavior: "create_prorations",
+    },
+  });
+
+  let prorationCents = 0;
+  for (const ligne of apercu.lines?.data ?? []) {
+    const estProrata =
+      (ligne as unknown as { proration?: boolean }).proration === true ||
+      (ligne as unknown as {
+        parent?: { subscription_item_details?: { proration?: boolean } };
+      }).parent?.subscription_item_details?.proration === true;
+    if (estProrata) prorationCents += ligne.amount ?? 0;
+  }
+
+  const fin =
+    (apercu as unknown as { period_end?: number }).period_end ??
+    (apercu as unknown as { next_payment_attempt?: number }).next_payment_attempt;
+
+  return {
+    prorationCents,
+    nextInvoiceCents: apercu.total ?? 0,
+    nextInvoiceDate: typeof fin === "number" ? new Date(fin * 1000) : null,
+  };
+}

@@ -307,6 +307,14 @@ export default async function MonAbonnementPage({
          définitif : le praticien devait repayer à la main pour repartir. Sans
          cette distinction, l'écran proposerait « Reprise possible le… » à
          quelqu'un qui peut simplement annuler sa résiliation. */
+      /* Chez Stripe, un changement s'applique tout de suite et le temps déjà
+         payé est déduit. Chez Monetico, il fallait arrêter la reconduction —
+         définitivement — puis repayer à l'échéance. Les deux écrans n'ont rien
+         à se dire en commun, d'où ce drapeau plutôt qu'un texte unique qui
+         mentirait à la moitié des praticiens. */
+      immediateChanges={
+        sub.payment_provider === "stripe" && Boolean(sub.stripe_subscription_id)
+      }
       cancelAtPeriodEnd={
         sub.payment_provider === "stripe" &&
         Boolean(sub.stripe_subscription_id) &&
