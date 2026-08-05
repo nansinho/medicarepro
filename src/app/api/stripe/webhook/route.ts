@@ -5,6 +5,9 @@ import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import { billingEnv, hasBilling } from "@/lib/env";
 import { finalizeOrderPayment } from "@/lib/billing/attach";
+import { registerPaymentFailure } from "@/lib/billing/dunning";
+import { notifyRenewal } from "@/lib/provisioning";
+import { mirrorStripeInvoice } from "@/lib/stripe/invoices";
 import {
   eventMatchesEnvironment,
   factsFromCompletedSession,
@@ -216,6 +219,188 @@ async function applyStripeEvent(
     return;
   }
 
+  if (event.type === "invoice.paid" || event.type === "invoice.payment_failed") {
+    const invoice = event.data.object as Stripe.Invoice;
+    const abonnement = subscriptionIdOf(invoice);
+    if (!abonnement) {
+      /* Une facture hors abonnement (ponctuelle, régularisation) ne concerne
+         aucun contrat : on la note sans alerter. */
+      await supabase
+        .from("stripe_events")
+        .update({ process_error: "ignoré : facture sans abonnement" })
+        .eq("event_id", eventId);
+      return;
+    }
+
+    /* On retrouve le contrat par l'abonnement Stripe, PAS par notre référence :
+       les factures de reconduction ne la portent pas, seule la session
+       d'origine l'avait. C'est la raison d'être de stripe_subscription_id. */
+    const { data: subRow } = await supabase
+      .from("subscriptions")
+      .select("id, cabinet_name, app_cabinet_id, plan, currency, renewal_count, monetico_reference")
+      .eq("stripe_subscription_id", abonnement)
+      .maybeSingle();
+
+    if (!subRow) {
+      /* Le contrat n'existe pas encore : la facture de création arrive parfois
+         avant que checkout.session.completed ait fini son travail. Stripe
+         re-livrera, et le contrat sera là. On ne marque donc PAS traité. */
+      await supabase
+        .from("stripe_events")
+        .update({
+          process_error: `contrat introuvable pour ${abonnement} — sera rejoué`,
+        })
+        .eq("event_id", eventId);
+      return;
+    }
+
+    const sub = subRow as {
+      id: string;
+      cabinet_name: string;
+      app_cabinet_id: string;
+      plan: "MONTHLY" | "ANNUAL";
+      currency: string;
+      renewal_count: number;
+      monetico_reference: string;
+    };
+
+    if (event.type === "invoice.payment_failed") {
+      /* NOTRE référence, pas le numéro de facture Stripe : la relance retrouve
+         le contrat par elle, et c'est elle que porte `subscriptions`. Toute la
+         mécanique d'impayé — délai de grâce de 14 jours, email au praticien,
+         remontée PAST_DUE à l'application — fonctionne alors sans retouche. */
+      await registerPaymentFailure({
+        reference: sub.monetico_reference,
+        occurredAt: new Date(event.created * 1000),
+        codeRetour:
+          invoice.last_finalization_error?.code ??
+          `stripe:${invoice.status ?? "payment_failed"}`,
+      });
+      await marquerTraite();
+      return;
+    }
+
+    await applyStripeInvoicePaid(supabase, invoice, sub, eventId);
+    await marquerTraite();
+    return;
+  }
+
   /* Les autres types sont journalisés et attendent leur lot. `processed_at`
      reste NULL : un oubli se voit, il ne se confond pas avec un succès. */
+}
+
+/** L'abonnement porté par une facture, quelle que soit sa forme. */
+function subscriptionIdOf(invoice: Stripe.Invoice): string | null {
+  const direct = (invoice as unknown as { subscription?: unknown }).subscription;
+  if (typeof direct === "string" && direct) return direct;
+  if (direct && typeof direct === "object" && "id" in direct) {
+    const id = (direct as { id?: unknown }).id;
+    if (typeof id === "string") return id;
+  }
+  /* Versions récentes de l'API : l'abonnement vit sur la ligne de facture. */
+  for (const line of invoice.lines?.data ?? []) {
+    const p = (line as unknown as { subscription?: unknown }).subscription;
+    if (typeof p === "string" && p) return p;
+  }
+  return null;
+}
+
+/**
+ * Une échéance encaissée : registre, période, et remontée à l'application.
+ *
+ * La période N'EST PAS calculée : elle est lue sur la facture, dont la ligne
+ * porte la fin de période que Stripe applique réellement. C'est la même règle
+ * qu'à la souscription — recalculer ferait dériver notre date de la sienne, et
+ * c'est la nôtre que le praticien lirait.
+ */
+async function applyStripeInvoicePaid(
+  supabase: NonNullable<ReturnType<typeof serviceClient>>,
+  invoice: Stripe.Invoice,
+  sub: {
+    id: string;
+    cabinet_name: string;
+    app_cabinet_id: string;
+    plan: "MONTHLY" | "ANNUAL";
+    currency: string;
+    renewal_count: number;
+    monetico_reference: string;
+  },
+  eventId: string,
+): Promise<void> {
+  const paidCents = invoice.amount_paid ?? invoice.total ?? 0;
+  const currency = (invoice.currency ?? sub.currency).toUpperCase();
+  const occurredAt = new Date((invoice.created ?? Date.now() / 1000) * 1000);
+  const premiere = invoice.billing_reason === "subscription_create";
+
+  /* Le miroir d'abord : c'est lui qui remplace notre émission, et il est
+     idempotent par l'identifiant de facture Stripe. */
+  const miroir = await mirrorStripeInvoice(invoice, sub.id);
+  if (!miroir.ok) {
+    console.error("[stripe-webhook] miroir de facture :", miroir.reason);
+  }
+
+  /* La toute première facture est déjà comptabilisée par la finalisation de la
+     session : la recompter doublerait l'écriture et le chiffre d'affaires. */
+  if (premiere) return;
+
+  const finDePeriode = periodEndOf(invoice);
+
+  const { error: ledgerError } = await supabase.from("billing_ledger").insert({
+    event_type: "card_renewal",
+    payment_provider: "stripe",
+    payment_environment: invoice.livemode ? "production" : "test",
+    amount_cents: paidCents,
+    currency,
+    occurred_at: occurredAt.toISOString(),
+    /* Stripe a prélevé : l'écriture naît encaissée, il n'y a rien à recouvrer. */
+    captured_at: occurredAt.toISOString(),
+    stripe_invoice_id: invoice.id ?? null,
+    reference: invoice.number ?? invoice.id ?? eventId,
+    subscription_id: sub.id,
+    cabinet_name: sub.cabinet_name,
+    meta: { kind: "stripe_renewal" },
+  });
+  if (ledgerError && ledgerError.code !== "23505") {
+    throw new Error(`journal comptable : ${ledgerError.message}`);
+  }
+
+  if (finDePeriode) {
+    await supabase
+      .from("subscriptions")
+      .update({
+        current_period_end: finDePeriode.toISOString(),
+        status: "active",
+        renewal_count: sub.renewal_count + 1,
+        last_renewal_at: occurredAt.toISOString(),
+        /* Une échéance encaissée solde tout incident antérieur. */
+        dunning_started_at: null,
+        dunning_failure_count: 0,
+        grace_until: null,
+        last_failure_code: null,
+      })
+      .eq("id", sub.id);
+  }
+
+  const sync = await notifyRenewal({
+    idempotencyKey: `stripe-${invoice.id ?? eventId}`,
+    cabinetId: sub.app_cabinet_id,
+    plan: sub.plan,
+    periodEnd: finDePeriode?.toISOString(),
+    paidAt: occurredAt.toISOString(),
+    amountCents: paidCents,
+    currency,
+    status: "ACTIVE",
+  });
+  if (!sync.ok) {
+    console.error("[stripe-webhook] remontée d'échéance :", sync.reason);
+  }
+}
+
+/** La fin de période appliquée par Stripe, lue sur la ligne de facture. */
+function periodEndOf(invoice: Stripe.Invoice): Date | null {
+  for (const line of invoice.lines?.data ?? []) {
+    const fin = line.period?.end;
+    if (typeof fin === "number") return new Date(fin * 1000);
+  }
+  return null;
 }

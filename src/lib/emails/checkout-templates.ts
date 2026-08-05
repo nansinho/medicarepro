@@ -237,6 +237,22 @@ export type PaymentReceiptData = {
    */
   renewal?: { amountLabel: string; periodLabel: string; nextDateLabel: string };
   /**
+   * Le cabinet EXISTE déjà : ce paiement met en place la facturation d'un
+   * logiciel utilisé depuis longtemps, il ne crée aucun compte.
+   *
+   * Constaté le 05/08/2026 sur la première souscription Stripe : le reçu
+   * annonçait « votre espace est en cours de création » et un email de
+   * bienvenue à un praticien qui travaillait dans le logiciel depuis des
+   * semaines. Le gabarit avait été écrit pour le tunnel de vente et repris tel
+   * quel.
+   */
+  existingCabinet?: boolean;
+  /**
+   * L'espace abonnement permet-il de résilier soi-même ? Le même reçu
+   * renvoyait vers contact@medicarepro.fr alors qu'un bouton existe.
+   */
+  selfServiceCancel?: boolean;
+  /**
    * Offre annuelle (paiement unique) : date jusqu'à laquelle l'accès est
    * garanti. Exclusif avec `renewal` — l'annuel n'est PAS reconduit.
    */
@@ -271,7 +287,11 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
 
   const renewalHtml = d.renewal
     ? callout(
-        `<strong style="color:${NAVY};">Votre abonnement est à reconduction automatique.</strong> Il sera renouvelé ${escHtml(d.renewal.periodLabel)} pour ${escHtml(d.renewal.amountLabel)} TTC, sur la carte utilisée aujourd'hui, à partir du ${escHtml(d.renewal.nextDateLabel)}. Pour l'arrêter, écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a>&nbsp;: votre accès reste ouvert jusqu'au terme de la période déjà réglée.`,
+        `<strong style="color:${NAVY};">Votre abonnement est à reconduction automatique.</strong> Il sera renouvelé ${escHtml(d.renewal.periodLabel)} pour ${escHtml(d.renewal.amountLabel)} TTC, sur la carte utilisée aujourd'hui, à partir du ${escHtml(d.renewal.nextDateLabel)}. ${
+          d.selfServiceCancel
+            ? "Vous pouvez l'arrêter à tout moment depuis votre espace abonnement, dans votre logiciel"
+            : `Pour l'arrêter, écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a>`
+        }&nbsp;: votre accès reste ouvert jusqu'au terme de la période déjà réglée.`,
       )
     : d.accessUntilLabel
       ? callout(
@@ -286,7 +306,9 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
     ) +
     kvCard(rows) +
     callout(
-      `<strong style="color:${NAVY};">Votre espace est en cours de création.</strong> Vous allez recevoir l'email de bienvenue de l'application MediCare&nbsp;Pro, avec votre lien de connexion et vos identifiants d'accès. Pensez à vérifier vos courriers indésirables s'il n'apparaît pas d'ici quelques minutes.`,
+      d.existingCabinet
+        ? `<strong style="color:${NAVY};">Rien ne change dans votre logiciel.</strong> Votre cabinet et vos dossiers patients restent exactement en l'état&nbsp;: ce règlement met en place la facturation de l'abonnement, il ne crée aucun nouveau compte.`
+        : `<strong style="color:${NAVY};">Votre espace est en cours de création.</strong> Vous allez recevoir l'email de bienvenue de l'application MediCare&nbsp;Pro, avec votre lien de connexion et vos identifiants d'accès. Pensez à vérifier vos courriers indésirables s'il n'apparaît pas d'ici quelques minutes.`,
     ) +
     renewalHtml +
     paragraph(
@@ -306,8 +328,16 @@ export function paymentReceiptEmail(d: PaymentReceiptData): EmailContent {
     `Date du paiement   ${d.paidAtLabel}`,
     ...(d.invoiceNumber ? [`Facture            ${d.invoiceNumber}`] : []),
     "",
-    "Votre espace est en cours de création : vous allez recevoir l'email de",
-    "bienvenue de l'application MediCare Pro, avec votre lien de connexion.",
+    ...(d.existingCabinet
+      ? [
+          "Rien ne change dans votre logiciel : votre cabinet et vos dossiers",
+          "patients restent exactement en l'état. Ce règlement met en place la",
+          "facturation de l'abonnement, il ne crée aucun nouveau compte.",
+        ]
+      : [
+          "Votre espace est en cours de création : vous allez recevoir l'email de",
+          "bienvenue de l'application MediCare Pro, avec votre lien de connexion.",
+        ]),
     ...(d.renewal
       ? [
           "",

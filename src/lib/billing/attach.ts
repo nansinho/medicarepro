@@ -631,6 +631,9 @@ async function finalizeInstalment(
  * Premier paiement d'une commande de souscription. Best-effort après le
  * verrou : l'appelant (route IPN) doit acquitter Monetico quoi qu'il arrive.
  */
+/** Sortie non fautive du bloc « facture » : Stripe l'a déjà émise. */
+class SkipInvoice extends Error {}
+
 async function finalizeAttach(
   supabase: NonNullable<ReturnType<typeof serviceClient>>,
   order: OrderRow,
@@ -812,9 +815,16 @@ async function finalizeAttach(
   const label = planLabel(order.plan, order.extra_collaborators);
   const firstName = (snap.adminName ?? "").trim().split(/\s+/)[0] ?? "";
 
-  // 4. Facture (best-effort).
+  /* 4. Facture (best-effort).
+
+     PAS pour un encaissement Stripe : c'est Stripe qui facture, et émettre la
+     nôtre en plus produirait DEUX pièces comptables pour un seul paiement, avec
+     deux numérotations. C'est arrivé sur la première souscription Stripe, le
+     05/08/2026 (MP-F-2026-0008 doublonnait la facture Stripe). Le registre est
+     alimenté par le miroir, à réception de `invoice.paid`. */
   let invoiceNumber: string | undefined;
   try {
+    if (parStripe) throw new SkipInvoice();
     const invoice = await issueInvoice({
       kind: "card_first",
       amountCents: paidCents,
@@ -828,6 +838,9 @@ async function finalizeAttach(
     });
     invoiceNumber = invoice.number;
   } catch (err) {
+    if (err instanceof SkipInvoice) {
+      // Rien à signaler : la facture existe, elle est chez Stripe.
+    } else {
     console.error("[billing-attach] échec facture :", errMessage(err));
     await sendBillingAlert("Facture de souscription non émise", [
       `Cabinet : ${cabinetName}`,
@@ -836,6 +849,7 @@ async function finalizeAttach(
       `Erreur : ${errMessage(err)}`,
       "L'abonnement est en place : la facture doit être émise à la main.",
     ]);
+    }
   }
 
   /* 5. Reçu au client. MENSUEL : reconduction automatique, donc montant,
@@ -863,6 +877,11 @@ async function finalizeAttach(
               nextDateLabel: frDate(periodEnd),
             },
         accessUntilLabel: isAnnual ? frDate(periodEnd) : undefined,
+        /* Ce cabinet travaille déjà dans le logiciel : ce règlement met en
+           place sa facturation, il ne crée aucun compte. Et il peut résilier
+           lui-même depuis son espace, sans nous écrire. */
+        existingCabinet: true,
+        selfServiceCancel: true,
       });
       await sendMail({ to: snap.adminEmail, ...receipt });
     }
