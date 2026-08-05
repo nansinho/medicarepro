@@ -98,10 +98,12 @@ type SubRow = {
   recurrence_stopped_at: string | null;
   grace_until: string | null;
   last_failure_at: string | null;
+  payment_provider: "monetico" | "stripe" | null;
+  stripe_subscription_id: string | null;
 };
 
 const SUB_COLUMNS =
-  "id, app_cabinet_id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, renewal_amount_cents, status, current_period_end, recurrence_stopped_at, grace_until, last_failure_at";
+  "id, app_cabinet_id, cabinet_name, cabinet_address, cabinet_postal_city, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, renewal_amount_cents, status, current_period_end, recurrence_stopped_at, grace_until, last_failure_at, payment_provider, stripe_subscription_id";
 
 /** Un abonnement fini n'empêche pas d'en reprendre un. */
 const OVER = new Set(["canceled", "expired"]);
@@ -300,6 +302,16 @@ export default async function MonAbonnementPage({
          affichait « Votre dernier paiement a été refusé » dès le lendemain de
          son échéance, alors qu'aucun paiement n'avait jamais été tenté. */
       paymentFailed={Boolean(sub.last_failure_at)}
+      /* Chez Stripe, « reconduction arrêtée » VEUT DIRE « résiliation
+         programmée au terme », et elle se défait. Chez Monetico l'arrêt était
+         définitif : le praticien devait repayer à la main pour repartir. Sans
+         cette distinction, l'écran proposerait « Reprise possible le… » à
+         quelqu'un qui peut simplement annuler sa résiliation. */
+      cancelAtPeriodEnd={
+        sub.payment_provider === "stripe" &&
+        Boolean(sub.stripe_subscription_id) &&
+        Boolean(sub.recurrence_stopped_at)
+      }
       recurrenceStopped={Boolean(sub.recurrence_stopped_at)}
       graceUntilLabel={sub.grace_until ? frDate(sub.grace_until) : null}
       change={change}

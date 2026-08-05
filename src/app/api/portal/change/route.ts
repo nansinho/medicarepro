@@ -85,6 +85,35 @@ export async function POST(request: NextRequest) {
   /* --- Retrait d'une demande ------------------------------------------- */
 
   if (action === "withdraw") {
+    /* Un abonnement Stripe n'a pas de « demande en attente » à retirer : la
+       résiliation vit chez Stripe, sous la forme d'une fin programmée au terme.
+       Sans cette sortie, la garde ci-dessous renverrait « Aucune demande en
+       attente » et le praticien serait enfermé dans sa résiliation — il ne
+       pourrait plus revenir en arrière, ce qui est précisément la limite de
+       Monetico qu'on cherchait à lever. */
+    if (sub.payment_provider === "stripe" && sub.stripe_subscription_id) {
+      try {
+        const { currentPeriodEnd } = await setStripeCancelAtPeriodEnd(
+          sub.stripe_subscription_id,
+          false,
+        );
+        await noteCancellation(supabase, sub, null, ip, false, currentPeriodEnd);
+        return Response.json({ ok: true, cancelAtPeriodEnd: false });
+      } catch (err) {
+        console.error(
+          "[portal-change] annulation de résiliation :",
+          err instanceof Error ? err.message : String(err),
+        );
+        return Response.json(
+          {
+            error:
+              "L'annulation n'a pas pu être appliquée. Réessayez, ou écrivez-nous à contact@medicarepro.fr.",
+          },
+          { status: 502 },
+        );
+      }
+    }
+
     const change = await activeChange(supabase, sub.id);
     if (!change) {
       return Response.json(
@@ -140,15 +169,6 @@ export async function POST(request: NextRequest) {
         );
         await noteCancellation(supabase, sub, reason, ip, true, currentPeriodEnd);
         return Response.json({ ok: true, cancelAtPeriodEnd: true });
-      }
-
-      if (action === "withdraw") {
-        const { currentPeriodEnd } = await setStripeCancelAtPeriodEnd(
-          sub.stripe_subscription_id,
-          false,
-        );
-        await noteCancellation(supabase, sub, null, ip, false, currentPeriodEnd);
-        return Response.json({ ok: true, cancelAtPeriodEnd: false });
       }
 
       if (action === "plan") {

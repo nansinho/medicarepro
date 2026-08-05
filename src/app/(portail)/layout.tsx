@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
-import { paymentsInTestModeOnLiveSite } from "@/lib/env";
+import { paymentProvider, paymentsInTestModeOnLiveSite } from "@/lib/env";
 import s from "@/components/checkout/Checkout.module.css";
 
 /* ============================================================
@@ -72,7 +72,10 @@ export default function PortailLayout({
       <main className={s.main}>{children}</main>
 
       <footer className={s.pageFoot}>
-        Paiement sécurisé par Monetico (CIC) — MEDICARE PRO, SAS
+        {/* Le prestataire est lu, jamais codé en dur : afficher « Monetico »
+            à un praticien qui vient de payer par Stripe est faux, et c'est
+            exactement ce que la page montrait encore le 05/08/2026. */}
+        Paiement sécurisé par {paymentProvider() === "stripe" ? "Stripe" : "Monetico (CIC)"} — MEDICARE PRO, SAS
       </footer>
     </div>
   );

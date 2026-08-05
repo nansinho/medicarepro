@@ -142,6 +142,9 @@ export async function noteCancellation(
            finalisons auprès de votre banque », plus d'engagement de
            remboursement au cas où un prélèvement passerait quand même. */
         bankStopPending: false,
+        /* Chez Stripe, la résiliation se défait d'un clic : l'email doit le
+           dire, au lieu de laisser croire qu'il faudra repayer pour repartir. */
+        reversible: true,
       });
       await sendMail({ to: sub.admin_email, ...mail });
     } catch (err) {

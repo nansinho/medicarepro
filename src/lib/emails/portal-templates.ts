@@ -42,12 +42,25 @@ export function cancellationScheduledEmail(d: {
      on ne l'écrit pas au client. L'engagement « aucun prélèvement » tient
      quand même, il est simplement tenu par nous et non par la banque. */
   bankStopPending?: boolean;
+  /**
+   * La résiliation se défait-elle d'un clic ?
+   *
+   * Vrai chez Stripe, où elle n'est qu'une fin programmée de l'abonnement. Faux
+   * chez Monetico, où l'arrêt de la reconduction était une opération bancaire
+   * distincte, définitive, et parfois refusée. Parler de « votre banque » à un
+   * praticien qui paie par Stripe serait à la fois faux et inquiétant.
+   */
+  reversible?: boolean;
 }): EmailContent {
   const subject = "Votre résiliation est enregistrée — MediCare Pro";
   const stopHtml = d.bankStopPending
     ? "nous finalisons l'arrêt de la reconduction auprès de votre banque, et si un montant était malgré tout débité, il vous serait remboursé sans démarche de votre part."
-    : "votre banque a confirmé l'arrêt de la reconduction.";
-  const stopText = d.bankStopPending
+    : d.reversible
+      ? "la reconduction automatique est arrêtée, et vous pouvez revenir en arrière à tout moment depuis votre espace."
+      : "votre banque a confirmé l'arrêt de la reconduction.";
+  const stopText = d.reversible
+    ? "vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué, et vous\npouvez revenir en arrière à tout moment depuis votre espace."
+    : d.bankStopPending
     ? "vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué : si un\nmontant était malgré tout débité, il vous serait remboursé sans démarche."
     : "vous avez déjà réglée. Aucun nouveau prélèvement ne sera effectué.";
 
@@ -71,7 +84,9 @@ export function cancellationScheduledEmail(d: {
       `Vos données restent les vôtres. Pensez à faire vos exports depuis le logiciel avant la fin de l'accès, et écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a> si vous avez besoin d'aide.`,
     ) +
     paragraph(
-      `Vous changez d'avis&nbsp;? Vous pouvez reprendre votre abonnement à tout moment depuis votre espace, sans rien perdre de vos dossiers.`,
+      d.reversible
+        ? `Vous changez d'avis&nbsp;? Un clic sur «&nbsp;Annuler ma résiliation&nbsp;» dans votre espace, et tout repart comme avant — sans nouveau paiement, sans rien perdre de vos dossiers.`
+        : `Vous changez d'avis&nbsp;? Vous pouvez reprendre votre abonnement à tout moment depuis votre espace, sans rien perdre de vos dossiers.`,
     );
 
   const text = [
@@ -90,8 +105,16 @@ export function cancellationScheduledEmail(d: {
     stopText,
     "",
     "Pensez à faire vos exports depuis le logiciel avant la fin de l'accès.",
-    "Vous changez d'avis ? Vous pouvez reprendre votre abonnement à tout",
-    "moment depuis votre espace, sans rien perdre de vos dossiers.",
+    ...(d.reversible
+      ? [
+          "Vous changez d'avis ? Un clic sur « Annuler ma résiliation » dans",
+          "votre espace, et tout repart comme avant : sans nouveau paiement,",
+          "sans rien perdre de vos dossiers.",
+        ]
+      : [
+          "Vous changez d'avis ? Vous pouvez reprendre votre abonnement à tout",
+          "moment depuis votre espace, sans rien perdre de vos dossiers.",
+        ]),
     "",
     "Une question : contact@medicarepro.fr",
   ].join("\n");

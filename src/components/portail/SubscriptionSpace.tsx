@@ -56,6 +56,8 @@ export type SubscriptionSpaceProps = {
       terminée, ce qui n'est pas un incident et ne doit pas s'annoncer
       comme tel. */
   paymentFailed: boolean;
+  /** Résiliation programmée chez Stripe, et donc RÉVERSIBLE. */
+  cancelAtPeriodEnd: boolean;
   recurrenceStopped: boolean;
   graceUntilLabel: string | null;
   change: PortalChange | null;
@@ -388,6 +390,38 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
                 disabled={busy}
               >
                 {busy ? "…" : "Annuler cette demande"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* Résiliation programmée chez Stripe : elle se défait d'un clic, et c'est
+       le gain le plus concret de la bascule. Chez Monetico, l'arrêt bancaire
+       était définitif : revenir en arrière ne rendait pas la reconduction, et
+       le praticien devait repayer à la main pour repartir. */
+    if (props.cancelAtPeriodEnd) {
+      return (
+        <div className={`${s.notice} ${s.noticeWarn}`}>
+          <span className={s.noticeAccent} aria-hidden="true" />
+          <div className={s.noticeBody}>
+            <div className={s.noticeTitle}>
+              Votre abonnement prend fin le {props.periodEndLabel}
+            </div>
+            <p className={s.noticeText}>
+              Votre accès reste entier jusque-là, et plus aucun montant ne sera
+              prélevé. Vous pouvez revenir en arrière à tout moment&nbsp;: votre
+              abonnement repartira comme avant, sans rien à repayer.
+            </p>
+            <div className={s.noticeActions}>
+              <button
+                type="button"
+                className={`${s.btn} ${s.btnPrimary}`}
+                onClick={() => submitChange({ action: "withdraw" })}
+                disabled={busy}
+              >
+                {busy ? "…" : "Annuler ma résiliation"}
               </button>
             </div>
           </div>
@@ -878,7 +912,9 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
       ? { cls: s.pillWarn, text: "Abonnement échu" }
     : change?.kind === "cancel"
       ? { cls: s.pillWarn, text: `Résilié au ${props.periodEndLabel}` }
-      : props.recurrenceStopped && props.plan === "MONTHLY"
+      : props.cancelAtPeriodEnd
+        ? { cls: s.pillWarn, text: `Résilié au ${props.periodEndLabel}` }
+        : props.recurrenceStopped && props.plan === "MONTHLY"
         ? { cls: s.pillWarn, text: "Reconduction arrêtée" }
         : { cls: s.pillOk, text: "Abonnement actif" };
 
