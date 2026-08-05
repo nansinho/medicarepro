@@ -194,6 +194,21 @@ const EnvSchema = z.object({
   /* Les identifiants de prix DIFFÈRENT entre les deux mondes : un `price_` de
      test n'existe pas en production. Les doubler est donc obligatoire, ce n'est
      pas du confort. */
+  /* Taux de TVA à appliquer aux abonnements.
+
+     Stripe n'offre AUCUN réglage de compte pour un taux par défaut : ni dans
+     Billing, ni dans les modèles de facture. Il doit être passé à chaque
+     création d'abonnement, sinon la facture sort sans ligne de TVA — constaté
+     sur la toute première, le 05/08/2026, où sous-total et total valaient tous
+     deux 29,88 € sans qu'aucune taxe n'apparaisse.
+
+     Une facture française sans mention de TVA ne vaut rien pour la comptabilité
+     du cabinet. Cette variable est donc EXIGÉE : mieux vaut refuser de vendre
+     que d'émettre des factures inutilisables. */
+  STRIPE_TAX_RATE_TEST: z.string().startsWith("txr_").optional(),
+  STRIPE_TAX_RATE_LIVE: z.string().startsWith("txr_").optional(),
+  STRIPE_TAX_RATE: z.string().startsWith("txr_").optional(),
+
   STRIPE_PRICE_MONTHLY_TEST: z.string().startsWith("price_").optional(),
   STRIPE_PRICE_ANNUAL_TEST: z.string().startsWith("price_").optional(),
   STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST: z.string().startsWith("price_").optional(),
@@ -550,6 +565,7 @@ export function stripeConfig(): {
   secretKey?: string;
   publishableKey?: string;
   webhookSecret?: string;
+  taxRate?: string;
   prices: {
     monthly?: string;
     annual?: string;
@@ -572,6 +588,8 @@ export function stripeConfig(): {
     webhookSecret:
       (live ? e.STRIPE_WEBHOOK_SECRET_LIVE : e.STRIPE_WEBHOOK_SECRET_TEST) ??
       e.STRIPE_WEBHOOK_SECRET,
+    taxRate:
+      (live ? e.STRIPE_TAX_RATE_LIVE : e.STRIPE_TAX_RATE_TEST) ?? e.STRIPE_TAX_RATE,
     prices: {
       monthly:
         (live ? e.STRIPE_PRICE_MONTHLY_LIVE : e.STRIPE_PRICE_MONTHLY_TEST) ??
@@ -636,6 +654,10 @@ export function missingStripeEnv(): string[] {
       );
     }
   }
+
+  /* Exigé, et volontairement au même rang que la clé : sans lui, chaque facture
+     émise est non conforme, et le défaut ne se voit qu'à la comptabilité. */
+  if (!c.taxRate) missing.push(`STRIPE_TAX_RATE${suffixe}`);
 
   if (!c.prices.monthly && !c.prices.annual) {
     missing.push(`STRIPE_PRICE_MONTHLY${suffixe} ou STRIPE_PRICE_ANNUAL${suffixe}`);

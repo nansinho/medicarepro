@@ -77,7 +77,15 @@ export function buildCheckoutParams(
     throw new Error("Les chemins de retour accepté et refusé doivent différer.");
   }
 
-  const prices = stripeConfig().prices;
+  const { prices, taxRate } = stripeConfig();
+  if (!taxRate) {
+    /* Sans taux, la facture sort sans ligne de TVA. Refuser la vente est le
+       moindre mal : une facture non conforme se découvre des mois plus tard,
+       chez le comptable du cabinet. */
+    throw new Error(
+      "Aucun taux de TVA Stripe configuré : souscription refusée plutôt que facturée sans TVA.",
+    );
+  }
   const annuel = input.plan === "ANNUAL";
   const basePrice = annuel ? prices.annual : prices.monthly;
   const collabPrice = annuel ? prices.collaboratorAnnual : prices.collaboratorMonthly;
@@ -121,7 +129,12 @@ export function buildCheckoutParams(
         }
       : { customer_email: input.customerEmail }),
     metadata,
-    subscription_data: { metadata },
+    subscription_data: {
+      metadata,
+      /* Stripe n'a pas de taux par défaut au niveau du compte : il doit être
+         passé ici, à chaque abonnement créé. */
+      default_tax_rates: [taxRate],
+    },
     /* Calculées par siteUrl(), JAMAIS depuis la requête : en production le
        serveur standalone dérive « https://0.0.0.0:3000 » de HOSTNAME et PORT,
        et un client payé serait renvoyé sur une adresse injoignable. */

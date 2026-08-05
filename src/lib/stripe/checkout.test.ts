@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
    ============================================================ */
 
 const PRIX = {
+  STRIPE_TAX_RATE_TEST: "txr_tva20",
   STRIPE_PRICE_MONTHLY_TEST: "price_mensuel",
   STRIPE_PRICE_ANNUAL_TEST: "price_annuel",
   STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST: "price_collab_mensuel",
@@ -179,6 +180,23 @@ describe("buildCheckoutParams", () => {
     expect(() =>
       buildCheckoutParams({ ...BASE, customerId: undefined, customerEmail: undefined }),
     ).toThrow(/client/i);
+  });
+
+
+  /* La première facture réelle est sortie sans ligne de TVA : sous-total et
+     total valaient tous deux 29,88 €. Stripe n'a aucun réglage de compte pour
+     un taux par défaut, il doit être passé à chaque abonnement. Une facture
+     française sans mention de TVA ne vaut rien pour la comptabilité du
+     cabinet. */
+  it("applique le taux de TVA à l'abonnement", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams(BASE);
+    expect(p.subscription_data?.default_tax_rates).toEqual(["txr_tva20"]);
+  });
+
+  it("refuse de vendre sans taux de TVA configuré", async () => {
+    const { buildCheckoutParams } = await charger({ STRIPE_TAX_RATE_TEST: "" });
+    expect(() => buildCheckoutParams(BASE)).toThrow(/TVA/);
   });
 
   it("propose la carte et le prélèvement SEPA, en français", async () => {

@@ -366,12 +366,14 @@ describe("configuration Stripe", () => {
   const SK = "sk_test_51AbCdEfGhIjKlMnOp";
   const SK_LIVE = "sk_live_51AbCdEfGhIjKlMnOp";
   const WH = "whsec_AbCdEfGhIjKlMnOpQrSt";
+  const TXR = "txr_tva20";
 
   it("exige la clé, le secret de webhook et au moins un prix", async () => {
     const { missingStripeEnv, hasStripeCheckout } = await loadEnv({});
     expect(missingStripeEnv()).toEqual([
       "STRIPE_SECRET_KEY_TEST",
       "STRIPE_WEBHOOK_SECRET_TEST",
+      "STRIPE_TAX_RATE_TEST",
       "STRIPE_PRICE_MONTHLY_TEST ou STRIPE_PRICE_ANNUAL_TEST",
     ]);
     expect(hasStripeCheckout()).toBe(false);
@@ -385,13 +387,17 @@ describe("configuration Stripe", () => {
       STRIPE_PRICE_MONTHLY: "price_m",
       STRIPE_PRICE_COLLABORATOR_MONTHLY: "price_cm",
     });
-    expect(missingStripeEnv()).toEqual(["STRIPE_WEBHOOK_SECRET_TEST"]);
+    expect(missingStripeEnv()).toEqual([
+      "STRIPE_WEBHOOK_SECRET_TEST",
+      "STRIPE_TAX_RATE_TEST",
+    ]);
   });
 
   it("exige le prix collaborateur de chaque formule vendue", async () => {
     const { missingStripeEnv } = await loadEnv({
       STRIPE_SECRET_KEY: SK,
       STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_TAX_RATE: TXR,
       STRIPE_PRICE_MONTHLY: "price_m",
     });
     expect(missingStripeEnv()).toEqual(["STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST"]);
@@ -401,6 +407,7 @@ describe("configuration Stripe", () => {
     const { missingStripeEnv, hasStripeCheckout } = await loadEnv({
       STRIPE_SECRET_KEY: SK,
       STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_TAX_RATE: TXR,
       STRIPE_PRICE_MONTHLY: "price_m",
       STRIPE_PRICE_COLLABORATOR_MONTHLY: "price_cm",
     });
@@ -420,6 +427,7 @@ describe("configuration Stripe", () => {
       PAYMENT_PROVIDER: "stripe",
       STRIPE_SECRET_KEY: SK,
       STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_TAX_RATE: TXR,
       STRIPE_PRICE_ANNUAL: "price_a",
       STRIPE_PRICE_COLLABORATOR_ANNUAL: "price_ca",
     });
@@ -488,6 +496,7 @@ describe("configuration Stripe", () => {
       STRIPE_MODE: "live",
       STRIPE_SECRET_KEY: SK, // forme sans suffixe : une clé d'ESSAI
       STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_TAX_RATE: TXR,
       STRIPE_PRICE_ANNUAL: "price_a",
       STRIPE_PRICE_COLLABORATOR_ANNUAL: "price_ca",
     });
@@ -501,6 +510,7 @@ describe("configuration Stripe", () => {
       STRIPE_MODE: "live",
       STRIPE_SECRET_KEY_LIVE: SK_LIVE,
       STRIPE_WEBHOOK_SECRET_LIVE: WH,
+      STRIPE_TAX_RATE_LIVE: TXR,
       STRIPE_PRICE_ANNUAL_LIVE: "price_a",
       STRIPE_PRICE_COLLABORATOR_ANNUAL_LIVE: "price_ca",
     });
@@ -515,6 +525,7 @@ describe("configuration Stripe", () => {
       STRIPE_MODE: "test",
       STRIPE_SECRET_KEY_TEST: SK,
       STRIPE_WEBHOOK_SECRET_TEST: WH,
+      STRIPE_TAX_RATE_TEST: TXR,
       STRIPE_PRICE_MONTHLY_TEST: "price_mt",
       STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST: "price_cmt",
       STRIPE_SECRET_KEY_LIVE: SK_LIVE,
@@ -534,6 +545,7 @@ describe("configuration Stripe", () => {
     const { missingStripeEnv } = await loadEnv({
       STRIPE_SECRET_KEY_TEST: SK,
       STRIPE_WEBHOOK_SECRET_TEST: WH,
+      STRIPE_TAX_RATE_TEST: TXR,
       STRIPE_PRICE_ANNUAL_TEST: "price_a",
       STRIPE_PRICE_COLLABORATOR_ANNUAL_TEST: "price_ca",
     });
@@ -548,6 +560,7 @@ describe("configuration Stripe", () => {
       STRIPE_MODE: "test",
       STRIPE_SECRET_KEY_TEST: SK,
       STRIPE_WEBHOOK_SECRET_TEST: WH,
+      STRIPE_TAX_RATE_TEST: TXR,
       STRIPE_PRICE_ANNUAL_TEST: "price_a",
       STRIPE_PRICE_COLLABORATOR_ANNUAL_TEST: "price_ca",
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_AbCdEfGhIjKlMnOp",
