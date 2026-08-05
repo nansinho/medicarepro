@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
+import { paymentsInTestModeOnLiveSite } from "@/lib/env";
 import s from "@/components/checkout/Checkout.module.css";
 
 /* ============================================================
@@ -51,6 +52,22 @@ export default function PortailLayout({
           </span>
         </div>
       </header>
+
+      {/* Même garde que le tunnel de vente : l'espace abonnement encaisse lui
+          aussi (reprise, changement de formule, changement de carte). Un
+          praticien qui valide sa nouvelle formule ne doit pas se heurter à un
+          refus muet parce que la caisse est restée en mode essai. */}
+      {paymentsInTestModeOnLiveSite() && (
+        <div className={s.banner} role="alert">
+          <span>
+            <strong>Paiement en cours de configuration.</strong> Les règlements
+            par carte ne peuvent pas aboutir pour le moment&nbsp;: votre banque
+            refusera la transaction. Écrivez-nous à{" "}
+            <a href="mailto:contact@medicarepro.fr">contact@medicarepro.fr</a>,
+            nous prenons le relais.
+          </span>
+        </div>
+      )}
 
       <main className={s.main}>{children}</main>
 

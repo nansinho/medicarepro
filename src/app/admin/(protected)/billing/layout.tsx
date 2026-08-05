@@ -3,7 +3,11 @@ import { requireStaff, getIsAdmin } from "@/lib/admin/auth";
 import AccessDenied from "@/components/admin/AccessDenied";
 import { Notice } from "@/components/admin/shared";
 import { PageStack } from "@/components/admin/kit/layout";
-import { billingConfigWarnings, missingCheckoutEnv } from "@/lib/env";
+import {
+  billingConfigWarnings,
+  missingCheckoutEnv,
+  paymentsInTestModeOnLiveSite,
+} from "@/lib/env";
 
 /* Sous-layout admin-only : la facturation (abonnements, mandats SEPA,
    factures, incidents, synchro) est fermée aux éditeurs. Défense en
@@ -31,12 +35,34 @@ export default async function BillingLayout({
   // Noms de variables uniquement — jamais de valeur.
   const missing = missingCheckoutEnv();
   const warnings = billingConfigWarnings();
+  const testMode = paymentsInTestModeOnLiveSite();
 
   return (
     /* PageStack et non `space-y-6` : un seul rythme vertical dans tout le
        back office, sinon l'écart du layout et celui des pages s'additionnent
        (c'est ce qui donnait 24px ici et 16 ou 20px juste en dessous). */
     <PageStack>
+      {/* MODE TEST SUR LE SITE EN LIGNE — jamais dépliable, jamais discret.
+          C'est l'alerte qui manquait le 05/08/2026 : un praticien a essuyé
+          quatre refus sur une offre à 478 € sans que rien ne l'explique, ici
+          ou ailleurs. Elle passe AVANT « encaissement fermé », parce qu'une
+          caisse fermée se voit tout de suite (le tunnel refuse), alors qu'une
+          caisse en mode test encaisse dans le vide en silence. */}
+      {testMode && (
+        <Notice
+          tone="bad"
+          title="Encaissement en MODE TEST sur le site en ligne"
+        >
+          Le tunnel envoie les cartes sur la plateforme d&apos;essai de
+          Monetico&nbsp;: <strong>aucune carte réelle ne peut aboutir</strong>,
+          vos clients reçoivent un refus « Interdit » sans explication. Basculez{" "}
+          <code className="font-mono text-xs">MONETICO_MODE</code> sur{" "}
+          <code className="font-mono text-xs">production</code> après avoir
+          vérifié que la clé de production est en place et que le CIC a activé
+          les TPE.
+        </Notice>
+      )}
+
       {missing.length > 0 && (
         <Notice tone="bad" title="Encaissement fermé : configuration incomplète">
           Le tunnel d&apos;inscription et les paiements de renouvellement

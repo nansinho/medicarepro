@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, ReceiptEuro } from "lucide-react";
+import { CalendarRange, Download, Euro, FileText, ReceiptEuro, Undo2 } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
 import { Notice, StatBand } from "@/components/admin/shared";
@@ -112,10 +112,10 @@ export default async function FacturesPage() {
       {rows.length > 0 && (
         <StatBand
           stats={[
-            { label: "Factures affichées", value: rows.length, hint: "200 max" },
-            { label: "Total facturé", value: formatEuros(total), hint: "Hors avoirs" },
-            { label: "Avoirs", value: avoirs, zero: avoirs === 0 },
-            { label: "Période couverte", value: periode ?? "—" },
+            { label: "Factures affichées", value: rows.length, hint: "200 max", icon: FileText, tone: "navy" },
+            { label: "Total facturé", value: formatEuros(total), hint: "Hors avoirs", icon: Euro, tone: "success" },
+            { label: "Avoirs", value: avoirs, zero: avoirs === 0, icon: Undo2, tone: avoirs > 0 ? "amber" : "sky" },
+            { label: "Période couverte", value: periode ?? "—", icon: CalendarRange, tone: "primary" },
           ]}
         />
       )}

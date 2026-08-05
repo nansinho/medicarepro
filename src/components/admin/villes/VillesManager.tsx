@@ -94,7 +94,7 @@ export default function VillesManager({
       <Card>
         <CardHeader>
           <CardTitle>
-            <Sparkles className="size-4 text-muted-foreground" />
+            <Sparkles className="size-4 text-[color:var(--mp-blue-mid)]" />
             Génération et publication par vague
           </CardTitle>
           <Button size="sm" disabled={pending || !aiReady} onClick={() => run(() => triggerWorker())}>

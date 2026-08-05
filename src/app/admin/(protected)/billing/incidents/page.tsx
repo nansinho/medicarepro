@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ShieldCheck } from "lucide-react";
+import { Euro, Repeat, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
 import { Notice, StatBand } from "@/components/admin/shared";
@@ -108,18 +108,22 @@ export default async function IncidentsPage() {
       {rows.length > 0 && (
         <StatBand
           stats={[
-            { label: "Incidents ouverts", value: rows.length },
+            { label: "Incidents ouverts", value: rows.length, icon: TriangleAlert, tone: rows.length > 0 ? "amber" : "sky" },
             {
               label: "À relancer",
               value: aRelancer,
               zero: aRelancer === 0,
               hint: "Payés, provisioning en échec",
+              icon: RefreshCw,
+              tone: aRelancer > 0 ? "amber" : "sky",
             },
-            { label: "Montant en jeu", value: formatEuros(enjeu) },
+            { label: "Montant en jeu", value: formatEuros(enjeu), icon: Euro, tone: "navy" },
             {
               label: "Tentatives max",
               value: maxTentatives,
               zero: maxTentatives === 0,
+              icon: Repeat,
+              tone: "primary",
             },
           ]}
         />

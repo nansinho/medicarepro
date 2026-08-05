@@ -20,13 +20,23 @@ export function SkeletonPageHeader() {
   );
 }
 
+/* Même silhouette que StatBand : tuiles séparées, rayon 22px, pastille ronde.
+   Un squelette qui n'a pas la forme de ce qu'il annonce produit un saut de
+   mise en page au moment où les données arrivent. */
 export function SkeletonStatBand({ cells = 4 }: { cells?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-md md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {Array.from({ length: cells }).map((_, i) => (
-        <div key={i} className="bg-card px-5 pb-4 pt-3.5">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="mt-2 h-7 w-16" />
+        <div
+          key={i}
+          className="mp-glass rounded-[var(--r-lg)] px-5 pb-4 pt-[18px] shadow-[var(--mp-shadow-sm)]"
+        >
+          <div className="mb-2.5 flex items-start justify-between gap-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="size-9 shrink-0 rounded-full" />
+          </div>
+          <Skeleton className="h-7 w-16" />
+          <Skeleton className="mt-2 h-3 w-20" />
         </div>
       ))}
     </div>

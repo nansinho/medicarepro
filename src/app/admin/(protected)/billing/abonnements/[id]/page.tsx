@@ -9,6 +9,7 @@ import {
   Landmark,
   RefreshCw,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros, planLabel } from "@/lib/checkout/pricing";
@@ -197,10 +198,10 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
   const hasMandate = mandateRows.length > 0;
 
   const stats: Stat[] = [
-    { label: "Renouvellement", value: formatEuros(sub.renewal_amount_cents), hint: recurrenceOn ? "Reconduction active" : "Reconduction arrêtée" },
-    { label: "Fin de période", value: fmtDate(sub.current_period_end), hint: PLAN_LABEL[sub.plan] ?? sub.plan },
-    { label: "Échéances encaissées", value: sub.renewal_count, hint: sub.last_renewal_at ? `Dernière : ${fmtDate(sub.last_renewal_at)}` : "Aucune à ce jour", zero: sub.renewal_count === 0 },
-    { label: "Collaborateurs", value: sub.extra_collaborators, hint: "Postes supplémentaires", zero: sub.extra_collaborators === 0 },
+    { label: "Renouvellement", value: formatEuros(sub.renewal_amount_cents), hint: recurrenceOn ? "Reconduction active" : "Reconduction arrêtée", icon: RefreshCw, tone: recurrenceOn ? "success" : "amber" },
+    { label: "Fin de période", value: fmtDate(sub.current_period_end), hint: PLAN_LABEL[sub.plan] ?? sub.plan, icon: CalendarClock, tone: "primary" },
+    { label: "Échéances encaissées", value: sub.renewal_count, hint: sub.last_renewal_at ? `Dernière : ${fmtDate(sub.last_renewal_at)}` : "Aucune à ce jour", zero: sub.renewal_count === 0, icon: Landmark, tone: "navy" },
+    { label: "Collaborateurs", value: sub.extra_collaborators, hint: "Postes supplémentaires", zero: sub.extra_collaborators === 0, icon: Users, tone: "sky" },
   ];
 
   return (
@@ -299,7 +300,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
         <Card>
           <CardHeader>
             <CardTitle>
-              <RefreshCw className="size-4 text-muted-foreground" />
+              <RefreshCw className="size-4 text-[color:var(--mp-blue-mid)]" />
               Reconduction automatique
             </CardTitle>
             <Badge variant={recurrenceOn ? "green" : "gray"}>{recurrenceOn ? "Active" : "Arrêtée"}</Badge>
@@ -336,7 +337,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
           <Card>
             <CardHeader>
               <CardTitle>
-                <CalendarClock className="size-4 text-muted-foreground" />
+                <CalendarClock className="size-4 text-[color:var(--mp-blue-mid)]" />
                 Demande du client
               </CardTitle>
               <Badge variant={pendingChange.kind === "cancel" ? "amber" : "blue"}>
@@ -411,7 +412,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
         <Card>
           <CardHeader>
             <CardTitle>
-              <Building2 className="size-4 text-muted-foreground" />
+              <Building2 className="size-4 text-[color:var(--mp-blue-mid)]" />
               Cabinet et contact
             </CardTitle>
           </CardHeader>
@@ -431,7 +432,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
         <Card>
           <CardHeader>
             <CardTitle>
-              <Landmark className="size-4 text-muted-foreground" />
+              <Landmark className="size-4 text-[color:var(--mp-blue-mid)]" />
               Mandat SEPA
             </CardTitle>
             {!hasMandate && <Badge variant="amber">Manquant</Badge>}
@@ -470,7 +471,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
       <Card>
         <CardHeader>
           <CardTitle>
-            <ShieldCheck className="size-4 text-muted-foreground" />
+            <ShieldCheck className="size-4 text-[color:var(--mp-blue-mid)]" />
             Consentement contractuel
           </CardTitle>
           {consentRows.length > 0 && <Badge variant="green">Accepté</Badge>}

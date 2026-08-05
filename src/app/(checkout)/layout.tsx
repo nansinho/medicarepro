@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
-import { hasCheckout, missingCheckoutEnv } from "@/lib/env";
+import {
+  hasCheckout,
+  missingCheckoutEnv,
+  paymentsInTestModeOnLiveSite,
+} from "@/lib/env";
 import s from "@/components/checkout/Checkout.module.css";
 
 /* ============================================================
@@ -26,6 +30,12 @@ export default function CheckoutLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const open = hasCheckout();
+  const testMode = paymentsInTestModeOnLiveSite();
+  if (testMode) {
+    console.warn(
+      "[checkout] MODE TEST sur le site en ligne : aucune carte réelle ne peut aboutir (MONETICO_MODE=test).",
+    );
+  }
   if (!open) {
     // Noms (jamais les valeurs) des variables manquantes — logs serveur uniquement.
     console.warn(
@@ -59,6 +69,28 @@ export default function CheckoutLayout({
           </span>
         </div>
       </header>
+
+      {/* MODE TEST : on le DIT au visiteur, au lieu de le laisser essuyer des
+          refus. Le 05/08/2026, un praticien a tenté quatre fois de régler
+          478,08 € sur la plateforme d'essai de Monetico : quatre refus
+          « Interdit », aucune explication, et il est parti. Une carte réelle ne
+          peut PAS aboutir dans ce mode — le taire, c'est faire perdre son temps
+          à un client et le laisser croire que le service est cassé.
+
+          Ce bandeau n'apparaît que sur une anomalie de configuration : en
+          production normale il n'existe pas, et en local il ne s'allume pas
+          (cf. paymentsInTestModeOnLiveSite). */}
+      {testMode && (
+        <div className={s.banner} role="alert">
+          <span>
+            <strong>Paiement en cours de configuration.</strong> Les règlements
+            par carte ne peuvent pas aboutir pour le moment&nbsp;: votre banque
+            refusera la transaction, quelle que soit votre carte. Écrivez-nous à{" "}
+            <a href="mailto:contact@medicarepro.fr">contact@medicarepro.fr</a> et
+            nous mettons votre abonnement en place avec vous, sans attendre.
+          </span>
+        </div>
+      )}
 
       <main className={s.main}>
         {open ? (

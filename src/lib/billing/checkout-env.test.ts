@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* ============================================================
    Garde de configuration d'encaissement.
@@ -37,6 +37,7 @@ beforeEach(() => {
   for (const key of Object.keys(BASE_ENV)) delete process.env[key];
   delete process.env.MONETICO_SOCIETE_IMMEDIATE;
   delete process.env.CHECKOUT_PLANS;
+  delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 });
 
 describe("missingCheckoutEnv", () => {
@@ -96,5 +97,91 @@ describe("billingConfigWarnings", () => {
       MONETICO_SOCIETE_IMMEDIATE: "medicarepr",
     });
     expect(billingConfigWarnings()).toEqual([]);
+  });
+
+  /* Vu en production le 05/08/2026 : le tunnel affichait le bandeau rouge
+     « à des fins de test uniquement » juste au-dessus du bouton de paiement,
+     et laissait passer n'importe quel robot. Personne ne pouvait le savoir
+     depuis le back-office. */
+  it("signale les clés de démonstration Cloudflare", async () => {
+    const { billingConfigWarnings, usesTurnstileDemoKeys } = await loadEnv({
+      CHECKOUT_PLANS: "monthly",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+      TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000",
+    });
+    expect(usesTurnstileDemoKeys()).toBe(true);
+    expect(billingConfigWarnings()).toHaveLength(1);
+    expect(billingConfigWarnings()[0]).toContain("Turnstile");
+  });
+
+  it("se tait sur de vraies clés Turnstile", async () => {
+    const { usesTurnstileDemoKeys } = await loadEnv({
+      CHECKOUT_PLANS: "monthly",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAABkMYinukE8nzYS",
+      TURNSTILE_SECRET_KEY: "0x4AAAAAAABkMYinukE8nzYSaBcDeFgHiJk",
+    });
+    expect(usesTurnstileDemoKeys()).toBe(false);
+  });
+});
+
+/* ============================================================
+   Mode test sur le site en ligne.
+
+   CE QUE CES TESTS EMPÊCHENT DE SE REPRODUIRE : le 05/08/2026, la production
+   encaissait avec MONETICO_MODE=test. Les cartes partaient sur la plateforme
+   d'essai de Monetico, où aucune carte réelle n'aboutit. Un praticien a essuyé
+   quatre refus « Interdit » sur une offre à 478,08 € puis a renoncé — et rien,
+   ni dans le back office ni dans le tunnel, ne signalait la cause.
+
+   La détection doit rester CHIRURGICALE : trop large, elle crierait au loup
+   pendant tout le développement, et on la couperait. Elle ne s'allume donc que
+   sur la conjonction exacte qui fait perdre des clients — mode test + build de
+   production + domaine public.
+   ============================================================ */
+
+describe("paymentsInTestModeOnLiveSite", () => {
+  const nodeEnv = process.env.NODE_ENV;
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    if (nodeEnv !== undefined) vi.stubEnv("NODE_ENV", nodeEnv);
+  });
+
+  it("s'allume en mode test sur un domaine public en production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { paymentsInTestModeOnLiveSite } = await loadEnv({
+      MONETICO_MODE: "test",
+      NEXT_PUBLIC_SITE_URL: "https://medicarepro.fr",
+    });
+    expect(paymentsInTestModeOnLiveSite()).toBe(true);
+  });
+
+  it("se tait en mode production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { paymentsInTestModeOnLiveSite } = await loadEnv({
+      MONETICO_MODE: "production",
+      MONETICO_KEY_PROD: "1".repeat(40),
+      NEXT_PUBLIC_SITE_URL: "https://medicarepro.fr",
+    });
+    expect(paymentsInTestModeOnLiveSite()).toBe(false);
+  });
+
+  it("se tait en développement, où le mode test est la norme", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const { paymentsInTestModeOnLiveSite } = await loadEnv({
+      MONETICO_MODE: "test",
+      NEXT_PUBLIC_SITE_URL: "https://medicarepro.fr",
+    });
+    expect(paymentsInTestModeOnLiveSite()).toBe(false);
+  });
+
+  it("se tait sur un serveur local, même compilé en production", async () => {
+    // `next start` en local vaut NODE_ENV=production : sans le second signal,
+    // le bandeau s'afficherait à chaque vérification faite sur son poste.
+    vi.stubEnv("NODE_ENV", "production");
+    const { paymentsInTestModeOnLiveSite } = await loadEnv({
+      MONETICO_MODE: "test",
+      NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
+    });
+    expect(paymentsInTestModeOnLiveSite()).toBe(false);
   });
 });

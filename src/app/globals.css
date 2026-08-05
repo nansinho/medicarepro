@@ -691,6 +691,18 @@ h1.sec-title {
    les traitent comme des utilitaires.
    ============================================================ */
 
+/* Surface translucide de l'app praticien (`.mp-glass` de son index.css).
+   C'est le fond des tuiles de mesure : légèrement transparent et flouté, il
+   laisse passer le halo d'ambiance du scope admin. Une carte opaque posée sur
+   ce halo se lit comme une boîte collée ; la même carte translucide flotte.
+   C'est exactement l'écart de matière entre les deux produits. */
+@utility mp-glass {
+  background: var(--mp-surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--mp-border);
+}
+
 /* Carte cliquable : se soulève. */
 @utility mp-lift {
   transition:

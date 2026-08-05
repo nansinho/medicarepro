@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, CalendarClock, TriangleAlert, Users } from "lucide-react";
 import { serviceClient } from "@/lib/supabase/service";
 import { formatEuros } from "@/lib/checkout/pricing";
 import { Notice, StatBand } from "@/components/admin/shared";
@@ -107,18 +107,22 @@ export default async function AbonnementsPage() {
       {rows.length > 0 && (
         <StatBand
           stats={[
-            { label: "Abonnements affichés", value: rows.length },
-            { label: "Actifs", value: active, zero: active === 0 },
+            { label: "Abonnements affichés", value: rows.length, icon: Users, tone: "navy" },
+            { label: "Actifs", value: active, zero: active === 0, icon: BadgeCheck, tone: "success" },
             {
               label: "À surveiller",
               value: attention,
               zero: attention === 0,
               hint: "Impayés et mandats à signer",
+              icon: TriangleAlert,
+              tone: attention > 0 ? "amber" : "sky",
             },
             {
               label: "Renouvellements à venir",
               value: formatEuros(mrr),
               hint: nextEnd ? `Prochaine échéance le ${fmtDate(nextEnd)}` : undefined,
+              icon: CalendarClock,
+              tone: "primary",
             },
           ]}
         />

@@ -10,6 +10,7 @@ import {
   Newspaper,
   Plus,
   RefreshCw,
+  Send,
   Star,
   type LucideIcon,
 } from "lucide-react";
@@ -138,13 +139,13 @@ export default async function AdminContenuPage() {
   const citiesPublished = published;
 
   const stats: Stat[] = [
-    { label: "Pages gérées", value: nf.format(pages), hint: "Vitrine et pages légales", zero: pages === 0 },
-    { label: "Articles publiés", value: nf.format(posts), hint: "Blog du site", zero: posts === 0 },
-    { label: "Témoignages", value: nf.format(testimonials), hint: "Avis affichés sur le site", zero: testimonials === 0 },
-    { label: "Médias", value: nf.format(media), hint: "Bibliothèque d'images", zero: media === 0 },
-    { label: "Villes SEO publiées", value: nf.format(citiesPublished), hint: `Sur ${nf.format(citiesTotal)} préparées`, zero: citiesPublished === 0 },
-    { label: "Demandes de contact", value: nf.format(contactRequests), hint: "Reçues via le formulaire", zero: contactRequests === 0 },
-    { label: "Abonnés newsletter", value: nf.format(newsletter), hint: "Inscriptions au total", zero: newsletter === 0 },
+    { label: "Pages gérées", value: nf.format(pages), hint: "Vitrine et pages légales", zero: pages === 0, icon: FileText, tone: "primary" },
+    { label: "Articles publiés", value: nf.format(posts), hint: "Blog du site", zero: posts === 0, icon: Newspaper, tone: "primary" },
+    { label: "Témoignages", value: nf.format(testimonials), hint: "Avis affichés sur le site", zero: testimonials === 0, icon: Star, tone: "sky" },
+    { label: "Médias", value: nf.format(media), hint: "Bibliothèque d'images", zero: media === 0, icon: ImageIcon, tone: "sky" },
+    { label: "Villes SEO publiées", value: nf.format(citiesPublished), hint: `Sur ${nf.format(citiesTotal)} préparées`, zero: citiesPublished === 0, icon: MapPin, tone: "navy" },
+    { label: "Demandes de contact", value: nf.format(contactRequests), hint: "Reçues via le formulaire", zero: contactRequests === 0, icon: Mail, tone: contactRequests > 0 ? "amber" : "navy" },
+    { label: "Abonnés newsletter", value: nf.format(newsletter), hint: "Inscriptions au total", zero: newsletter === 0, icon: Send, tone: "success" },
   ];
 
   const tiles: { icon: LucideIcon; label: string; count: number; sub: string; href: string }[] = [
@@ -202,7 +203,7 @@ export default async function AdminContenuPage() {
         <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle>
-              <Mail className="size-4 text-muted-foreground" />
+              <Mail className="size-4 text-[color:var(--mp-blue-mid)]" />
               Demandes de contact récentes
             </CardTitle>
             <Button variant="ghost" size="xs" asChild>
@@ -274,7 +275,7 @@ export default async function AdminContenuPage() {
         <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle>
-              <Newspaper className="size-4 text-muted-foreground" />
+              <Newspaper className="size-4 text-[color:var(--mp-blue-mid)]" />
               Derniers articles
             </CardTitle>
             <Button variant="ghost" size="xs" asChild>
@@ -346,7 +347,7 @@ export default async function AdminContenuPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            <MapPin className="size-4 text-muted-foreground" />
+            <MapPin className="size-4 text-[color:var(--mp-blue-mid)]" />
             Référencement local
           </CardTitle>
           <div className="flex items-center gap-2">

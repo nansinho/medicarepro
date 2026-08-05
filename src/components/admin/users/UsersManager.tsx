@@ -95,7 +95,7 @@ export default function UsersManager({
       <Card>
         <CardHeader>
           <CardTitle>
-            <UserPlus className="size-4 text-muted-foreground" />
+            <UserPlus className="size-4 text-[color:var(--mp-blue-mid)]" />
             Ajouter un membre
           </CardTitle>
         </CardHeader>

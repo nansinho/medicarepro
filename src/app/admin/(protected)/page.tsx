@@ -7,8 +7,10 @@ import {
   ChevronRight,
   CalendarClock,
   CircleCheck,
+  CreditCard,
   ListChecks,
   RefreshCw,
+  TriangleAlert,
 } from "lucide-react";
 import { requireStaff, getIsAdmin } from "@/lib/admin/auth";
 import { serviceClient } from "@/lib/supabase/service";
@@ -193,11 +195,13 @@ export default async function AdminDashboardPage() {
     })),
   ];
 
+  /* Le ton porte le SENS, pas la décoration : bleu pour l'activité normale,
+     ambre pour ce qui attend une action, vert pour ce qui est acquis. */
   const stats: Stat[] = [
-    { label: "Abonnements actifs", value: nf.format(nActifs), hint: "À jour de paiement", zero: nActifs === 0 },
-    { label: "Échéances < 30 jours", value: nf.format(nEch), hint: "Renouvellements SEPA", zero: nEch === 0 },
-    { label: "Incidents ouverts", value: nf.format(nIncidents), hint: "Conflits, écarts, échecs", zero: nIncidents === 0 },
-    { label: "Synchro en attente", value: nf.format(nSync), hint: "À reporter dans l'app", zero: nSync === 0 },
+    { label: "Abonnements actifs", value: nf.format(nActifs), hint: "À jour de paiement", zero: nActifs === 0, icon: CreditCard, tone: "success" },
+    { label: "Échéances < 30 jours", value: nf.format(nEch), hint: "Renouvellements SEPA", zero: nEch === 0, icon: CalendarClock, tone: "primary" },
+    { label: "Incidents ouverts", value: nf.format(nIncidents), hint: "Conflits, écarts, échecs", zero: nIncidents === 0, icon: TriangleAlert, tone: nIncidents > 0 ? "amber" : "sky" },
+    { label: "Synchro en attente", value: nf.format(nSync), hint: "À reporter dans l'app", zero: nSync === 0, icon: RefreshCw, tone: nSync > 0 ? "amber" : "sky" },
   ];
 
   function subRow(sub: SubRow, showRenewal: boolean) {
@@ -258,7 +262,7 @@ export default async function AdminDashboardPage() {
         <Card className="overflow-clip">
           <CardHeader>
             <CardTitle>
-              <ListChecks className="size-4 text-muted-foreground" />À traiter
+              <ListChecks className="size-4 text-[color:var(--mp-blue-mid)]" />À traiter
             </CardTitle>
             {queue.length > 0 && (
               <Badge variant={nIncidents > 0 ? "red" : "amber"}>
@@ -294,7 +298,7 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              <RefreshCw className="size-4 text-muted-foreground" />
+              <RefreshCw className="size-4 text-[color:var(--mp-blue-mid)]" />
               Derniers abonnements
             </CardTitle>
             <Button variant="ghost" size="xs" asChild>
@@ -316,7 +320,7 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              <CalendarClock className="size-4 text-muted-foreground" />
+              <CalendarClock className="size-4 text-[color:var(--mp-blue-mid)]" />
               Échéances à venir (30 jours)
             </CardTitle>
             {nEch > 0 && <Badge variant="amber">{nf.format(nEch)}</Badge>}
