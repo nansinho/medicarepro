@@ -13,7 +13,11 @@ import {
   startStripeCardUpdate,
 } from "@/lib/stripe/subscription";
 import { applyPlanLocally, noteCancellation } from "@/lib/billing/stripe-sync";
-import { MAX_EXTRA_COLLABORATORS, type BillingPlan } from "@/lib/checkout/pricing";
+import {
+  MAX_EXTRA_COLLABORATORS,
+  renewalAmountCents,
+  type BillingPlan,
+} from "@/lib/checkout/pricing";
 
 /* ============================================================
    POST /api/portal/change — le praticien demande une modification.
@@ -172,13 +176,37 @@ export async function POST(request: NextRequest) {
       }
 
       if (action === "plan") {
-        const { currentPeriodEnd } = await changeStripePlan({
+        const { currentPeriodEnd, invoice } = await changeStripePlan({
           subscriptionId: sub.stripe_subscription_id,
           plan,
           extraCollaborators: extra,
+          /* Ces deux montants décident si le changement se paie sur-le-champ.
+             Ils viennent du serveur, jamais du navigateur. */
+          currentAmountCents: renewalAmountCents(
+            sub.plan,
+            sub.extra_collaborators,
+          ),
+          nextAmountCents: renewalAmountCents(plan, extra),
         });
         await applyPlanLocally(supabase, sub, plan, extra, currentPeriodEnd);
-        return Response.json({ ok: true, appliedNow: true });
+
+        /* La facture est ouverte : la carte demande une authentification. On
+           renvoie l'adresse de paiement plutôt que d'annoncer un règlement qui
+           n'a pas eu lieu. Le changement, lui, est déjà appliqué — l'accès
+           n'est jamais retenu en otage d'un 3-D Secure. */
+        if (invoice && invoice.status !== "paid" && invoice.hostedUrl) {
+          return Response.json({
+            ok: true,
+            appliedNow: true,
+            url: invoice.hostedUrl,
+            chargedCents: invoice.amountCents,
+          });
+        }
+        return Response.json({
+          ok: true,
+          appliedNow: true,
+          chargedCents: invoice?.amountCents ?? 0,
+        });
       }
 
       // action === "card"

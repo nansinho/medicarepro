@@ -72,7 +72,15 @@ export async function changeStripePlan(input: {
   subscriptionId: string;
   plan: BillingPlan;
   extraCollaborators: number;
-}): Promise<{ currentPeriodEnd: Date | null }> {
+  /** L'ancien montant de reconduction, pour savoir si le changement coûte plus. */
+  currentAmountCents: number;
+  /** Le nouveau montant de reconduction. */
+  nextAmountCents: number;
+}): Promise<{
+  currentPeriodEnd: Date | null;
+  /** Renseigné quand une facture a été émise sur-le-champ. */
+  invoice: { status: string; hostedUrl: string | null; amountCents: number } | null;
+}> {
   const s = stripe();
   const actuel = await s.subscriptions.retrieve(input.subscriptionId);
 
@@ -81,19 +89,63 @@ export async function changeStripePlan(input: {
     ...itemsFor(input.plan, input.extraCollaborators),
   ];
 
+  /* UNE AUGMENTATION SE PAIE TOUT DE SUITE.
+
+     `create_prorations` calcule la différence et l'ajoute à la PROCHAINE
+     facture. Sur un mensuel, le report est d'un mois au plus : c'est la norme.
+     Sur une offre 12 MOIS, c'est une année entière de service livrée avant
+     d'être payée — constaté le 06/08/2026 sur MPKZ0EVPW38B, où l'ajout de
+     quatre collaborateurs a produit 719,99 € de prorata exigibles… en août
+     2027.
+
+     `always_invoice` émet la facture immédiatement et la prélève sur la carte
+     enregistrée. Le montant reste calculé au prorata du temps restant depuis le
+     début du contrat : le praticien ne paie que ce qu'il va réellement
+     consommer.
+
+     À LA BAISSE, on garde `create_prorations` : l'avoir se déduit de la
+     prochaine facture, et il n'y a jamais de remboursement au prorata — c'est
+     l'engagement écrit aux CGV, et `always_invoice` sur un crédit ouvrirait une
+     facture négative que personne n'a demandée. */
+  const augmentation = input.nextAmountCents > input.currentAmountCents;
+
   const misAJour = await s.subscriptions.update(input.subscriptionId, {
     items: remplacement,
-    proration_behavior: "create_prorations",
+    proration_behavior: augmentation ? "always_invoice" : "create_prorations",
     /* Une résiliation programmée n'a plus lieu d'être si le praticien change de
        formule : il reste. */
     cancel_at_period_end: false,
     metadata: { ...actuel.metadata },
+    ...(augmentation ? { expand: ["latest_invoice"] } : {}),
   });
 
   const fin =
     (misAJour as unknown as { current_period_end?: number }).current_period_end ??
     misAJour.items?.data?.[0]?.current_period_end;
-  return { currentPeriodEnd: typeof fin === "number" ? new Date(fin * 1000) : null };
+
+  /* La facture émise à l'instant. Si la carte exige une authentification, elle
+     reste ouverte : son adresse hébergée est le SEUL moyen pour le praticien de
+     finir le paiement, et sans elle il croirait avoir réglé. */
+  let invoice: {
+    status: string;
+    hostedUrl: string | null;
+    amountCents: number;
+  } | null = null;
+  const derniere = (misAJour as unknown as { latest_invoice?: unknown })
+    .latest_invoice;
+  if (augmentation && derniere && typeof derniere === "object") {
+    const f = derniere as Stripe.Invoice;
+    invoice = {
+      status: f.status ?? "unknown",
+      hostedUrl: f.hosted_invoice_url ?? null,
+      amountCents: f.amount_due ?? f.total ?? 0,
+    };
+  }
+
+  return {
+    currentPeriodEnd: typeof fin === "number" ? new Date(fin * 1000) : null,
+    invoice,
+  };
 }
 
 /**
