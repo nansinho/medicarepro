@@ -113,7 +113,13 @@ export async function POST(request: NextRequest) {
      HOSTNAME et PORT). Cette URL part SCELLÉE DANS LE MAC vers Monetico : une
      origine fausse renvoie un client qui vient d'être débité sur une adresse
      injoignable, sans correction possible après coup. */
-  const returnUrl = `${env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")}/renouvellement/merci?ref=${reference}`;
+  /* Deux adresses DISTINCTES : Monetico refuse `url_retour_ok` et
+     `url_retour_err` identiques. Un renouvellement refusé atterrissait sur
+     « Merci, votre renouvellement est pris en compte » — le contraire de ce
+     qui venait de se passer. */
+  const siteBase = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  const returnUrl = `${siteBase}/renouvellement/merci?ref=${reference}`;
+  const errorUrl = `${siteBase}/renouvellement/echec?ref=${reference}`;
 
   let form;
   try {
@@ -123,7 +129,7 @@ export async function POST(request: NextRequest) {
         amountCents,
         email: sub.admin_email,
         urlRetourOk: returnUrl,
-        urlRetourErr: returnUrl,
+        urlRetourErr: errorUrl,
         billingContext: {
           addressLine1: sub.cabinet_address || "—",
           city: m?.[2] ?? (cpCity || "—"),
@@ -146,6 +152,7 @@ export async function POST(request: NextRequest) {
     subscription_id: sub.id,
     monetico_reference: reference,
     monetico_order_date: form.fields["date"].slice(0, 10),
+    monetico_platform: config.mode,
     amount_cents: amountCents,
     currency: "EUR",
     client_ip: ip,

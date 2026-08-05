@@ -157,6 +157,7 @@ export async function POST(request: NextRequest) {
       consentRecordId,
       clientIp: ip,
       returnPath: "/mon-abonnement/merci",
+      errorPath: "/mon-abonnement/echec",
     });
 
     // Lien retour preuve → commande (trace, best-effort).

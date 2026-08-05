@@ -63,3 +63,34 @@ describe("routage des TPE Monetico", () => {
     expect(routing).toMatch(/tpe:\s*b\.moneticoTpe\b/);
   });
 });
+
+/* ============================================================
+   Adresses de retour : jamais la même pour l'accepté et le refusé.
+
+   CE QUE CE TEST EMPÊCHE DE REVENIR : les quatre points d'entrée envoyaient
+   la MÊME adresse dans `url_retour_ok` et `url_retour_err`. Monetico l'a
+   relevé sur le contrat, et l'effet côté client était pire que le manquement
+   de conformité : une carte refusée renvoyait sur un écran de remerciement.
+
+   Le test lit la source plutôt que d'exécuter les routes, parce que c'est
+   l'écriture `urlRetourErr: returnUrl` qu'il faut interdire — une fois le
+   formulaire construit, l'erreur n'est plus détectable autrement qu'en
+   comparant deux chaînes qui, elles, sont correctes par construction.
+   ============================================================ */
+
+describe("adresses de retour Monetico", () => {
+  it.each(BUILDERS)("%s distingue le retour accepté du retour refusé", (file) => {
+    const source = read(file);
+    // La faute exacte : la même variable des deux côtés.
+    expect(source).not.toMatch(/urlRetourErr:\s*returnUrl\b/);
+    expect(source).toMatch(/urlRetourErr:\s*\w+/);
+  });
+
+  it("openOrder EXIGE un chemin d'échec de son appelant", () => {
+    /* Optionnel avec un défaut, il serait oublié au prochain parcours de
+       paiement, et le client refusé retomberait sur « merci ». */
+    const source = read("src/lib/billing/orders.ts");
+    expect(source).toMatch(/^\s*errorPath: string;/m);
+    expect(source).not.toMatch(/errorPath\?:/);
+  });
+});

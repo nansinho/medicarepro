@@ -307,6 +307,10 @@ export async function POST(request: NextRequest) {
       root_id: old.root_id, // chaîne héritée du premier dossier
       parent_id: old.id,
       monetico_reference: newReference,
+      /* Écrite dès l'insert : ce chemin n'a pas d'update post-scellement où la
+         poser plus tard, contrairement au tunnel. Le mode ne dépend pas du
+         plan, seuls le TPE et la clé en dépendent. */
+      monetico_platform: billingEnv().moneticoMode,
       plan: old.plan,
       extra_collaborators: old.extra_collaborators,
       amount_cents: old.amount_cents,
@@ -352,7 +356,10 @@ export async function POST(request: NextRequest) {
     .eq("status", "payment_pending");
 
   const siteUrl = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  /* Deux adresses DISTINCTES (exigence Monetico) : `url_retour_ok` et
+     `url_retour_err` ne peuvent pas être la même. */
   const returnUrl = `${siteUrl}/inscription/confirmation?ref=${newReference}`;
+  const errorUrl = `${siteUrl}/inscription/echec?ref=${newReference}`;
   let form;
   try {
     form = buildPaymentForm(
@@ -361,7 +368,7 @@ export async function POST(request: NextRequest) {
         amountCents: old.amount_cents,
         email: user.email,
         urlRetourOk: returnUrl,
-        urlRetourErr: returnUrl,
+        urlRetourErr: errorUrl,
         billingContext: {
           addressLine1: cabinet.address,
           city: cabinet.city,

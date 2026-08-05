@@ -113,6 +113,15 @@ export type OrderContext = {
   amountCents: number;
   role: OrderRole;
   kind: OrderKind | null;
+  /**
+   * Plateforme Monetico où vit RÉELLEMENT cette commande.
+   *
+   * NULL veut dire « inconnue », pas « courante » : l'appelant doit alors
+   * interroger la banque quand même. Se tromper dans ce sens ne coûte qu'un
+   * refus ; se tromper dans l'autre ferait sauter l'appel et laisserait un
+   * client résilié se faire prélever.
+   */
+  platform: "test" | "production" | null;
 };
 
 type OrderRow = {
@@ -120,6 +129,7 @@ type OrderRow = {
   subscription_id: string | null;
   monetico_reference: string;
   monetico_order_date: string | null;
+  monetico_platform: "test" | "production" | null;
   plan: BillingPlan;
   amount_cents: number;
   role: OrderRole;
@@ -128,7 +138,7 @@ type OrderRow = {
 };
 
 const ORDER_COLUMNS =
-  "id, subscription_id, monetico_reference, monetico_order_date, plan, amount_cents, role, kind, created_at";
+  "id, subscription_id, monetico_reference, monetico_order_date, monetico_platform, plan, amount_cents, role, kind, created_at";
 
 /**
  * Retrouve les paramètres bancaires attachés à une référence.
@@ -161,6 +171,7 @@ export async function orderContext(
       amountCents: order.amount_cents,
       role: order.role,
       kind: order.kind,
+      platform: order.monetico_platform,
     };
   }
 
@@ -169,7 +180,7 @@ export async function orderContext(
   const { data: subData } = await supabase
     .from("subscriptions")
     .select(
-      "id, monetico_reference, monetico_order_date, started_at, first_payment_cents, plan",
+      "id, monetico_reference, monetico_order_date, monetico_platform, started_at, first_payment_cents, plan",
     )
     .eq("monetico_reference", reference)
     .maybeSingle();
@@ -179,6 +190,7 @@ export async function orderContext(
     id: string;
     monetico_reference: string;
     monetico_order_date: string | null;
+    monetico_platform: "test" | "production" | null;
     started_at: string;
     first_payment_cents: number;
     plan: BillingPlan;
@@ -193,6 +205,7 @@ export async function orderContext(
     amountCents: sub.first_payment_cents,
     role: sub.plan === "MONTHLY" ? "recurring" : "oneshot",
     kind: null,
+    platform: sub.monetico_platform,
   };
 }
 
@@ -221,6 +234,7 @@ export async function currentRecurringOrder(
     amountCents: order.amount_cents,
     role: order.role,
     kind: order.kind,
+    platform: order.monetico_platform,
   };
 }
 
@@ -263,6 +277,17 @@ export type OpenOrderInput = {
    * sur une adresse injoignable, sans rattrapage possible.
    */
   returnPath: string;
+  /**
+   * Chemin de retour en cas de REFUS (ex. "/mon-abonnement/echec").
+   *
+   * OBLIGATOIRE, et distinct de `returnPath` : Monetico refuse que
+   * `url_retour_ok` et `url_retour_err` soient identiques, et l'a signalé sur
+   * ce contrat. Le rendre obligatoire plutôt que dérivé d'un défaut est
+   * délibéré — c'est ce qui force chaque nouveau parcours de paiement à
+   * décider où atterrit un client refusé, au lieu de le renvoyer par
+   * inadvertance sur un écran de remerciement.
+   */
+  errorPath: string;
 };
 
 export type OpenedOrder = {
@@ -299,6 +324,7 @@ export async function openOrder(
   /* Même source que le tunnel d'inscription, qui lui fonctionne en production. */
   const siteUrl = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   const returnUrl = `${siteUrl}${input.returnPath}?ref=${reference}`;
+  const errorUrl = `${siteUrl}${input.errorPath}?ref=${reference}`;
 
   const form = buildPaymentForm(
     {
@@ -306,7 +332,7 @@ export async function openOrder(
       amountCents: input.amountCents,
       email: input.billingSnapshot.adminEmail,
       urlRetourOk: returnUrl,
-      urlRetourErr: returnUrl,
+      urlRetourErr: errorUrl,
       billingContext: {
         addressLine1: input.billingSnapshot.cabinetAddress || "—",
         city,
@@ -331,6 +357,10 @@ export async function openOrder(
       currency: "EUR",
       monetico_reference: reference,
       monetico_tpe: config.tpe,
+      /* La plateforme est constatée ICI, au seul instant où on la connaît de
+         source sûre. La déduire plus tard de MONETICO_MODE reviendrait à lire
+         la configuration d'aujourd'hui pour une commande d'hier. */
+      monetico_platform: config.mode,
       monetico_order_date: form.fields["date"].slice(0, 10),
       status: "pending",
       supersedes_order_id: input.supersedesOrderId ?? null,

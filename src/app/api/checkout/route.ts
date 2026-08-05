@@ -451,7 +451,17 @@ export async function POST(request: NextRequest) {
 
   // Formulaire Monetico scellé (auto-submit côté client).
   const siteUrl = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  /* DEUX adresses DISTINCTES : Monetico refuse `url_retour_ok` et
+     `url_retour_err` identiques, et l'a signalé sur ce contrat. Au-delà de la
+     conformité, c'est le seul signal qui arrive dans le navigateur avant la
+     notification serveur : sans lui, un client dont la carte vient d'être
+     refusée atterrit sur un écran de confirmation. */
   const returnUrl = `${siteUrl}/inscription/confirmation?ref=${reference}`;
+  const errorUrl = `${siteUrl}/inscription/echec?ref=${reference}`;
+  // TPE choisi selon la formule : récurrent (mensuel) ou immédiat (annuel).
+  // Nommé plutôt qu'inline : la plateforme qu'il porte est enregistrée juste
+  // après, et les deux doivent venir de la même décision.
+  const config = moneticoConfigForPlan(input.plan);
   let form;
   try {
     form = buildPaymentForm(
@@ -460,7 +470,7 @@ export async function POST(request: NextRequest) {
         amountCents,
         email: user.email,
         urlRetourOk: returnUrl,
-        urlRetourErr: returnUrl,
+        urlRetourErr: errorUrl,
         billingContext: {
           addressLine1: cabinet.address,
           city: cabinet.city,
@@ -468,8 +478,7 @@ export async function POST(request: NextRequest) {
           country: "FR",
         },
       },
-      // TPE choisi selon la formule : récurrent (mensuel) ou immédiat (annuel).
-      moneticoConfigForPlan(input.plan),
+      config,
     );
   } catch (err) {
     console.error(
@@ -484,7 +493,10 @@ export async function POST(request: NextRequest) {
      re-dériver de created_at serait faux à cheval sur minuit. */
   const { error: orderDateError } = await supabase
     .from("pending_signups")
-    .update({ monetico_order_date: form.fields["date"].slice(0, 10) })
+    .update({
+      monetico_order_date: form.fields["date"].slice(0, 10),
+      monetico_platform: config.mode,
+    })
     .eq("id", id);
   if (orderDateError) {
     // Non bloquant : le paiement peut avoir lieu, seule la résiliation
