@@ -125,6 +125,25 @@ const EnvSchema = z.object({
      exactement le défaut de MONETICO_MODE. */
   STRIPE_MODE: z.enum(["test", "live"]).default("test"),
 
+  /* Clé publique. Elle ne sert PAS à la redirection vers Stripe Checkout : la
+     session est créée côté serveur et le navigateur ne parle jamais à Stripe.
+     Elle n'est donc pas exigée, seulement acceptée — pour le jour où un champ
+     carte serait intégré à nos pages, ou un composant Stripe monté côté client.
+     `NEXT_PUBLIC_` : figée au build, un redéploiement est nécessaire pour la
+     changer, un simple redémarrage ne suffit pas. */
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: z
+    .string()
+    .regex(/^pk_test_[A-Za-z0-9]+$/, "Clé publique Stripe de test invalide")
+    .optional(),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE: z
+    .string()
+    .regex(/^pk_live_[A-Za-z0-9]+$/, "Clé publique Stripe de production invalide")
+    .optional(),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z
+    .string()
+    .regex(/^pk_(test|live)_[A-Za-z0-9]+$/, "Clé publique Stripe invalide")
+    .optional(),
+
   STRIPE_SECRET_KEY_TEST: z
     .string()
     .regex(/^sk_test_[A-Za-z0-9]+$/, "Clé secrète Stripe de test invalide")
@@ -492,6 +511,7 @@ export function paymentProvider(): "monetico" | "stripe" {
 export function stripeConfig(): {
   mode: "test" | "live";
   secretKey?: string;
+  publishableKey?: string;
   webhookSecret?: string;
   prices: {
     monthly?: string;
@@ -507,6 +527,11 @@ export function stripeConfig(): {
     secretKey:
       (live ? e.STRIPE_SECRET_KEY_LIVE : e.STRIPE_SECRET_KEY_TEST) ??
       e.STRIPE_SECRET_KEY,
+    publishableKey:
+      (live
+        ? e.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE
+        : e.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST) ??
+      e.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     webhookSecret:
       (live ? e.STRIPE_WEBHOOK_SECRET_LIVE : e.STRIPE_WEBHOOK_SECRET_TEST) ??
       e.STRIPE_WEBHOOK_SECRET,
@@ -558,6 +583,19 @@ export function missingStripeEnv(): string[] {
     if (clePourLaProd !== (c.mode === "live")) {
       missing.push(
         `STRIPE_MODE=${c.mode} ne correspond pas à la clé fournie (${clePourLaProd ? "sk_live_" : "sk_test_"})`,
+      );
+    }
+  }
+
+  /* Non exigée, mais si elle est là elle doit désigner le même monde. Une clé
+     publique d'essai servie à un client qui paie pour de vrai ne casserait rien
+     aujourd'hui — elle n'est pas utilisée — mais elle mentirait le jour où on
+     l'utilisera, et ce jour-là personne ne repensera à ce fichier. */
+  if (c.publishableKey) {
+    const publiquePourLaProd = c.publishableKey.startsWith("pk_live_");
+    if (publiquePourLaProd !== (c.mode === "live")) {
+      missing.push(
+        `STRIPE_MODE=${c.mode} ne correspond pas à la clé publique fournie (${publiquePourLaProd ? "pk_live_" : "pk_test_"})`,
       );
     }
   }

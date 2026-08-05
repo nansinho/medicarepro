@@ -46,7 +46,9 @@ beforeEach(() => {
   delete process.env.MONETICO_KEY_PROD;
   delete process.env.MONETICO_TPE_IMMEDIATE;
   for (const k of Object.keys(process.env)) {
-    if (k.startsWith("STRIPE_")) delete process.env[k];
+    if (k.startsWith("STRIPE_") || k.includes("STRIPE_PUBLISHABLE")) {
+      delete process.env[k];
+    }
   }
   delete process.env.PAYMENT_PROVIDER;
 });
@@ -523,6 +525,34 @@ describe("configuration Stripe", () => {
     expect(stripeConfig().secretKey).toBe(SK);
     expect(stripeConfig().prices.monthly).toBe("price_mt");
     expect(missingStripeEnv()).toEqual([]);
+  });
+
+  /* La clé publique n'est PAS exigée : avec la redirection vers Stripe
+     Checkout, la session est créée côté serveur et le navigateur ne parle
+     jamais à Stripe. L'exiger bloquerait l'encaissement sans raison. */
+  it("n'exige pas la clé publique", async () => {
+    const { missingStripeEnv } = await loadEnv({
+      STRIPE_SECRET_KEY_TEST: SK,
+      STRIPE_WEBHOOK_SECRET_TEST: WH,
+      STRIPE_PRICE_ANNUAL_TEST: "price_a",
+      STRIPE_PRICE_COLLABORATOR_ANNUAL_TEST: "price_ca",
+    });
+    expect(missingStripeEnv()).toEqual([]);
+  });
+
+  /* Mais si elle est fournie, elle doit désigner le même monde. Elle ne casse
+     rien aujourd'hui puisqu'elle n'est pas utilisée — elle mentirait le jour où
+     elle le sera, et ce jour-là personne ne repensera à ce fichier. */
+  it("refuse une clé publique qui contredit le mode", async () => {
+    const { missingStripeEnv } = await loadEnv({
+      STRIPE_MODE: "test",
+      STRIPE_SECRET_KEY_TEST: SK,
+      STRIPE_WEBHOOK_SECRET_TEST: WH,
+      STRIPE_PRICE_ANNUAL_TEST: "price_a",
+      STRIPE_PRICE_COLLABORATOR_ANNUAL_TEST: "price_ca",
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_AbCdEfGhIjKlMnOp",
+    });
+    expect(missingStripeEnv().join(" ")).toContain("clé publique");
   });
 
   it("par défaut, c'est encore Monetico qui encaisse", async () => {
