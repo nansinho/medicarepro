@@ -5,7 +5,6 @@ import { sendMail } from "@/lib/email";
 import { renewalReminderEmail } from "@/lib/emails/checkout-templates";
 import { changeReminderEmail } from "@/lib/emails/portal-templates";
 import { formatEuros, planLabel, type BillingPlan } from "@/lib/checkout/pricing";
-import { buildRenewalUrl } from "@/lib/billing/renewal-link";
 import { notifyRenewal } from "@/lib/provisioning";
 import { lapseChange } from "@/lib/billing/changes";
 
@@ -192,7 +191,10 @@ async function handle(request: Request): Promise<Response> {
       const firstName = (sub.admin_name ?? "").trim().split(/\s+/)[0] ?? "";
 
       if (!change && sub.plan === "ANNUAL") {
-        // Renouvellement annuel classique : le lien signé reste la voie courte.
+        /* Renouvellement annuel. Le lien signé de longue durée a disparu avec
+           Monetico : un abonnement se reprend désormais depuis l'espace
+           abonnement, ouvert par un lien à usage unique que seul le logiciel
+           du praticien peut délivrer. */
         await sendMail({
           to: sub.admin_email,
           ...renewalReminderEmail({
@@ -201,7 +203,6 @@ async function handle(request: Request): Promise<Response> {
             expiresAtLabel: frDate(sub.current_period_end),
             daysBefore: d,
             amountLabel: formatEuros(sub.renewal_amount_cents),
-            renewUrl: buildRenewalUrl(sub.id),
           }),
         });
       } else {

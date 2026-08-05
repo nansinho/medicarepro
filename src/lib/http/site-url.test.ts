@@ -26,14 +26,12 @@ const GUARDED = [
   "src/app/api/portal/subscribe/route.ts",
   "src/app/api/checkout/route.ts",
   "src/app/api/checkout/retry/route.ts",
-  "src/app/api/checkout/renew/route.ts",
   "src/app/api/draft/enable/route.ts",
   "src/app/api/draft/disable/route.ts",
   "src/lib/billing/orders.ts",
   "src/lib/stripe/checkout.ts",
   "src/lib/stripe/subscription.ts",
   "src/lib/billing/portal.ts",
-  "src/lib/billing/renewal-link.ts",
 ];
 
 /** Retire les commentaires : ils PARLENT du motif interdit, exprès. */

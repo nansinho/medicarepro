@@ -476,8 +476,6 @@ export type RenewalReminderData = {
   daysBefore: number;
   /** Montant TTC du renouvellement, déjà formaté. */
   amountLabel: string;
-  /** Lien de renouvellement signé. Absent = repli sur le contact. */
-  renewUrl?: string;
 };
 
 export function renewalReminderEmail(d: RenewalReminderData): EmailContent {
@@ -508,13 +506,9 @@ export function renewalReminderEmail(d: RenewalReminderData): EmailContent {
       `Bonjour ${escHtml(d.adminFirstName)}, votre offre 12 mois pour le cabinet <strong style="color:${NAVY};">${escHtml(d.cabinetName)}</strong> arrive à son terme le <strong style="color:${NAVY};">${escHtml(d.expiresAtLabel)}</strong>.`,
     ) +
     kvCard(rows) +
-    (d.renewUrl
-      ? callout(
-          `<strong style="color:${NAVY};">Pour ne pas perdre l'accès à votre cabinet</strong>, renouvelez votre abonnement 12 mois en un clic&nbsp;: <a href="${escHtml(d.renewUrl)}" style="color:${PRIMARY};text-decoration:none;font-weight:bold;">renouveler maintenant →</a>. Paiement unique, vos données restent intactes.`,
-        )
-      : callout(
-          `<strong style="color:${NAVY};">Pour ne pas perdre l'accès à votre cabinet</strong>, renouvelez votre abonnement 12 mois. Écrivez-nous à <a href="mailto:contact@medicarepro.fr" style="color:${PRIMARY};text-decoration:none;">contact@medicarepro.fr</a> et nous vous transmettons le lien de renouvellement. Vos données restent intactes.`,
-        )) +
+    callout(
+      `<strong style="color:${NAVY};">Pour ne pas perdre l'accès à votre cabinet</strong>, renouvelez votre abonnement depuis votre espace abonnement, accessible dans votre logiciel. Vos données restent intactes.`,
+    ) +
     paragraph(
       `Si vous avez déjà renouvelé, ignorez ce message — votre accès est prolongé.`,
     );
@@ -530,17 +524,9 @@ export function renewalReminderEmail(d: RenewalReminderData): EmailContent {
     `Fin d'accès          ${d.expiresAtLabel}`,
     `Renouvellement TTC   ${d.amountLabel}`,
     "",
-    ...(d.renewUrl
-      ? [
-          "Pour ne pas perdre l'accès à votre cabinet, renouvelez en un clic :",
-          d.renewUrl,
-          "Paiement unique, vos données restent intactes.",
-        ]
-      : [
-          "Pour ne pas perdre l'accès à votre cabinet, renouvelez votre",
-          "abonnement : écrivez-nous à contact@medicarepro.fr et nous vous",
-          "transmettons le lien de renouvellement.",
-        ]),
+    "Pour ne pas perdre l'accès à votre cabinet, renouvelez votre abonnement",
+    "depuis votre espace abonnement, accessible dans votre logiciel.",
+    "Vos données restent intactes.",
     "",
     "Si vous avez déjà renouvelé, ignorez ce message.",
   ].join("\n");

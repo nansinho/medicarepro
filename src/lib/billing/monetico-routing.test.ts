@@ -25,7 +25,6 @@ import { describe, expect, it } from "vitest";
 const BUILDERS = [
   "src/app/api/checkout/route.ts",
   "src/app/api/checkout/retry/route.ts",
-  "src/app/api/checkout/renew/route.ts",
   "src/lib/billing/orders.ts",
 ];
 
