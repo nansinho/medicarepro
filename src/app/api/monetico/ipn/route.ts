@@ -10,6 +10,7 @@ import { finalizeOrderPayment } from "@/lib/billing/attach";
 import { registerPaymentFailure } from "@/lib/billing/dunning";
 import { moneticoIpnKeyCandidates } from "@/lib/billing/monetico-routing";
 import {
+  authFieldsForStorage,
   parseIpnBody,
   verifyIpnSeal,
   filterIpnForStorage,
@@ -173,7 +174,10 @@ export async function POST(request: NextRequest) {
       p_occurred_at: occurredAt?.toISOString() ?? null,
       p_amount_cents: montant?.cents ?? null,
       p_currency: montant?.currency ?? null,
-      p_raw: filterIpnForStorage(fields),
+      /* Le verdict d'authentification est joint au journal : c'est lui qui
+         dit si 3D Secure a eu lieu et, sinon, pourquoi. Sans lui, la question
+         ne se tranche qu'au téléphone avec la banque. */
+      p_raw: { ...filterIpnForStorage(fields), ...authFieldsForStorage(fields) },
     });
     if (error) {
       // cdr=1 : Monetico re-présentera (le journal est idempotent).

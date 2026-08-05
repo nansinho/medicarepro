@@ -337,7 +337,6 @@ const IPN_EXCLUDED_FIELDS = new Set([
   "authentification",
   "veres",
   "pares",
-  "status3ds",
   "cbenregistree",
   "modepaiement",
 ]);
@@ -351,6 +350,55 @@ export function filterIpnForStorage(
     if (!IPN_EXCLUDED_FIELDS.has(k)) out[k] = v;
   }
   return out;
+}
+
+/**
+ * Quatre valeurs dérivées du champ `authentification`, et rien d'autre.
+ *
+ * POURQUOI CETTE FONCTION EXISTE. Le 05/08/2026, sept paiements réels ont été
+ * refusés avec « Interdit », et la question « l'authentification 3D Secure
+ * a-t-elle eu lieu, et sinon pourquoi » a coûté une journée. La réponse était
+ * pourtant DANS la notification : Monetico renvoie un champ `authentification`
+ * qui porte `details.disablingReason`, c'est-à-dire le motif exact du
+ * débrayage (« commercant », « seuilnonatteint », « scoring »). On le filtrait
+ * à l'ingestion, avec les données carte, et on le jetait.
+ *
+ * Le document complet ne doit pas entrer en base : il contient l'ARes/CRes et
+ * l'identifiant de transaction. On n'en projette donc que le verdict, jamais
+ * la matière. Aucune donnée porteur ne passe ici.
+ *
+ * Ne jette jamais : une notification bancaire ne doit pas échouer pour un
+ * problème de journalisation. Monetico documente le cas « aucune
+ * authentification » par un base64 valant littéralement `null`.
+ */
+export function authFieldsForStorage(
+  fields: Record<string, string>,
+): Record<string, string> {
+  const brut = fields["authentification"];
+  if (!brut) return {};
+  try {
+    const json = Buffer.from(brut, "base64").toString("utf8");
+    const doc = JSON.parse(json) as {
+      status?: unknown;
+      protocol?: unknown;
+      version?: unknown;
+      details?: { disablingReason?: unknown };
+    } | null;
+    if (!doc || typeof doc !== "object") return {};
+    const out: Record<string, string> = {};
+    const put = (cle: string, valeur: unknown) => {
+      if (typeof valeur === "string" || typeof valeur === "number") {
+        out[cle] = String(valeur);
+      }
+    };
+    put("auth_status", doc.status);
+    put("auth_protocol", doc.protocol);
+    put("auth_version", doc.version);
+    put("auth_disabling_reason", doc.details?.disablingReason);
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 /* ============================================================

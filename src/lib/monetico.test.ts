@@ -4,6 +4,7 @@ import {
   buildSealBase,
   computeSeal,
   filterIpnForStorage,
+  authFieldsForStorage,
   formatMoneticoDate,
   formatMontant,
   getUsableKey,
@@ -449,5 +450,66 @@ describe("isCaptureAlreadyDone", () => {
     ]) {
       expect(isCaptureAlreadyDone(lib), lib).toBe(false);
     }
+  });
+});
+
+/* ============================================================
+   Le verdict d'authentification, et rien que lui.
+
+   Le 05/08/2026, sept paiements réels ont été refusés et la question « 3D
+   Secure a-t-il eu lieu, et sinon pourquoi » a coûté une journée. La réponse
+   était dans la notification, sous forme du champ `authentification`, et on le
+   jetait à l'ingestion avec les données carte.
+
+   Ces tests fixent la ligne : on garde le verdict, jamais la matière.
+   ============================================================ */
+describe("authFieldsForStorage", () => {
+  const encode = (o: unknown) =>
+    Buffer.from(JSON.stringify(o), "utf8").toString("base64");
+
+  it("extrait le motif de débrayage, la clé de toute l'affaire", () => {
+    const champs = {
+      authentification: encode({
+        status: "not_enrolled",
+        protocol: "3DSecure",
+        version: "2.2.0",
+        details: { disablingReason: "seuilnonatteint" },
+      }),
+    };
+    expect(authFieldsForStorage(champs)).toEqual({
+      auth_status: "not_enrolled",
+      auth_protocol: "3DSecure",
+      auth_version: "2.2.0",
+      auth_disabling_reason: "seuilnonatteint",
+    });
+  });
+
+  /* Le document complet porte l'ARes/CRes et l'identifiant de transaction :
+     ils ne doivent jamais entrer en base. */
+  it("ne laisse passer aucune donnée de la transaction", () => {
+    const champs = {
+      authentification: encode({
+        status: "authenticated",
+        details: {
+          disablingReason: null,
+          transactionID: "abc-123",
+          ARes: "charge-utile",
+          CRes: "charge-utile",
+        },
+      }),
+    };
+    const out = authFieldsForStorage(champs);
+    expect(Object.keys(out)).toEqual(["auth_status"]);
+    expect(JSON.stringify(out)).not.toContain("abc-123");
+    expect(JSON.stringify(out)).not.toContain("charge-utile");
+  });
+
+  /* Monetico documente le cas « aucune authentification » par un base64 qui
+     vaut littéralement null. Une notification ne doit jamais échouer pour un
+     problème de journalisation. */
+  it("encaisse le document nul et les valeurs illisibles sans jeter", () => {
+    expect(authFieldsForStorage({ authentification: encode(null) })).toEqual({});
+    expect(authFieldsForStorage({ authentification: "pas-du-base64-json" })).toEqual({});
+    expect(authFieldsForStorage({})).toEqual({});
   });
 });
