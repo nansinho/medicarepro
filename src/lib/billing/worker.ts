@@ -700,22 +700,32 @@ async function finalizeSuccess(
     try {
       const isAnnual = row.plan === "ANNUAL";
 
-      /* MENSUEL : reconduction automatique du TPE récurrent — le client
-         retrouve montant, rythme et date dans son reçu.
-         ANNUEL : paiement unique, PAS de reconduction — on annonce plutôt la
-         date jusqu'à laquelle l'accès est garanti (renouvellement sur rappel). */
+      /* CE QUE LE REÇU ANNONCE SUR LA RECONDUCTION DÉPEND DU PRESTATAIRE, et
+         c'est la phrase qui engage le plus le client.
+
+         Chez Monetico, l'annuel passait par le TPE immédiat : un paiement
+         unique, sans reconduction, d'où l'annonce d'une date d'accès garanti et
+         d'un rappel avant échéance.
+
+         Chez Stripe, TOUTES les formules se reconduisent, l'annuelle comme la
+         mensuelle. Écrire « sans reconduction automatique » à un client qui sera
+         prélevé dans douze mois serait un mensonge sur le point le plus
+         sensible du contrat. */
+      const reconduit = parStripe || !isAnnual;
       const renewal =
-        isAnnual || billingEnv().sepaEnabled || !periodEndDate
+        !reconduit ||
+        (!parStripe && billingEnv().sepaEnabled) ||
+        !periodEndDate
           ? undefined
           : {
               amountLabel: formatEuros(
                 renewalAmountCents(row.plan, row.extra_collaborators),
               ),
-              periodLabel: "chaque mois",
+              periodLabel: isAnnual ? "chaque année" : "chaque mois",
               nextDateLabel: frDate(periodEndDate),
             };
       const accessUntilLabel =
-        isAnnual && periodEndDate ? frDate(periodEndDate) : undefined;
+        !reconduit && isAnnual && periodEndDate ? frDate(periodEndDate) : undefined;
 
       const receipt = paymentReceiptEmail({
         adminFirstName: user.firstName,
@@ -727,6 +737,10 @@ async function finalizeSuccess(
         invoiceNumber,
         renewal,
         accessUntilLabel,
+        /* Chez Stripe la résiliation se fait d'un bouton dans l'espace
+           abonnement : renvoyer vers contact@medicarepro.fr ferait écrire un
+           client qui n'a rien à demander à personne. */
+        selfServiceCancel: parStripe,
       });
       await sendMail({ to: user.email, ...receipt });
     } catch (err) {
