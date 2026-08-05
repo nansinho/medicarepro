@@ -187,7 +187,13 @@ export function formatMoneticoDate(date: Date): string {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
+    /* `hourCycle` explicite plutôt que `hour12: false`, qui est ambigu : selon
+       la version d'ICU embarquée, il peut se résoudre en h24 et écrire alors
+       « 24:56:12 » pour 00h56. Monetico attend 00-23, et le champ `date` part
+       scellé dans le MAC : une commande ouverte dans l'heure suivant minuit
+       serait irrécupérable. L'ICU local résout déjà h23, mais rien ne garantit
+       celui du conteneur de production. */
+    hourCycle: "h23",
   }).formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${get("day")}/${get("month")}/${get("year")}:${get("hour")}:${get("minute")}:${get("second")}`;

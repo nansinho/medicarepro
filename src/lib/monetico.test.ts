@@ -249,6 +249,20 @@ describe("formatMoneticoDate", () => {
       "11/07/2026:10:00:00", // été = UTC+2
     );
   });
+
+  /* L'heure qui suit minuit est la seule où un ICU réglé sur h24 écrirait
+     « 24:56:12 » au lieu de « 00:56:12 ». Monetico attend 00-23, et ce champ
+     part scellé dans le MAC : une commande ouverte à cette heure-là serait
+     perdue sans rattrapage. Une commande a bien été ouverte à 00h56 le
+     05/08/2026 (MP2MQKFVS7CM). */
+  it("écrit l'heure qui suit minuit en 00, jamais en 24", () => {
+    expect(formatMoneticoDate(new Date("2026-08-04T22:56:12Z"))).toBe(
+      "05/08/2026:00:56:12",
+    );
+    expect(formatMoneticoDate(new Date("2026-01-14T23:00:00Z"))).toBe(
+      "15/01/2026:00:00:00",
+    );
+  });
 });
 
 describe("parseMoneticoDate", () => {
