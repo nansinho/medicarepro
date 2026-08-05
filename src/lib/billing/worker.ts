@@ -33,6 +33,7 @@ import { maskIban, ibanLast4 } from "@/lib/sepa/iban";
 import { buildMandatePdf } from "@/lib/sepa/mandate-pdf";
 import { issueInvoice } from "@/lib/billing/invoices";
 import { captureLedgerEntry, cancelAuthorization } from "@/lib/billing/capture";
+import { linkStripeCustomerToCabinet } from "@/lib/stripe/customer";
 
 /* ============================================================
    Worker de provisioning — cœur du tunnel d'inscription payante.
@@ -107,6 +108,11 @@ type PendingSignupRow = {
   paid_at: string | null;
   provision_attempts: number;
   next_retry_at: string | null;
+  /* --- Renseignés uniquement quand Stripe a encaissé (0034 et 0036). --- */
+  stripe_subscription_id: string | null;
+  stripe_customer_id: string | null;
+  /** L'échéance telle que Stripe la tient. Fait autorité, jamais recalculée. */
+  stripe_current_period_end: string | null;
 };
 
 /* ------------------------------------------------------------
@@ -415,6 +421,10 @@ async function finalizeSuccess(
   let sepaPayload: SepaPayload | null = null;
   let mandateCreated = false;
   let criticalOk = false;
+  /* Qui a encaissé. Décide de trois choses en aval : capturer ou non, émettre
+     notre facture ou laisser Stripe le faire, et marquer ou non l'annuel comme
+     non reconductible. */
+  const parStripe = row.payment_provider === "stripe";
 
   /* --- Section critique : registre local (subscriptions, mandat, ledger).
      Si elle échoue APRÈS un provisioning réussi, le compte app existe :
@@ -436,17 +446,23 @@ async function finalizeSuccess(
 
     // 2. Souscription (registre durable de facturation).
     const startedAt = new Date();
-    /* La période court depuis la DATE DE COMMANDE Monetico, pas depuis
-       l'instant UTC : un paiement à 00h55 heure de Paris est encore la
-       veille en UTC, et notre échéance tombait alors un jour avant celle
-       annoncée par la banque (constaté sur MPB19GK81GC9 : 23/08 chez nous,
-       24/08 chez Monetico). L'abonnement paraissait expiré 24 h durant. */
+    /* CHEZ STRIPE, L'ÉCHÉANCE NE SE CALCULE PAS : elle a été relevée sur
+       l'abonnement au moment du paiement et conservée telle quelle. Stripe
+       prélèvera à SA date ; en recalculer une de notre côté ferait diverger les
+       deux, et c'est la nôtre qui s'afficherait au praticien.
+
+       Chez Monetico, faute de mieux, la période courait depuis la DATE DE
+       COMMANDE plutôt que depuis l'instant UTC : un paiement à 00h55 heure de
+       Paris est encore la veille en UTC, et notre échéance tombait un jour avant
+       celle de la banque (constaté sur MPB19GK81GC9 : 23/08 chez nous, 24/08
+       chez Monetico), affichant l'abonnement comme expiré 24 h durant. */
+    const echeanceStripe = row.stripe_current_period_end
+      ? new Date(row.stripe_current_period_end)
+      : null;
     const periodStart =
       parseMoneticoDate(`${row.monetico_order_date ?? ""}:00:00:00`) ?? startedAt;
-    const periodEnd = addMonthsClamped(
-      periodStart,
-      row.plan === "ANNUAL" ? 12 : 1,
-    );
+    const periodEnd =
+      echeanceStripe ?? addMonthsClamped(periodStart, row.plan === "ANNUAL" ? 12 : 1);
     periodEndDate = periodEnd;
     const { data: sub, error: e2 } = await supabase
       .from("subscriptions")
@@ -476,11 +492,19 @@ async function finalizeSuccess(
         monetico_reference: row.monetico_reference,
         // Paramètre obligatoire de l'arrêt de récurrence, des mois plus tard.
         monetico_order_date: row.monetico_order_date,
-        // Annuel = paiement UNIQUE (TPE immédiat) : aucune reconduction carte.
-        // On le marque tout de suite pour que l'admin n'affiche pas une
-        // reconduction « active » et que le renouvellement passe par rappel.
+        /* Sans ces deux identifiants, AUCUNE action du portail n'est possible
+           ensuite : ni résilier, ni changer de formule, ni changer de carte. */
+        stripe_subscription_id: row.stripe_subscription_id,
+        stripe_customer_id: row.stripe_customer_id,
+        /* Un annuel MONETICO est un paiement unique (TPE immédiat) : aucune
+           reconduction carte, on le marque tout de suite pour que l'admin
+           n'affiche pas une reconduction « active ».
+
+           Un annuel STRIPE se reconduit tout seul, comme un mensuel : le
+           marquer ainsi le ferait passer pour éteint et déclencherait des
+           rappels d'échéance à un client qui n'a rien à faire. */
         recurrence_stopped_at:
-          row.plan === "ANNUAL" ? startedAt.toISOString() : null,
+          !parStripe && row.plan === "ANNUAL" ? startedAt.toISOString() : null,
       })
       .select("id")
       .single();
@@ -538,6 +562,8 @@ async function finalizeSuccess(
     //    ANNUEL (TPE immédiat) : encaissé D'OFFICE par la banque → on marque
     //    tout de suite captured_at, sinon le cron de rattrapage tenterait de
     //    capturer une échéance déjà prise.
+    //    STRIPE : même chose, pour toutes les formules — Stripe encaisse seul,
+    //    il n'y a pas d'autorisation à capturer ensuite.
     const paidAtIso = row.paid_at ?? new Date().toISOString();
     const { data: ledger, error: e4 } = await supabase
       .from("billing_ledger")
@@ -548,7 +574,7 @@ async function finalizeSuccess(
         amount_cents: row.amount_cents,
         currency: row.currency,
         occurred_at: paidAtIso,
-        captured_at: row.plan === "ANNUAL" ? paidAtIso : null,
+        captured_at: parStripe || row.plan === "ANNUAL" ? paidAtIso : null,
         reference: row.monetico_reference,
         subscription_id: subscriptionId,
         cabinet_name: cabinet.name,
@@ -604,7 +630,9 @@ async function finalizeSuccess(
      expire d'elle-même, ce qui protège le client si quelque chose casse.
      L'ANNUEL passe par le TPE IMMÉDIAT (NB8179I), qui a déjà encaissé
      d'office : on ne capture donc PAS (sinon refus « déjà recouvré »). */
-  if (criticalOk && ledgerId !== null && row.plan !== "ANNUAL") {
+  /* STRIPE N'A RIEN À CAPTURER : l'argent est déjà pris. Un appel au service de
+     capture du CIC partirait avec une référence que la banque ne connaît pas. */
+  if (criticalOk && ledgerId !== null && !parStripe && row.plan !== "ANNUAL") {
     try {
       const capture = await captureLedgerEntry(ledgerId);
       if (!capture.ok) {
@@ -616,27 +644,53 @@ async function finalizeSuccess(
     }
   }
 
+  /* Le client Stripe est né avant le cabinet : il ne porte que notre référence
+     de dossier. On le rattache maintenant que le cabinet existe, sinon le
+     premier changement de formule n'y retrouverait rien et créerait un SECOND
+     client Stripe — l'historique de facturation se scinderait en deux. */
+  if (criticalOk && parStripe && row.stripe_customer_id) {
+    const lien = await linkStripeCustomerToCabinet(
+      row.stripe_customer_id,
+      provision.cabinetId,
+    );
+    if (!lien.ok) {
+      await sendBillingAlert("Client Stripe non rattaché au cabinet", [
+        `Cabinet : ${cabinet.name} (${provision.cabinetId})`,
+        `Client Stripe : ${row.stripe_customer_id}`,
+        `Référence : ${row.monetico_reference}`,
+        `Erreur : ${lien.reason}`,
+        "Poser app_cabinet_id dans les métadonnées du client Stripe, sinon un changement de formule créera un second client et scindera l'historique de facturation.",
+      ]);
+    }
+  }
+
   if (criticalOk && subscriptionId) {
     const label = planLabel(row.plan, row.extra_collaborators);
     let invoiceNumber: string | undefined;
 
-    // Facture du 1er paiement carte.
-    try {
-      const invoice = await issueInvoice({
-        kind: "card_first",
-        amountCents: row.amount_cents,
-        currency: row.currency,
-        subscriptionId,
-        pendingSignupId: row.id,
-        cabinetName: cabinet.name,
-        cabinetAddress: cabinet.address,
-        cabinetPostalCity: `${cabinet.postalCode} ${cabinet.city}`,
-        planLabel: label,
-        reference: row.monetico_reference,
-      });
-      invoiceNumber = invoice.number;
-    } catch (err) {
-      console.error("[billing-worker] échec facture card_first :", errMessage(err));
+    /* Facture du 1er paiement carte — SAUF chez Stripe, qui émet la sienne.
+       Émettre les deux produirait deux numérotations et deux pièces comptables
+       pour un seul encaissement : c'est exactement ce qui est arrivé à la
+       première souscription Stripe, le 05/08/2026. Notre registre reçoit à la
+       place un miroir de la facture Stripe, à réception d'`invoice.paid`. */
+    if (!parStripe) {
+      try {
+        const invoice = await issueInvoice({
+          kind: "card_first",
+          amountCents: row.amount_cents,
+          currency: row.currency,
+          subscriptionId,
+          pendingSignupId: row.id,
+          cabinetName: cabinet.name,
+          cabinetAddress: cabinet.address,
+          cabinetPostalCity: `${cabinet.postalCode} ${cabinet.city}`,
+          planLabel: label,
+          reference: row.monetico_reference,
+        });
+        invoiceNumber = invoice.number;
+      } catch (err) {
+        console.error("[billing-worker] échec facture card_first :", errMessage(err));
+      }
     }
 
     // Reçu de paiement au client.

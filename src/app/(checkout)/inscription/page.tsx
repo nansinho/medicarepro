@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { hasCheckout, billingEnv } from "@/lib/env";
+import { canCollectPayment, paymentProvider, billingEnv } from "@/lib/env";
 import {
   planFromPlanKey,
   monthlyPriceCents,
@@ -31,13 +31,19 @@ export default async function InscriptionPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   // Tunnel fermé : le layout affiche déjà l'écran d'indisponibilité.
-  if (!hasCheckout()) return null;
+  if (!canCollectPayment()) return null;
 
   const { checkoutPlans, sepaIcs, sepaEnabled } = billingEnv();
-  /* Une formule n'est vendable que si un code site Monetico porte SA
-     fréquence de reconduction (cf. CHECKOUT_PLANS dans lib/env). */
-  const monthlyEnabled = checkoutPlans === "all" || checkoutPlans === "monthly";
-  const annualEnabled = checkoutPlans === "all" || checkoutPlans === "annual";
+  /* Chez Monetico, une formule n'était vendable que si un code site portait SA
+     fréquence de reconduction — un TPE par périodicité, d'où CHECKOUT_PLANS.
+     Stripe n'a pas cette contrainte : un même compte vend les deux, et la
+     disponibilité ne dépend plus que de l'existence du prix au catalogue,
+     déjà exigée par missingStripeEnv(). */
+  const parStripe = paymentProvider() === "stripe";
+  const monthlyEnabled =
+    parStripe || checkoutPlans === "all" || checkoutPlans === "monthly";
+  const annualEnabled =
+    parStripe || checkoutPlans === "all" || checkoutPlans === "annual";
 
   const sp = await searchParams;
   /* Sans plan explicite, on ouvre sur la formule vendable — les CTA du site

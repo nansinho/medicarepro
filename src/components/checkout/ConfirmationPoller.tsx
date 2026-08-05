@@ -155,10 +155,22 @@ export default function ConfirmationPoller({
       });
       if (res.ok) {
         const data = (await res.json()) as {
-          action: string;
-          fields: Record<string, string>;
+          /* Stripe : une adresse. Monetico : un formulaire scellé. */
+          redirectUrl?: string;
+          action?: string;
+          fields?: Record<string, string>;
         };
-        setRedirect({ action: data.action, fields: data.fields });
+        if (data.redirectUrl) {
+          window.location.replace(data.redirectUrl);
+          return;
+        }
+        if (data.action && data.fields) {
+          setRedirect({ action: data.action, fields: data.fields });
+          return;
+        }
+        setRetryError(
+          "Le paiement n'a pas pu être relancé. Réessayez dans quelques instants.",
+        );
         return;
       }
       if (res.status === 403) {

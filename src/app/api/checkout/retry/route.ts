@@ -2,7 +2,14 @@ import { type NextRequest } from "next/server";
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { env, hasCheckout, billingEnv } from "@/lib/env";
+import {
+  env,
+  billingEnv,
+  paymentProvider,
+  canCollectPayment,
+} from "@/lib/env";
+import { createSubscriptionCheckout } from "@/lib/stripe/checkout";
+import { createSignupCustomer } from "@/lib/stripe/customer";
 import { serviceClient } from "@/lib/supabase/service";
 import {
   encryptSecret,
@@ -108,10 +115,11 @@ type OldRow = {
   mandate_accepted_at: string;
   client_ip: string | null;
   user_agent: string | null;
+  stripe_customer_id: string | null;
 };
 
 export async function POST(request: NextRequest) {
-  if (!hasCheckout()) {
+  if (!canCollectPayment()) {
     return Response.json(
       { error: "Le tunnel d'inscription n'est pas encore ouvert." },
       { status: 503 },
@@ -155,7 +163,7 @@ export async function POST(request: NextRequest) {
   const { data: oldData, error: loadError } = await supabase
     .from("pending_signups")
     .select(
-      "id, root_id, monetico_reference, status, status_token, plan, extra_collaborators, amount_cents, currency, cabinet, user_info, password_enc, sepa_payload_enc, cgv_accepted_at, mandate_accepted_at, client_ip, user_agent",
+      "id, root_id, monetico_reference, status, status_token, plan, extra_collaborators, amount_cents, currency, cabinet, user_info, password_enc, sepa_payload_enc, cgv_accepted_at, mandate_accepted_at, client_ip, user_agent, stripe_customer_id",
     )
     .eq("monetico_reference", oldReference)
     .maybeSingle();
@@ -201,6 +209,63 @@ export async function POST(request: NextRequest) {
       { error: "Ce dossier a expiré. Recommencez votre inscription." },
       { status: 409 },
     );
+  }
+
+  /* --- REPRISE CHEZ STRIPE : on rouvre la caisse sur LE MÊME DOSSIER.
+     Toute la machinerie qui suit — nouveau dossier, nouvelle référence,
+     re-chiffrement des secrets, nouvelle RUM, nouveau texte de mandat — n'existe
+     que parce qu'une commande Monetico refusée ne peut pas être repayée. Stripe
+     n'a pas cette limite : la session est rouverte sur la même référence, donc
+     les secrets déjà chiffrés restent déchiffrables et la preuve de consentement
+     reste rattachée. */
+  if (paymentProvider() === "stripe") {
+    try {
+      const customerId =
+        old.stripe_customer_id ??
+        (await createSignupCustomer({
+          reference: old.monetico_reference,
+          name: old.cabinet.name,
+          email: old.cabinet.email,
+          address: old.cabinet.address,
+          postalCode: old.cabinet.postalCode,
+          city: old.cabinet.city,
+        }));
+
+      /* Idempotent sur la référence : dans les 24 heures, Stripe rend la MÊME
+         session, toujours ouverte, plutôt que d'en créer une seconde sur
+         laquelle le client pourrait payer une deuxième fois. Passé ce délai la
+         session a expiré et une nouvelle est ouverte, ce qui est le
+         comportement voulu. */
+      const { url, sessionId } = await createSubscriptionCheckout({
+        reference: old.monetico_reference,
+        plan: old.plan,
+        extraCollaborators: old.extra_collaborators,
+        customerId,
+        successPath: "/inscription/confirmation",
+        errorPath: "/inscription/echec",
+        metadata: { kind: "signup" },
+      });
+
+      await supabase
+        .from("pending_signups")
+        .update({
+          stripe_checkout_session_id: sessionId,
+          stripe_customer_id: customerId,
+          /* Le motif du refus précédent est effacé : sans quoi l'écran de suivi
+             continuerait d'annoncer un paiement refusé pendant que le client
+             est en train d'en faire un nouveau. */
+          code_retour: null,
+        })
+        .eq("id", old.id);
+
+      return Response.json({ redirectUrl: url, reference: old.monetico_reference });
+    } catch (err) {
+      console.error(
+        "[checkout-retry] session Stripe :",
+        err instanceof Error ? err.message : String(err),
+      );
+      return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
+    }
   }
 
   const billing = billingEnv();

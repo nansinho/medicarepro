@@ -10,7 +10,7 @@ import {
   CheckoutSchema,
 } from "@/lib/checkout/schema";
 import type { BillingPlan } from "@/lib/checkout/pricing";
-import { PRICING_VERSION } from "@/lib/checkout/pricing";
+import { PRICING_VERSION, MAX_EXTRA_COLLABORATORS } from "@/lib/checkout/pricing";
 import { LEGAL_DOCUMENTS } from "@/lib/legal/registry";
 import { mandateText } from "@/lib/sepa/mandate-text";
 import { maskIban } from "@/lib/sepa/iban";
@@ -85,7 +85,10 @@ function stepKeysFor(sepaEnabled: boolean): StepKey[] {
   ];
 }
 
-const MAX_COLLABS = 20;
+/* Repris de la grille tarifaire, jamais recopié : le serveur applique CETTE
+   valeur, et un écart ferait refuser au dernier moment un effectif que le
+   compteur venait d'autoriser. */
+const MAX_COLLABS = MAX_EXTRA_COLLABORATORS;
 
 const PLAN_LABEL: Record<BillingPlan, string> = {
   MONTHLY: "Mensuel sans engagement",
@@ -615,10 +618,29 @@ export default function CheckoutFlow({
 
       if (res.ok) {
         const data = (await res.json()) as {
-          action: string;
-          fields: Record<string, string>;
+          /* Stripe : une adresse où envoyer le client. */
+          redirectUrl?: string;
+          /* Monetico : un formulaire scellé à auto-soumettre. */
+          action?: string;
+          fields?: Record<string, string>;
         };
-        setRedirect({ action: data.action, fields: data.fields });
+        if (data.redirectUrl) {
+          /* `replace` et non `assign` : le retour arrière depuis la page de
+             paiement ne doit pas ramener sur un tunnel dont le dossier est déjà
+             ouvert et les secrets déjà chiffrés. */
+          window.location.replace(data.redirectUrl);
+          return;
+        }
+        if (data.action && data.fields) {
+          setRedirect({ action: data.action, fields: data.fields });
+          return;
+        }
+        /* Ni l'un ni l'autre : le dossier existe mais la caisse n'a pas ouvert.
+           Le dire, plutôt que de laisser un bouton tourner indéfiniment. */
+        resetTurnstile();
+        setBanner(
+          "Le paiement n'a pas pu être ouvert. Réessayez dans quelques instants.",
+        );
         return;
       }
 
@@ -861,9 +883,22 @@ export default function CheckoutFlow({
                   >
                     −
                   </button>
-                  <span className={s.counterVal} aria-live="polite">
-                    {extra}
-                  </span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className={s.counterVal}
+                    value={extra}
+                    min={0}
+                    max={MAX_COLLABS}
+                    onChange={(e) => {
+                      /* Champ vidé pendant la frappe : on retombe à 0 plutôt
+                         que sur NaN, qui ferait disparaître le prix affiché. */
+                      const n = Number.parseInt(e.target.value, 10);
+                      if (Number.isNaN(n)) return setExtra(0);
+                      setExtra(Math.max(0, Math.min(MAX_COLLABS, n)));
+                    }}
+                    aria-label="Nombre de collaborateurs supplémentaires"
+                  />
                   <button
                     type="button"
                     className={s.counterBtn}

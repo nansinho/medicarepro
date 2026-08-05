@@ -81,10 +81,18 @@ export async function GET(request: NextRequest) {
     row.next_retry_at === null &&
     row.last_error !== null;
 
+  /* Un paiement qui n'aboutira pas, quel que soit le prestataire. Chez Monetico
+     c'est un code de retour bancaire ; chez Stripe, un prélèvement SEPA rejeté
+     ou une page de paiement expirée. Sans ce signal, l'écran de suivi tourne
+     indéfiniment sur « nous attendons la confirmation ». */
+  const REFUS_STRIPE = ["stripe_refused", "stripe_expired"];
+  const refuse =
+    row.code_retour === REFUSED_CODE ||
+    (row.code_retour !== null && REFUS_STRIPE.includes(row.code_retour));
+
   return Response.json({
     status: row.status,
-    paymentRefused:
-      row.status === "payment_pending" && row.code_retour === REFUSED_CODE,
+    paymentRefused: row.status === "payment_pending" && refuse,
     // Jamais le détail technique de l'erreur : le client n'en ferait rien.
     needsReview: stalled,
     loginUrl: row.status === "provisioned" ? row.login_url : null,

@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import {
-  hasCheckout,
+  canCollectPayment,
   paymentProvider,
   missingCheckoutEnv,
+  missingStripeEnv,
   paymentsInTestModeOnLiveSite,
 } from "@/lib/env";
 import s from "@/components/checkout/Checkout.module.css";
@@ -30,17 +31,22 @@ export const dynamic = "force-dynamic";
 export default function CheckoutLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const open = hasCheckout();
+  /* L'ouverture dépend du prestataire RETENU : exiger la configuration Monetico
+     fermerait le tunnel alors que Stripe encaisse, et l'inverse le laisserait
+     ouvert sur une caisse absente. */
+  const open = canCollectPayment();
   const testMode = paymentsInTestModeOnLiveSite();
   if (testMode) {
     console.warn(
-      "[checkout] MODE TEST sur le site en ligne : aucune carte réelle ne peut aboutir (MONETICO_MODE=test).",
+      "[checkout] MODE TEST sur le site en ligne : aucune carte réelle ne peut aboutir.",
     );
   }
   if (!open) {
     // Noms (jamais les valeurs) des variables manquantes — logs serveur uniquement.
+    const manquantes =
+      paymentProvider() === "stripe" ? missingStripeEnv() : missingCheckoutEnv();
     console.warn(
-      `[checkout] tunnel fermé — configuration d'encaissement incomplète : ${missingCheckoutEnv().join(", ")}`,
+      `[checkout] tunnel fermé — configuration d'encaissement incomplète : ${manquantes.join(", ")}`,
     );
   }
 

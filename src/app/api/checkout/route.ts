@@ -1,11 +1,19 @@
 import { type NextRequest } from "next/server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { env, hasCheckout, billingEnv } from "@/lib/env";
+import {
+  env,
+  billingEnv,
+  paymentProvider,
+  canCollectPayment,
+} from "@/lib/env";
 import { serviceClient } from "@/lib/supabase/service";
 import { encryptSecret } from "@/lib/crypto";
 import { buildPaymentForm } from "@/lib/monetico";
 import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
+import { createSubscriptionCheckout } from "@/lib/stripe/checkout";
+import { createSignupCustomer } from "@/lib/stripe/customer";
+import { stripeLiveMode } from "@/lib/stripe/client";
 import { CheckoutSchema } from "@/lib/checkout/schema";
 import { verifyRppsOnline } from "@/lib/checkout/rpps";
 import { checkoutAmountCents } from "@/lib/checkout/pricing";
@@ -118,8 +126,11 @@ function isPrefixConflict(error: {
 }
 
 export async function POST(request: NextRequest) {
-  // Tunnel fermé tant que la configuration billing est incomplète.
-  if (!hasCheckout()) {
+  /* Tunnel fermé tant que la configuration d'encaissement est incomplète —
+     celle du PRESTATAIRE RETENU, pas celle de Monetico : déclarer Stripe sans
+     poser ses clés laisserait le client saisir tout son dossier avant d'échouer
+     à la dernière seconde. */
+  if (!canCollectPayment()) {
     return Response.json(
       { error: "Le tunnel d'inscription n'est pas encore ouvert." },
       { status: 503 },
@@ -449,6 +460,27 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
   }
 
+  /* --- Le paiement lui-même. Deux prestataires, deux formes de réponse : une
+     adresse où rediriger (Stripe), ou un formulaire à auto-soumettre
+     (Monetico). Le dossier, ses secrets et sa preuve de consentement sont déjà
+     écrits : ce qui suit ne fait qu'ouvrir la caisse. */
+  if (paymentProvider() === "stripe") {
+    return openStripeCheckout({
+      supabase,
+      id,
+      reference,
+      plan: input.plan,
+      extraCollaborators: input.extraCollaborators,
+      cabinet,
+      user,
+      invoicePrefix,
+      amountCents,
+      statusToken,
+      ip,
+      userAgent,
+    });
+  }
+
   // Formulaire Monetico scellé (auto-submit côté client).
   const siteUrl = env().NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   /* DEUX adresses DISTINCTES : Monetico refuse `url_retour_ok` et
@@ -526,5 +558,124 @@ export async function POST(request: NextRequest) {
   return Response.json(
     { action: form.action, fields: form.fields, reference },
     { headers: { "set-cookie": checkoutCookie(reference, statusToken) } },
+  );
+}
+
+/* ------------------------------------------------------------
+   Ouverture de la caisse Stripe pour un dossier d'inscription.
+
+   CE QUI DIFFÈRE DU PARCOURS DE L'ESPACE ABONNEMENT : le cabinet n'existe pas
+   encore. Il n'y a donc pas d'`app_cabinet_id` sur lequel caler le client
+   Stripe, et c'est notre référence de dossier qui en tient lieu — le worker
+   rattachera le client au cabinet une fois celui-ci créé.
+
+   L'ORDRE COMPTE. La session AVANT l'écriture : si Stripe refuse, le dossier
+   reste en `payment_pending` sans identifiant de session, et le client peut
+   recommencer. L'ordre inverse laisserait un dossier se réclamant d'une session
+   qui n'existe pas.
+   ------------------------------------------------------------ */
+async function openStripeCheckout(args: {
+  supabase: SupabaseClient;
+  id: string;
+  reference: string;
+  plan: "MONTHLY" | "ANNUAL";
+  extraCollaborators: number;
+  cabinet: {
+    name: string;
+    email: string;
+    address: string;
+    city: string;
+    postalCode: string;
+  };
+  user: { firstName: string; lastName: string; email: string };
+  invoicePrefix: string;
+  amountCents: number;
+  statusToken: string;
+  ip: string | null;
+  userAgent: string;
+}): Promise<Response> {
+  let url: string;
+  let sessionId: string;
+  let customerId: string;
+  try {
+    /* Le client porte l'adresse complète : sans elle, la facture émise par
+       Stripe ne montrerait que le nom et le pays du destinataire, ce qui n'est
+       pas une facture française valable. */
+    customerId = await createSignupCustomer({
+      reference: args.reference,
+      name: args.cabinet.name,
+      /* L'adresse du CABINET reçoit les factures ; celle du praticien sert à
+         se connecter. Ce sont deux choses distinctes, et la facture veut la
+         première. */
+      email: args.cabinet.email,
+      address: args.cabinet.address,
+      postalCode: args.cabinet.postalCode,
+      city: args.cabinet.city,
+    });
+
+    const session = await createSubscriptionCheckout({
+      reference: args.reference,
+      plan: args.plan,
+      extraCollaborators: args.extraCollaborators,
+      customerId,
+      /* DEUX adresses distinctes, comme chez Monetico et pour la même raison :
+         c'est le seul signal qui parvient au navigateur avant la notification
+         serveur. Confondues, un client qui abandonne atterrit sur un écran de
+         confirmation et attend un compte qui ne viendra pas. */
+      successPath: "/inscription/confirmation",
+      errorPath: "/inscription/echec",
+      metadata: { kind: "signup" },
+    });
+    url = session.url;
+    sessionId = session.sessionId;
+  } catch (err) {
+    console.error(
+      "[checkout] session Stripe :",
+      err instanceof Error ? err.message : String(err),
+    );
+    return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
+  }
+
+  const { error: majError } = await args.supabase
+    .from("pending_signups")
+    .update({
+      stripe_checkout_session_id: sessionId,
+      stripe_customer_id: customerId,
+      payment_provider: "stripe",
+      payment_environment: stripeLiveMode() ? "production" : "test",
+    })
+    .eq("id", args.id);
+  if (majError) {
+    /* Bloquant, contrairement à son équivalent Monetico : sans l'identifiant de
+       session, une notification arrivant sur un dossier introuvable ne pourrait
+       être rattachée à rien, et le client paierait sans jamais être provisionné.
+       Mieux vaut refuser avant que la page de paiement ne s'ouvre. */
+    console.error("[checkout] session Stripe non enregistrée :", majError.message);
+    return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
+  }
+
+  await logAudit({
+    action: "checkout.created",
+    entityType: "pending_signup",
+    entityId: args.id,
+    diff: {
+      reference: args.reference,
+      plan: args.plan,
+      extraCollaborators: args.extraCollaborators,
+      amountCents: args.amountCents,
+      invoicePrefix: args.invoicePrefix,
+      provider: "stripe",
+    },
+    ip: args.ip ?? undefined,
+    userAgent: args.userAgent,
+  });
+
+  return Response.json(
+    { redirectUrl: url, reference: args.reference },
+    {
+      headers: {
+        "set-cookie": checkoutCookie(args.reference, args.statusToken),
+      },
+    },
   );
 }

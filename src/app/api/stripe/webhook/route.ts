@@ -5,6 +5,11 @@ import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import { billingEnv, hasBilling } from "@/lib/env";
 import { finalizeOrderPayment } from "@/lib/billing/attach";
+import {
+  applyStripeSignupPayment,
+  noteStripeSignupFailure,
+} from "@/lib/billing/stripe-signup";
+import { processDuePendingSignups } from "@/lib/billing/worker";
 import { registerPaymentFailure } from "@/lib/billing/dunning";
 import { notifyRenewal } from "@/lib/provisioning";
 import { mirrorStripeInvoice } from "@/lib/stripe/invoices";
@@ -204,26 +209,97 @@ async function applyStripeEvent(
       .eq("event_id", eventId);
   };
 
-  if (event.type === "checkout.session.completed") {
+  /* `async_payment_succeeded` accompagne `completed` pour les moyens de paiement
+     différés : avec le prélèvement SEPA, la session se termine AVANT que l'argent
+     n'arrive, et c'est ce second événement qui l'annonce. Le traiter comme le
+     premier est exact — les deux portent la même session aboutie et payée — et
+     l'omettre laisserait tout client payant par SEPA sans compte. */
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
     const faits = await factsFromCompletedSession(event);
     if (!faits.ok) {
       /* Pas une erreur : une session peut aboutir sans paiement acquis
-         (prélèvement SEPA en cours). On le note sans alerter. */
+         (prélèvement SEPA en cours). On le note sans alerter — le
+         `async_payment_succeeded` viendra, ou le `async_payment_failed`. */
       await supabase
         .from("stripe_events")
         .update({ process_error: `ignoré : ${faits.reason}` })
         .eq("event_id", eventId);
       return;
     }
-    await finalizeOrderPayment({
+
+    /* Le tunnel de vente et l'espace abonnement n'écrivent pas dans la même
+       table : un dossier d'inscription vit dans `pending_signups`, une commande
+       dans `subscription_orders`. On essaie d'abord l'inscription, parce que
+       `finalizeOrderPayment` ne trouverait rien et ne dirait rien. */
+    const session = event.data.object as Stripe.Checkout.Session;
+    const inscription = await applyStripeSignupPayment(supabase, {
       reference: faits.reference,
-      occurredAt: faits.occurredAt,
       amountCents: faits.amountCents,
       currency: faits.currency,
-      /* Toujours faux ici : l'unicité de `event_id` a déjà écarté les
-         re-livraisons avant qu'on arrive jusqu'à ces effets. */
-      isReplay: false,
+      occurredAt: faits.occurredAt,
+      sessionId: session.id ?? null,
       stripe: faits.stripe,
+    });
+
+    if (inscription.kind === "not_a_signup") {
+      await finalizeOrderPayment({
+        reference: faits.reference,
+        occurredAt: faits.occurredAt,
+        amountCents: faits.amountCents,
+        currency: faits.currency,
+        /* Toujours faux ici : l'unicité de `event_id` a déjà écarté les
+           re-livraisons avant qu'on arrive jusqu'à ces effets. */
+        isReplay: false,
+        stripe: faits.stripe,
+      });
+      await marquerTraite();
+      return;
+    }
+
+    await marquerTraite();
+
+    /* Provisioning hors du chemin d'acquittement : Stripe reçoit sa réponse
+       tout de suite, le worker tourne après. Le claim est atomique côté base,
+       donc un passage concurrent du cron ne peut pas doubler le travail. */
+    if (inscription.kind === "paid") {
+      try {
+        await processDuePendingSignups(3);
+      } catch (err) {
+        /* Sans conséquence : le dossier est `paid` avec son heure de reprise
+           échue, le cron le reprendra. */
+        console.error(
+          "[stripe-webhook] worker post-paiement :",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+    return;
+  }
+
+  /* Un paiement différé refusé, ou une page de paiement abandonnée. Sans ces
+     deux chemins, l'écran de suivi tourne indéfiniment sur « nous attendons la
+     confirmation » pour un client dont le prélèvement a été rejeté. */
+  if (
+    event.type === "checkout.session.async_payment_failed" ||
+    event.type === "checkout.session.expired"
+  ) {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const reference =
+      session.client_reference_id ?? session.metadata?.reference ?? null;
+    if (!reference) {
+      await supabase
+        .from("stripe_events")
+        .update({ process_error: "ignoré : session sans référence" })
+        .eq("event_id", eventId);
+      return;
+    }
+    await noteStripeSignupFailure(supabase, {
+      reference,
+      reason:
+        event.type === "checkout.session.expired" ? "expired" : "refused",
     });
     await marquerTraite();
     return;
