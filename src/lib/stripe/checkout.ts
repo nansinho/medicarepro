@@ -129,11 +129,38 @@ export function buildCheckoutParams(
         }
       : { customer_email: input.customerEmail }),
     metadata,
+    /* CE QUE LE PRATICIEN LIT JUSTE AVANT DE PAYER.
+
+       La page de Stripe est sobre par construction, et c'est une qualité : rien
+       ne doit distraire d'un formulaire de carte. Mais elle ne dit rien de ce
+       qui rassure un professionnel de santé au moment de sortir sa carte —
+       où vivent ses données, et s'il est engagé.
+
+       Ces deux lignes ne sont pas du décor : ce sont les deux questions qu'on
+       nous pose le plus, et les laisser sans réponse à cet instant précis est
+       ce qui fait fermer un onglet. Le reste de l'habillage (bandeau bleu,
+       logo) vient de la marque du compte, qui ne se règle pas ici. */
+    custom_text: {
+      submit: {
+        message:
+          "Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS. Vous pouvez arrêter la reconduction à tout moment depuis votre espace abonnement : votre accès reste ouvert jusqu'au terme de la période réglée.",
+      },
+    },
     subscription_data: {
       metadata,
       /* Stripe n'a pas de taux par défaut au niveau du compte : il doit être
          passé ici, à chaque abonnement créé. */
       default_tax_rates: [taxRate],
+      /* Le libellé repris sur la facture et sur le relevé bancaire du
+         praticien. Sans lui, il lit une ligne « MediCare Pro » sans savoir de
+         quelle formule il s'agit. */
+      description: `Abonnement MediCare Pro — ${
+        input.plan === "ANNUAL" ? "offre 12 mois" : "mensuel sans engagement"
+      }${
+        input.extraCollaborators > 0
+          ? ` + ${input.extraCollaborators} collaborateur${input.extraCollaborators > 1 ? "s" : ""}`
+          : ""
+      }`,
     },
     /* Calculées par siteUrl(), JAMAIS depuis la requête : en production le
        serveur standalone dérive « https://0.0.0.0:3000 » de HOSTNAME et PORT,
