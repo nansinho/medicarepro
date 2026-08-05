@@ -362,14 +362,15 @@ describe("reconnaissance d'un sceau de l'autre plateforme", () => {
    ============================================================ */
 describe("configuration Stripe", () => {
   const SK = "sk_test_51AbCdEfGhIjKlMnOp";
+  const SK_LIVE = "sk_live_51AbCdEfGhIjKlMnOp";
   const WH = "whsec_AbCdEfGhIjKlMnOpQrSt";
 
   it("exige la clé, le secret de webhook et au moins un prix", async () => {
     const { missingStripeEnv, hasStripeCheckout } = await loadEnv({});
     expect(missingStripeEnv()).toEqual([
-      "STRIPE_SECRET_KEY",
-      "STRIPE_WEBHOOK_SECRET",
-      "STRIPE_PRICE_MONTHLY ou STRIPE_PRICE_ANNUAL",
+      "STRIPE_SECRET_KEY_TEST",
+      "STRIPE_WEBHOOK_SECRET_TEST",
+      "STRIPE_PRICE_MONTHLY_TEST ou STRIPE_PRICE_ANNUAL_TEST",
     ]);
     expect(hasStripeCheckout()).toBe(false);
   });
@@ -382,7 +383,7 @@ describe("configuration Stripe", () => {
       STRIPE_PRICE_MONTHLY: "price_m",
       STRIPE_PRICE_COLLABORATOR_MONTHLY: "price_cm",
     });
-    expect(missingStripeEnv()).toEqual(["STRIPE_WEBHOOK_SECRET"]);
+    expect(missingStripeEnv()).toEqual(["STRIPE_WEBHOOK_SECRET_TEST"]);
   });
 
   it("exige le prix collaborateur de chaque formule vendue", async () => {
@@ -391,7 +392,7 @@ describe("configuration Stripe", () => {
       STRIPE_WEBHOOK_SECRET: WH,
       STRIPE_PRICE_MONTHLY: "price_m",
     });
-    expect(missingStripeEnv()).toEqual(["STRIPE_PRICE_COLLABORATOR_MONTHLY"]);
+    expect(missingStripeEnv()).toEqual(["STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST"]);
   });
 
   it("se tait quand tout est là", async () => {
@@ -421,6 +422,107 @@ describe("configuration Stripe", () => {
       STRIPE_PRICE_COLLABORATOR_ANNUAL: "price_ca",
     });
     expect(avecCles.canCollectPayment()).toBe(true);
+  });
+
+
+  /* ------------------------------------------------------------
+     Les deux mondes cohabitent, mais ne se confondent pas.
+
+     Le client voulait renseigner ses clés une seule fois, test et production
+     ensemble, et basculer sans ressaisir. C'est légitime — c'est exactement ce
+     que faisait MONETICO_MODE. Ce qui a coûté une journée le 05/08/2026, ce
+     n'était pas d'avoir deux jeux de clés : c'était qu'un sélecteur puisse
+     annoncer un monde sans que rien ne le confronte à la réalité.
+
+     Chez Stripe la clé porte son propre monde dans son préfixe. La déclaration
+     devient donc vérifiable, et ces tests fixent qu'elle EST vérifiée.
+     ------------------------------------------------------------ */
+
+  it("choisit le jeu de clés désigné par STRIPE_MODE", async () => {
+    const { stripeConfig } = await loadEnv({
+      STRIPE_MODE: "live",
+      STRIPE_SECRET_KEY_TEST: SK,
+      STRIPE_SECRET_KEY_LIVE: SK_LIVE,
+      STRIPE_PRICE_MONTHLY_TEST: "price_test",
+      STRIPE_PRICE_MONTHLY_LIVE: "price_live",
+    });
+    const c = stripeConfig();
+    expect(c.mode).toBe("live");
+    expect(c.secretKey).toBe(SK_LIVE);
+    expect(c.prices.monthly).toBe("price_live");
+  });
+
+  it("accepte la forme sans suffixe quand un seul monde est servi", async () => {
+    const { stripeConfig } = await loadEnv({
+      STRIPE_SECRET_KEY: SK,
+      STRIPE_PRICE_ANNUAL: "price_a",
+    });
+    const c = stripeConfig();
+    expect(c.secretKey).toBe(SK);
+    expect(c.prices.annual).toBe("price_a");
+  });
+
+  /* Deux barrières, et il faut les deux.
+
+     La PREMIÈRE est le schéma : STRIPE_SECRET_KEY_LIVE n'accepte qu'un
+     `sk_live_`, donc y ranger une clé d'essai est refusé au chargement. */
+  it("refuse une clé d'essai rangée du côté production", async () => {
+    await expect(
+      loadEnv({ STRIPE_MODE: "live", STRIPE_SECRET_KEY_LIVE: SK }).then((m) =>
+        m.stripeConfig(),
+      ),
+    ).rejects.toThrow();
+  });
+
+  /* La SECONDE est la garde de concordance, et c'est elle qui compte, parce que
+     la forme sans suffixe accepte les deux préfixes par construction. Annoncer
+     la production en servant une clé d'essai, c'est le scénario exact du
+     05/08/2026 : le site se croyait en production pendant que les commandes
+     vivaient en essai, et plus rien n'aboutissait sans que quoi que ce soit le
+     signale. Ici, on refuse d'encaisser plutôt que de croire la déclaration. */
+  it("refuse d'encaisser quand le mode annoncé contredit la clé servie", async () => {
+    const { missingStripeEnv, canCollectPayment } = await loadEnv({
+      PAYMENT_PROVIDER: "stripe",
+      STRIPE_MODE: "live",
+      STRIPE_SECRET_KEY: SK, // forme sans suffixe : une clé d'ESSAI
+      STRIPE_WEBHOOK_SECRET: WH,
+      STRIPE_PRICE_ANNUAL: "price_a",
+      STRIPE_PRICE_COLLABORATOR_ANNUAL: "price_ca",
+    });
+    expect(missingStripeEnv().join(" ")).toContain("ne correspond pas à la clé");
+    expect(canCollectPayment()).toBe(false);
+  });
+
+  it("se tait quand le mode et la clé concordent", async () => {
+    const { missingStripeEnv, canCollectPayment } = await loadEnv({
+      PAYMENT_PROVIDER: "stripe",
+      STRIPE_MODE: "live",
+      STRIPE_SECRET_KEY_LIVE: SK_LIVE,
+      STRIPE_WEBHOOK_SECRET_LIVE: WH,
+      STRIPE_PRICE_ANNUAL_LIVE: "price_a",
+      STRIPE_PRICE_COLLABORATOR_ANNUAL_LIVE: "price_ca",
+    });
+    expect(missingStripeEnv()).toEqual([]);
+    expect(canCollectPayment()).toBe(true);
+  });
+
+  /* Renseigner les deux mondes ne doit jamais faire encaisser dans le mauvais :
+     le jeu inutilisé est ignoré, pas mélangé. */
+  it("ignore le monde non sélectionné, même entièrement renseigné", async () => {
+    const { stripeConfig, missingStripeEnv } = await loadEnv({
+      STRIPE_MODE: "test",
+      STRIPE_SECRET_KEY_TEST: SK,
+      STRIPE_WEBHOOK_SECRET_TEST: WH,
+      STRIPE_PRICE_MONTHLY_TEST: "price_mt",
+      STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST: "price_cmt",
+      STRIPE_SECRET_KEY_LIVE: SK_LIVE,
+      STRIPE_WEBHOOK_SECRET_LIVE: "whsec_ProductionAbCdEfGhIj",
+      STRIPE_PRICE_MONTHLY_LIVE: "price_ml",
+      STRIPE_PRICE_COLLABORATOR_MONTHLY_LIVE: "price_cml",
+    });
+    expect(stripeConfig().secretKey).toBe(SK);
+    expect(stripeConfig().prices.monthly).toBe("price_mt");
+    expect(missingStripeEnv()).toEqual([]);
   });
 
   it("par défaut, c'est encore Monetico qui encaisse", async () => {

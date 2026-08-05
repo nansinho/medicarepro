@@ -125,7 +125,7 @@ describe("verifyStripeEvent", () => {
     const corps = evenement();
     const res = verifyStripeEvent(corps, signer(corps));
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.reason).toContain("STRIPE_WEBHOOK_SECRET");
+    if (!res.ok) expect(res.reason).toMatch(/secret de webhook/i);
   });
 });
 

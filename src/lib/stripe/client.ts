@@ -1,6 +1,6 @@
 import "server-only";
 import Stripe from "stripe";
-import { env } from "@/lib/env";
+import { env, stripeConfig } from "@/lib/env";
 
 /* ============================================================
    Accès à Stripe — un seul endroit décide.
@@ -26,7 +26,7 @@ let instance: Stripe | null = null;
 
 /** Clé secrète configurée ? Les routes de lecture n'en ont pas besoin. */
 export function hasStripe(): boolean {
-  return Boolean(env().STRIPE_SECRET_KEY);
+  return Boolean(stripeConfig().secretKey);
 }
 
 /**
@@ -35,9 +35,9 @@ export function hasStripe(): boolean {
  */
 export function stripe(): Stripe {
   if (instance) return instance;
-  const key = env().STRIPE_SECRET_KEY;
+  const key = stripeConfig().secretKey;
   if (!key) {
-    throw new Error("STRIPE_SECRET_KEY manquante : encaissement impossible.");
+    throw new Error("Clé secrète Stripe manquante : encaissement impossible.");
   }
   instance = new Stripe(key, {
     /* Repris tel quel dans les journaux de Stripe : quand une transaction part
@@ -62,7 +62,11 @@ export function stripe(): Stripe {
  * migration 0033, et Stripe a rigoureusement le même piège.
  */
 export function stripeLiveMode(): boolean {
-  return (env().STRIPE_SECRET_KEY ?? "").startsWith("sk_live_");
+  /* Lu sur la CLÉ EFFECTIVE, jamais sur le sélecteur. Le sélecteur dit quel
+     jeu utiliser ; la clé dit dans quel monde on est réellement. Quand les deux
+     divergent, `missingStripeEnv` refuse l'encaissement — mais si jamais un
+     chemin passait outre, c'est encore la clé qui doit faire foi. */
+  return (stripeConfig().secretKey ?? "").startsWith("sk_live_");
 }
 
 /** Le site est-il servi en ligne alors que Stripe est en clé de test ? */

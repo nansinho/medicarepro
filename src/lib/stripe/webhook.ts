@@ -1,7 +1,7 @@
 import "server-only";
 import type Stripe from "stripe";
 import { stripe, stripeLiveMode } from "@/lib/stripe/client";
-import { env } from "@/lib/env";
+import { stripeConfig } from "@/lib/env";
 
 /* ============================================================
    Notifications Stripe : authentifier, puis projeter.
@@ -48,8 +48,10 @@ export function verifyStripeEvent(
   rawBody: string,
   signature: string | null,
 ): { ok: true; event: Stripe.Event } | { ok: false; reason: string } {
-  const secret = env().STRIPE_WEBHOOK_SECRET;
-  if (!secret) return { ok: false, reason: "STRIPE_WEBHOOK_SECRET manquante" };
+  const secret = stripeConfig().webhookSecret;
+  if (!secret) {
+    return { ok: false, reason: "Secret de webhook Stripe manquant" };
+  }
   if (!signature) return { ok: false, reason: "en-tête stripe-signature absent" };
   try {
     const event = stripe().webhooks.constructEvent(rawBody, signature, secret);

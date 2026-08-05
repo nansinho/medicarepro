@@ -119,12 +119,38 @@ const EnvSchema = z.object({
      clé (`sk_test_` ou `sk_live_`). On le LIT au lieu de le déclarer, parce
      qu'une déclaration peut mentir — MONETICO_MODE affirmait « production »
      pendant que les commandes vivaient sur la plateforme d'essai. */
+  /* Quel jeu de clés utiliser. Les deux mondes peuvent être renseignés en même
+     temps : c'est ce sélecteur qui tranche, et il est VÉRIFIÉ contre la clé
+     qu'il désigne (voir missingStripeEnv). Un sélecteur qui ment était
+     exactement le défaut de MONETICO_MODE. */
+  STRIPE_MODE: z.enum(["test", "live"]).default("test"),
+
+  STRIPE_SECRET_KEY_TEST: z
+    .string()
+    .regex(/^sk_test_[A-Za-z0-9]+$/, "Clé secrète Stripe de test invalide")
+    .optional(),
+  STRIPE_SECRET_KEY_LIVE: z
+    .string()
+    .regex(/^sk_live_[A-Za-z0-9]+$/, "Clé secrète Stripe de production invalide")
+    .optional(),
+  /* Forme sans suffixe : acceptée, et interprétée selon son propre préfixe.
+     Utile pour un environnement qui n'a qu'un monde à servir. */
   STRIPE_SECRET_KEY: z
     .string()
     .regex(/^sk_(test|live)_[A-Za-z0-9]+$/, "Clé secrète Stripe invalide")
     .optional(),
   /* Signature des notifications entrantes. Sans elle, le webhook refuse tout :
      un événement non signé peut être fabriqué par n'importe qui. */
+  /* Un point de terminaison par monde, donc un secret par monde : celui de test
+     ne validera JAMAIS un événement de production. */
+  STRIPE_WEBHOOK_SECRET_TEST: z
+    .string()
+    .regex(/^whsec_[A-Za-z0-9+/=]+$/, "Secret de webhook Stripe invalide")
+    .optional(),
+  STRIPE_WEBHOOK_SECRET_LIVE: z
+    .string()
+    .regex(/^whsec_[A-Za-z0-9+/=]+$/, "Secret de webhook Stripe invalide")
+    .optional(),
   STRIPE_WEBHOOK_SECRET: z
     .string()
     .regex(/^whsec_[A-Za-z0-9+/=]+$/, "Secret de webhook Stripe invalide")
@@ -132,6 +158,17 @@ const EnvSchema = z.object({
   /* Identifiants de prix, créés dans le tableau de bord Stripe. Le montant
      facturé vient de LÀ, jamais du navigateur ni de notre grille : celle-ci
      ne sert plus qu'à afficher. */
+  /* Les identifiants de prix DIFFÈRENT entre les deux mondes : un `price_` de
+     test n'existe pas en production. Les doubler est donc obligatoire, ce n'est
+     pas du confort. */
+  STRIPE_PRICE_MONTHLY_TEST: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_ANNUAL_TEST: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_COLLABORATOR_ANNUAL_TEST: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_MONTHLY_LIVE: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_ANNUAL_LIVE: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_COLLABORATOR_MONTHLY_LIVE: z.string().startsWith("price_").optional(),
+  STRIPE_PRICE_COLLABORATOR_ANNUAL_LIVE: z.string().startsWith("price_").optional(),
   STRIPE_PRICE_MONTHLY: z.string().startsWith("price_").optional(),
   STRIPE_PRICE_ANNUAL: z.string().startsWith("price_").optional(),
   STRIPE_PRICE_COLLABORATOR_MONTHLY: z.string().startsWith("price_").optional(),
@@ -440,6 +477,61 @@ export function paymentProvider(): "monetico" | "stripe" {
 }
 
 /**
+ * Les valeurs Stripe EFFECTIVES pour le monde sélectionné.
+ *
+ * Les deux mondes peuvent cohabiter dans la configuration — c'est même
+ * souhaitable, on renseigne une fois et on bascule sans rien ressaisir. Mais
+ * cohabiter ne veut pas dire se confondre : `STRIPE_MODE` désigne le jeu à
+ * utiliser, et rien d'autre. La forme sans suffixe reste acceptée pour un
+ * environnement qui n'a qu'un monde à servir.
+ *
+ * Ce qui rend ce sélecteur sûr, contrairement à MONETICO_MODE : la clé Stripe
+ * porte son propre monde dans son préfixe. La déclaration est donc VÉRIFIABLE,
+ * et `missingStripeEnv` la confronte à la réalité au lieu de la croire.
+ */
+export function stripeConfig(): {
+  mode: "test" | "live";
+  secretKey?: string;
+  webhookSecret?: string;
+  prices: {
+    monthly?: string;
+    annual?: string;
+    collaboratorMonthly?: string;
+    collaboratorAnnual?: string;
+  };
+} {
+  const e = env();
+  const live = e.STRIPE_MODE === "live";
+  return {
+    mode: e.STRIPE_MODE,
+    secretKey:
+      (live ? e.STRIPE_SECRET_KEY_LIVE : e.STRIPE_SECRET_KEY_TEST) ??
+      e.STRIPE_SECRET_KEY,
+    webhookSecret:
+      (live ? e.STRIPE_WEBHOOK_SECRET_LIVE : e.STRIPE_WEBHOOK_SECRET_TEST) ??
+      e.STRIPE_WEBHOOK_SECRET,
+    prices: {
+      monthly:
+        (live ? e.STRIPE_PRICE_MONTHLY_LIVE : e.STRIPE_PRICE_MONTHLY_TEST) ??
+        e.STRIPE_PRICE_MONTHLY,
+      annual:
+        (live ? e.STRIPE_PRICE_ANNUAL_LIVE : e.STRIPE_PRICE_ANNUAL_TEST) ??
+        e.STRIPE_PRICE_ANNUAL,
+      collaboratorMonthly:
+        (live
+          ? e.STRIPE_PRICE_COLLABORATOR_MONTHLY_LIVE
+          : e.STRIPE_PRICE_COLLABORATOR_MONTHLY_TEST) ??
+        e.STRIPE_PRICE_COLLABORATOR_MONTHLY,
+      collaboratorAnnual:
+        (live
+          ? e.STRIPE_PRICE_COLLABORATOR_ANNUAL_LIVE
+          : e.STRIPE_PRICE_COLLABORATOR_ANNUAL_TEST) ??
+        e.STRIPE_PRICE_COLLABORATOR_ANNUAL,
+    },
+  };
+}
+
+/**
  * Variables manquantes pour encaisser par Stripe.
  *
  * Le secret de webhook est EXIGÉ au même titre que la clé secrète, et ce n'est
@@ -449,20 +541,37 @@ export function paymentProvider(): "monetico" | "stripe" {
  * prolongerait une période sans qu'un centime soit entré.
  */
 export function missingStripeEnv(): string[] {
-  const e = env();
+  const c = stripeConfig();
+  const suffixe = c.mode === "live" ? "_LIVE" : "_TEST";
   const missing: string[] = [];
-  if (!e.STRIPE_SECRET_KEY) missing.push("STRIPE_SECRET_KEY");
-  if (!e.STRIPE_WEBHOOK_SECRET) missing.push("STRIPE_WEBHOOK_SECRET");
-  if (!e.STRIPE_PRICE_MONTHLY && !e.STRIPE_PRICE_ANNUAL) {
-    missing.push("STRIPE_PRICE_MONTHLY ou STRIPE_PRICE_ANNUAL");
+
+  if (!c.secretKey) missing.push(`STRIPE_SECRET_KEY${suffixe}`);
+  if (!c.webhookSecret) missing.push(`STRIPE_WEBHOOK_SECRET${suffixe}`);
+
+  /* LA GARDE QUI MANQUAIT À MONETICO. Le sélecteur annonce un monde, la clé en
+     porte un autre : on refuse d'encaisser plutôt que de laisser la déclaration
+     l'emporter. C'est très exactement le scénario du 05/08/2026, où le site se
+     croyait en production pendant que les commandes vivaient en essai — et où
+     rien, nulle part, ne confrontait les deux. */
+  if (c.secretKey) {
+    const clePourLaProd = c.secretKey.startsWith("sk_live_");
+    if (clePourLaProd !== (c.mode === "live")) {
+      missing.push(
+        `STRIPE_MODE=${c.mode} ne correspond pas à la clé fournie (${clePourLaProd ? "sk_live_" : "sk_test_"})`,
+      );
+    }
+  }
+
+  if (!c.prices.monthly && !c.prices.annual) {
+    missing.push(`STRIPE_PRICE_MONTHLY${suffixe} ou STRIPE_PRICE_ANNUAL${suffixe}`);
   }
   /* Un prix de collaborateur manquant ne se voit qu'au moment où un cabinet en
      déclare un : la souscription partirait alors au tarif du titulaire seul. */
-  if (e.STRIPE_PRICE_MONTHLY && !e.STRIPE_PRICE_COLLABORATOR_MONTHLY) {
-    missing.push("STRIPE_PRICE_COLLABORATOR_MONTHLY");
+  if (c.prices.monthly && !c.prices.collaboratorMonthly) {
+    missing.push(`STRIPE_PRICE_COLLABORATOR_MONTHLY${suffixe}`);
   }
-  if (e.STRIPE_PRICE_ANNUAL && !e.STRIPE_PRICE_COLLABORATOR_ANNUAL) {
-    missing.push("STRIPE_PRICE_COLLABORATOR_ANNUAL");
+  if (c.prices.annual && !c.prices.collaboratorAnnual) {
+    missing.push(`STRIPE_PRICE_COLLABORATOR_ANNUAL${suffixe}`);
   }
   return missing;
 }
