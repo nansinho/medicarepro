@@ -10,6 +10,7 @@ import {
   timingSafeEqualString,
 } from "@/lib/crypto";
 import { buildPaymentForm } from "@/lib/monetico";
+import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
 import { invoicePrefixCandidates } from "@/lib/checkout/invoice-prefix";
 import {
   checkAvailability,
@@ -368,12 +369,15 @@ export async function POST(request: NextRequest) {
           country: "FR",
         },
       },
-      {
-        tpe: billing.moneticoTpe,
-        key: billing.moneticoKey,
-        societe: billing.moneticoSociete,
-        mode: billing.moneticoMode,
-      },
+      /* Router par le PLAN, comme la commande d'origine (monetico-routing.ts).
+         La relance reprenait en dur le TPE récurrent : une offre 12 mois
+         relancée repartait sur NB8179R, dont le code site porte la
+         périodicité MENSUELLE. Un client qui relançait son annuel après un
+         refus se serait retrouvé prélevé de 478,08 € TOUS LES MOIS. Observé
+         en production le 05/08/2026 (MPW6J1QVJ4P7, MP7WEVH8JM3V,
+         MP44K6ZA2Q7A : plan ANNUAL, TPE NB8179R dans l'IPN) — sans
+         conséquence uniquement parce que la banque a refusé les trois. */
+      moneticoConfigForPlan(old.plan),
     );
   } catch (err) {
     console.error(

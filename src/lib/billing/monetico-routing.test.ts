@@ -1,66 +1,65 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
 
 /* ============================================================
-   Routage multi-TPE : le mensuel doit partir du TPE récurrent,
-   l'annuel du TPE immédiat, et l'IPN être vérifié avec la clé du
-   TPE qui l'a émis. Une erreur ici = mauvais sceau (paiement
-   refusé) ou pire, mauvais TPE encaissé.
+   GARDE-FOU : tout formulaire de paiement route son TPE par le PLAN.
 
-   On stube billingEnv() pour ne pas dépendre de vraies variables.
+   MediCare Pro encaisse sur deux TPE. Le code site du récurrent (NB8179R)
+   porte une périodicité MENSUELLE : c'est lui qui décide que la banque
+   reprélèvera, pas la commande. Envoyer une offre 12 mois sur ce TPE ne
+   produit donc pas une erreur — cela produit un abonnement mensuel au prix
+   de l'année.
+
+   Ce qui s'est produit le 5 août 2026 : la route de relance reprenait le TPE
+   récurrent en dur. Trois relances d'une offre 12 mois à 478,08 € sont parties
+   sur NB8179R (références MPW6J1QVJ4P7, MP7WEVH8JM3V, MP44K6ZA2Q7A, visibles
+   dans ipn_events). Le client n'a été sauvé que par le refus de sa banque.
+
+   Aucun test de comportement ne pouvait l'attraper : le formulaire produit est
+   valide, scellé, accepté par Monetico. Seul le TPE est le mauvais, et il ne
+   se lit que sur le relevé du client. D'où ce balayage du source.
    ============================================================ */
 
-const RECURRENT = {
-  moneticoTpe: "NB8179R",
-  moneticoKey: "KEY_RECURRENT",
-  moneticoSociete: "medicarepr",
-  moneticoTpeImmediate: "NB8179I",
-  moneticoKeyImmediate: "KEY_IMMEDIATE",
-  moneticoSocieteImmediate: "medicarepr_im",
-  moneticoMode: "test" as const,
-};
+/** Toute route qui construit un formulaire de paiement Monetico. */
+const BUILDERS = [
+  "src/app/api/checkout/route.ts",
+  "src/app/api/checkout/retry/route.ts",
+  "src/app/api/checkout/renew/route.ts",
+  "src/lib/billing/orders.ts",
+];
 
-vi.mock("@/lib/env", () => ({
-  billingEnv: () => RECURRENT,
-}));
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
 
-let moneticoConfigForPlan: typeof import("./monetico-routing").moneticoConfigForPlan;
-let moneticoKeyForTpe: typeof import("./monetico-routing").moneticoKeyForTpe;
+function read(relativePath: string): string {
+  return stripComments(
+    readFileSync(join(process.cwd(), relativePath), "utf8"),
+  );
+}
 
-beforeEach(async () => {
-  ({ moneticoConfigForPlan, moneticoKeyForTpe } = await import(
-    "./monetico-routing"
-  ));
-});
-
-afterEach(() => vi.clearAllMocks());
-
-describe("moneticoConfigForPlan", () => {
-  it("MENSUEL → TPE récurrent", () => {
-    const c = moneticoConfigForPlan("MONTHLY");
-    expect(c.tpe).toBe("NB8179R");
-    expect(c.key).toBe("KEY_RECURRENT");
-    expect(c.societe).toBe("medicarepr");
+describe("routage des TPE Monetico", () => {
+  it.each(BUILDERS)("%s passe par moneticoConfigForPlan", (file) => {
+    const source = read(file);
+    expect(source).toContain("buildPaymentForm(");
+    expect(source).toContain("moneticoConfigForPlan(");
   });
 
-  it("ANNUEL → TPE immédiat", () => {
-    const c = moneticoConfigForPlan("ANNUAL");
-    expect(c.tpe).toBe("NB8179I");
-    expect(c.key).toBe("KEY_IMMEDIATE");
-    expect(c.societe).toBe("medicarepr_im");
-  });
-});
-
-describe("moneticoKeyForTpe", () => {
-  it("clé immédiate pour le TPE immédiat", () => {
-    expect(moneticoKeyForTpe("NB8179I")).toBe("KEY_IMMEDIATE");
+  it.each(BUILDERS)("%s ne compose aucune config de TPE à la main", (file) => {
+    const source = read(file);
+    /* Le seul endroit autorisé à lire ces champs est monetico-routing.ts.
+       Ailleurs, les assembler revient à choisir un TPE sans regarder le plan. */
+    expect(source).not.toMatch(/tpe:\s*\w+\.moneticoTpe\b/);
+    expect(source).not.toMatch(/key:\s*\w+\.moneticoKey\b/);
+    expect(source).not.toMatch(/societe:\s*\w+\.moneticoSociete\b/);
   });
 
-  it("clé récurrente pour le TPE récurrent", () => {
-    expect(moneticoKeyForTpe("NB8179R")).toBe("KEY_RECURRENT");
-  });
-
-  it("clé récurrente par défaut pour un TPE inconnu", () => {
-    expect(moneticoKeyForTpe("NB8179X")).toBe("KEY_RECURRENT");
-    expect(moneticoKeyForTpe("")).toBe("KEY_RECURRENT");
+  it("seul monetico-routing.ts choisit un TPE", () => {
+    const routing = read("src/lib/billing/monetico-routing.ts");
+    expect(routing).toMatch(/tpe:\s*b\.moneticoTpeImmediate/);
+    expect(routing).toMatch(/tpe:\s*b\.moneticoTpe\b/);
   });
 });
