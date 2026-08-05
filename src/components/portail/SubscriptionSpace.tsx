@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import MoneticoRedirectForm from "@/components/checkout/MoneticoRedirectForm";
 import { LEGAL_DOCUMENTS, TERMS_LABEL } from "@/lib/legal/registry";
 import { MAX_EXTRA_COLLABORATORS } from "@/lib/checkout/pricing";
+import PdfViewer, { type PdfDoc } from "@/components/checkout/PdfViewer";
+import pdfStyles from "@/components/checkout/PdfViewer.module.css";
 import s from "./Portal.module.css";
 
 /* ============================================================
@@ -130,6 +132,8 @@ function IrreversibleWarning({ effectiveAtLabel }: { effectiveAtLabel: string })
 
 export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
   const router = useRouter();
+  /** Document contractuel en cours de lecture. */
+  const [pdf, setPdf] = useState<PdfDoc | null>(null);
   const [drawer, setDrawer] = useState<Drawer>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -972,14 +976,29 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
                   </a>
                   <span className={s.docMeta}>Version {doc.version}</span>
                 </span>
-                <a
-                  className={s.docPdf}
-                  href={doc.pdfHref}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  className={pdfStyles.trigger}
+                  onClick={() =>
+                    setPdf({
+                      title: doc.title,
+                      version: doc.version,
+                      href: doc.pdfHref,
+                    })
+                  }
+                  aria-label={`Lire le PDF officiel : ${doc.title} (version ${doc.version})`}
                 >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H14a1 1 0 0 1-1-1V3.5z" />
+                  </svg>
                   PDF
-                </a>
+                </button>
               </li>
             ))}
           </ul>
@@ -1048,6 +1067,8 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
 
   return (
     <div className={s.space}>
+      {pdf && <PdfViewer doc={pdf} onClose={() => setPdf(null)} />}
+
       <div className={s.hero}>
         <div className={s.heroText}>
           <h1 className={s.title}>Mon abonnement</h1>

@@ -556,22 +556,38 @@
   font-size: 0.78rem;
   color: var(--color-navy-soft);
 }
+/* Le rouge est la couleur du PDF partout ailleurs : elle se reconnaît sans
+   qu'on ait à lire l'étiquette. */
 .docPdf {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 800;
   letter-spacing: 0.04em;
-  color: var(--color-primary);
-  border: 1px solid var(--color-border-soft);
-  border-radius: 10px;
-  padding: 6px 12px;
-  background: #fff;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  color: #fff;
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 11px;
+  background: #d13b30;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 .docPdf:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(43, 111, 214, 0.12);
+  background: #b4332f;
+  box-shadow: 0 0 0 3px rgba(209, 59, 48, 0.16);
+}
+.docPdf:active {
+  transform: translateY(1px);
+}
+.docPdf:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
 }
 
 /* ---- Cases à cocher (mandat, CGV) ---- */

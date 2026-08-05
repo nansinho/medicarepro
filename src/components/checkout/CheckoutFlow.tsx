@@ -17,6 +17,7 @@ import { maskIban } from "@/lib/sepa/iban";
 import PasswordStrength from "@/components/auth/PasswordStrength";
 import MoneticoRedirectForm from "./MoneticoRedirectForm";
 import StripeRedirect from "./StripeRedirect";
+import PdfViewer, { type PdfDoc } from "./PdfViewer";
 import s from "./Checkout.module.css";
 
 /* ============================================================
@@ -318,6 +319,8 @@ export default function CheckoutFlow({
   } | null>(null);
   /** Adresse de la page Stripe, une fois la caisse ouverte. */
   const [stripeUrl, setStripeUrl] = useState<string | null>(null);
+  /** Document contractuel en cours de lecture, le cas échéant. */
+  const [pdf, setPdf] = useState<PdfDoc | null>(null);
 
   /* ---- Turnstile ---- */
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -761,6 +764,10 @@ export default function CheckoutFlow({
 
   return (
     <div className={s.shell}>
+      {/* Lecture d'un document contractuel, par-dessus le tunnel : l'état du
+          formulaire reste intact derrière. */}
+      {pdf && <PdfViewer doc={pdf} onClose={() => setPdf(null)} />}
+
       {/* Script Turnstile — rendu explicite pour maîtriser le cycle de vie du widget. */}
       {siteKey && (
         <Script
@@ -1453,15 +1460,34 @@ export default function CheckoutFlow({
                       </a>
                       <span className={s.docMeta}>Version {doc.version}</span>
                     </div>
-                    <a
-                      href={doc.pdfHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    {/* Ouvre le document SANS quitter le tunnel : on demande
+                        au praticien d'accepter ces textes, donc de les lire.
+                        L'envoyer dans un autre onglet lui faisait perdre le fil
+                        de son inscription. Le téléchargement reste offert dans
+                        la visionneuse. */}
+                    <button
+                      type="button"
                       className={s.docPdf}
-                      aria-label={`Télécharger le PDF officiel : ${doc.title} (version ${doc.version})`}
+                      onClick={() =>
+                        setPdf({
+                          title: doc.title,
+                          version: doc.version,
+                          href: doc.pdfHref,
+                        })
+                      }
+                      aria-label={`Lire le PDF officiel : ${doc.title} (version ${doc.version})`}
                     >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H14a1 1 0 0 1-1-1V3.5z" />
+                      </svg>
                       PDF
-                    </a>
+                    </button>
                   </li>
                 ))}
                 <li className={s.docItem}>
