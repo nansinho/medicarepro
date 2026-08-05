@@ -6,6 +6,7 @@ import { buildPaymentForm, type SealedPaymentForm } from "@/lib/monetico";
 import { moneticoConfigForPlan } from "@/lib/billing/monetico-routing";
 import { createSubscriptionCheckout } from "@/lib/stripe/checkout";
 import { stripeLiveMode } from "@/lib/stripe/client";
+import { ensureStripeCustomer } from "@/lib/stripe/customer";
 import type { BillingPlan } from "@/lib/checkout/pricing";
 
 /* ============================================================
@@ -415,11 +416,22 @@ export async function openStripeOrder(
   /* La session AVANT l'insertion : si Stripe refuse, aucune commande fantôme
      ne reste en base à occuper l'index d'unicité. L'ordre inverse laisserait
      un contrat incapable d'en ouvrir une seconde. */
+  /* Le client Stripe porte l'adresse de facturation complète. Sans lui, la
+     facture émise ne montre que le nom et le pays du destinataire — constaté
+     sur la toute première, le 05/08/2026. */
+  const customerId = await ensureStripeCustomer({
+    appCabinetId: input.appCabinetId,
+    name: input.billingSnapshot.cabinetName,
+    email: input.billingSnapshot.adminEmail,
+    address: input.billingSnapshot.cabinetAddress,
+    postalCity: input.billingSnapshot.cabinetPostalCity,
+  });
+
   const { url, sessionId } = await createSubscriptionCheckout({
     reference,
     plan: input.plan,
     extraCollaborators: input.extraCollaborators,
-    customerEmail: input.billingSnapshot.adminEmail,
+    customerId,
     successPath: input.returnPath,
     errorPath: input.errorPath,
     metadata: { kind: input.kind, cabinet: input.appCabinetId },

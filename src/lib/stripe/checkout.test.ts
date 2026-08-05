@@ -30,7 +30,7 @@ const BASE = {
   reference: "MPABCDEFGH12",
   plan: "MONTHLY" as const,
   extraCollaborators: 0,
-  customerEmail: "cabinet@example.fr",
+  customerId: "cus_test_cabinet",
   successPath: "/mon-abonnement/merci",
   errorPath: "/mon-abonnement/echec",
 };
@@ -148,11 +148,44 @@ describe("buildCheckoutParams", () => {
     });
   });
 
+
+  /* La toute première facture réelle, le 05/08/2026, portait « HARUA — France »
+     et rien d'autre : ni rue, ni code postal. Une session ouverte avec la seule
+     adresse électronique ne transmet que celle-ci, et Stripe imprime ce qu'il a.
+     L'adresse du destinataire est pourtant une mention obligatoire. */
+  it("rattache le client Stripe plutôt que sa seule adresse électronique", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams(BASE);
+    expect(p.customer).toBe("cus_test_cabinet");
+    expect(p.customer_email).toBeUndefined();
+    expect(p.customer_update).toEqual({ address: "auto", name: "auto" });
+  });
+
+  it("accepte l'adresse électronique en repli, jamais les deux ensemble", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams({
+      ...BASE,
+      customerId: undefined,
+      customerEmail: "cabinet@example.fr",
+    });
+    expect(p.customer_email).toBe("cabinet@example.fr");
+    expect(p.customer).toBeUndefined();
+    // Stripe refuse les deux ensemble : notre construction ne peut pas les poser.
+    expect("customer" in p && "customer_email" in p).toBe(false);
+  });
+
+  it("refuse une session sans aucun moyen d'identifier le client", async () => {
+    const { buildCheckoutParams } = await charger();
+    expect(() =>
+      buildCheckoutParams({ ...BASE, customerId: undefined, customerEmail: undefined }),
+    ).toThrow(/client/i);
+  });
+
   it("propose la carte et le prélèvement SEPA, en français", async () => {
     const { buildCheckoutParams } = await charger();
     const p = buildCheckoutParams(BASE);
     expect(p.payment_method_types).toEqual(["card", "sepa_debit"]);
     expect(p.locale).toBe("fr");
-    expect(p.customer_email).toBe("cabinet@example.fr");
+    expect(p.customer).toBe("cus_test_cabinet");
   });
 });

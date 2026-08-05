@@ -31,8 +31,16 @@ export type CheckoutInput = {
   reference: string;
   plan: BillingPlan;
   extraCollaborators: number;
-  /** Pré-remplit le champ email de la page de paiement. */
-  customerEmail: string;
+  /**
+   * Client Stripe déjà porteur de l'adresse de facturation complète.
+   *
+   * Préféré à `customerEmail` : une session ouverte avec la seule adresse
+   * électronique produit une facture où le destinataire se réduit à un nom et
+   * un pays. L'adresse du destinataire est une mention obligatoire.
+   */
+  customerId?: string;
+  /** Repli quand aucun client Stripe n'a pu être créé. */
+  customerEmail?: string;
   /** Chemin de retour après acceptation, ex. « /mon-abonnement/merci ». */
   successPath: string;
   /** Chemin de retour après abandon ou refus. JAMAIS le même que le succès. */
@@ -59,6 +67,9 @@ export function buildCheckoutParams(
     throw new Error(
       `Nombre de collaborateurs au-delà du maximum (${MAX_EXTRA_COLLABORATORS}).`,
     );
+  }
+  if (!input.customerId && !input.customerEmail) {
+    throw new Error("Ni client Stripe ni adresse électronique : session refusée.");
   }
   if (input.successPath === input.errorPath) {
     /* Monetico l'a laissé passer sur les quatre points d'entrée : une carte
@@ -100,7 +111,15 @@ export function buildCheckoutParams(
     payment_method_types: ["card", "sepa_debit"],
     locale: "fr",
     client_reference_id: input.reference,
-    customer_email: input.customerEmail,
+    /* L'un OU l'autre : Stripe refuse les deux ensemble. */
+    ...(input.customerId
+      ? {
+          customer: input.customerId,
+          /* Autorise Stripe à mettre à jour l'adresse si le client la corrige
+             sur la page de paiement, plutôt que de la figer à notre copie. */
+          customer_update: { address: "auto" as const, name: "auto" as const },
+        }
+      : { customer_email: input.customerEmail }),
     metadata,
     subscription_data: { metadata },
     /* Calculées par siteUrl(), JAMAIS depuis la requête : en production le
