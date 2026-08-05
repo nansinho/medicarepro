@@ -264,13 +264,67 @@ export async function applyStripeEvent(
       .maybeSingle();
 
     if (!subRow) {
-      /* Le contrat n'existe pas encore : la facture de création arrive parfois
-         avant que checkout.session.completed ait fini son travail. Stripe
-         re-livrera, et le contrat sera là. On ne marque donc PAS traité. */
+      /* DEUX SITUATIONS TRÈS DIFFÉRENTES SE RESSEMBLENT ICI, et les confondre
+         coûte cher.
+
+         La bénigne : la facture de création arrive dans la même seconde que la
+         session de paiement, donc avant que le contrat n'existe. Quelques
+         minutes plus tard il est là. Il suffit d'attendre la reprise.
+
+         LA GRAVE : l'abonnement Stripe est vivant et prélèvera tous les mois,
+         mais la commande qui l'a ouvert est CLOSE chez nous — expirée faute
+         d'être payée à temps, ou refusée. Plus rien ne créera le contrat, et le
+         cabinet serait débité indéfiniment sans qu'aucun contrat n'existe en
+         face. Constaté le 05/08/2026 sur MPKC2162DG43 : commande expirée,
+         abonnement sub_1U17kP… toujours actif.
+
+         On les distingue par l'état de la commande, que la facture nous donne
+         par la référence rangée dans ses métadonnées. */
+      const reference =
+        (invoice as unknown as {
+          parent?: { subscription_details?: { metadata?: Record<string, string> } };
+        }).parent?.subscription_details?.metadata?.reference ?? null;
+
+      if (reference) {
+        const { data: orderRow } = await supabase
+          .from("subscription_orders")
+          .select("status, app_cabinet_id, billing_snapshot")
+          .eq("monetico_reference", reference)
+          .maybeSingle();
+        const order = orderRow as {
+          status: string;
+          app_cabinet_id: string;
+          billing_snapshot: { cabinetName?: string } | null;
+        } | null;
+
+        if (order && order.status !== "pending" && order.status !== "paid") {
+          /* Rien ne viendra plus : la commande ne sera pas rouverte. Attendre
+             une reprise qui n'aboutira jamais ne ferait que retarder l'alerte
+             de dix heures pendant que les prélèvements courent. */
+          await alerteStripe("URGENT — Abonnement Stripe sans contrat", [
+            `Cabinet : ${order.billing_snapshot?.cabinetName ?? order.app_cabinet_id}`,
+            `Référence : ${reference}`,
+            `État de la commande : ${order.status}`,
+            `Abonnement Stripe : ${abonnement}`,
+            `Facture : ${invoice.number ?? invoice.id ?? "(inconnue)"}`,
+            "L'abonnement est ACTIF chez Stripe et prélèvera à chaque échéance, alors qu'aucun contrat n'existe de notre côté. Soit annuler l'abonnement dans Stripe et rembourser, soit créer le contrat à la main.",
+          ]);
+          await supabase
+            .from("stripe_events")
+            .update({
+              processed_at: new Date().toISOString(),
+              process_error: `abonnement sans contrat (commande ${order.status}) — alerte émise`,
+            })
+            .eq("event_id", eventId);
+          return;
+        }
+      }
+
+      /* Cas bénin : la reprise du cron retrouvera le contrat. */
       await supabase
         .from("stripe_events")
         .update({
-          process_error: `contrat introuvable pour ${abonnement} — sera rejoué`,
+          process_error: `contrat introuvable pour ${abonnement} — sera repris`,
         })
         .eq("event_id", eventId);
       return;
