@@ -113,9 +113,22 @@ async function handle(request: Request): Promise<Response> {
   const from = new Date(Date.now() - 8 * 86_400_000).toISOString();
   const to = new Date(Date.now() + 32 * 86_400_000).toISOString();
 
-  /* Tout ce qui ne se reconduit pas tout seul : l'annuel par nature, et tout
-     contrat dont la récurrence carte a été arrêtée. Un mensuel encore reconduit
-     n'a rien à valider, la banque s'en charge. */
+  /* CE QUI NE SE RECONDUIT PAS TOUT SEUL, ET RIEN D'AUTRE.
+
+     La règle était « l'annuel par nature, plus tout contrat dont la récurrence a
+     été arrêtée ». Elle était juste chez Monetico, où un annuel passait par le
+     TPE immédiat : un paiement unique, sans reconduction, qu'il fallait rappeler
+     au client avant l'échéance.
+
+     ELLE EST FAUSSE ET DANGEREUSE CHEZ STRIPE, où l'annuel se reconduit comme le
+     mensuel. Un cabinet parfaitement à jour aurait reçu « votre abonnement
+     expire le X, renouvelez » à J-30, 15, 7, 3 et 0, avec un lien de paiement
+     qui l'aurait fait payer une SECONDE année.
+
+     Le seul critère qui vaut pour les deux prestataires est le fait constaté :
+     la reconduction est-elle arrêtée ? `recurrence_stopped_at` le dit, et il est
+     posé sur les annuels Monetico dès leur création comme sur toute résiliation
+     programmée. */
   const { data, error } = await supabase
     .from("subscriptions")
     .select(
@@ -124,7 +137,7 @@ async function handle(request: Request): Promise<Response> {
     .eq("status", "active")
     .gte("current_period_end", from)
     .lte("current_period_end", to)
-    .or("plan.eq.ANNUAL,recurrence_stopped_at.not.is.null");
+    .not("recurrence_stopped_at", "is", null);
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

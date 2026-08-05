@@ -65,10 +65,19 @@ function newMoneticoReference(): string {
   return out;
 }
 
-/** Cookie httpOnly de suivi du dossier : "<référence>.<status_token>". */
+/**
+ * Cookie httpOnly de suivi du dossier : "<référence>.<status_token>".
+ *
+ * SA DURÉE EST CELLE DE LA PAGE DE PAIEMENT, pas une heure arbitraire. Une
+ * session Stripe vit 24 heures : un praticien qui ouvre la page, se fait
+ * interrompre, et paie 90 minutes plus tard revenait sur « accès refusé, vous
+ * avez peut-être changé de navigateur » — au moment précis où il venait d'être
+ * débité. C'est ce cookie, et lui seul, qui autorise l'écran de suivi.
+ */
 function checkoutCookie(reference: string, statusToken: string): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `mp_checkout=${reference}.${statusToken}; Path=/; Max-Age=3600; HttpOnly; SameSite=Lax${secure}`;
+  const DUREE = 24 * 3600;
+  return `mp_checkout=${reference}.${statusToken}; Path=/; Max-Age=${DUREE}; HttpOnly; SameSite=Lax${secure}`;
 }
 
 /** Vérification Turnstile côté serveur (timeout 5 s, fail-closed). */

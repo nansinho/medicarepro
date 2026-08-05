@@ -66,9 +66,11 @@ function newMoneticoReference(): string {
   return out;
 }
 
+/** Même durée que le tunnel : celle de la page de paiement, pas une heure. */
 function checkoutCookie(reference: string, statusToken: string): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `mp_checkout=${reference}.${statusToken}; Path=/; Max-Age=3600; HttpOnly; SameSite=Lax${secure}`;
+  const DUREE = 24 * 3600;
+  return `mp_checkout=${reference}.${statusToken}; Path=/; Max-Age=${DUREE}; HttpOnly; SameSite=Lax${secure}`;
 }
 
 /** Violation de l'index unique du préfixe de facturation. */
