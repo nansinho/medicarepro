@@ -15,7 +15,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { billingEnv, hasBilling } from "@/lib/env";
 import { formatEuros, planLabel } from "@/lib/checkout/pricing";
 import { activeChange } from "@/lib/billing/changes";
-import { arreterReconduction, retirerDemande } from "../actions";
+import { annulerTotalement, arreterReconduction, retirerDemande } from "../actions";
 import { PageHeading, StatBand, Notice, type Stat } from "@/components/admin/shared";
 import { KeyValue } from "@/components/admin/kit/KeyValue";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,9 @@ type SubscriptionRow = {
   grace_until: string | null;
   sepa_mandate_id: string | null;
   notes: string | null;
+  /* Absent sur les contrats Monetico : le bouton d'annulation totale ne
+     s'affiche que pour un abonnement que Stripe sait défaire. */
+  stripe_subscription_id: string | null;
   created_at: string;
 };
 type MandateRow = {
@@ -174,7 +177,7 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
   const { data: subData } = await service
     .from("subscriptions")
     .select(
-      "id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, monetico_order_date, payment_environment, renewal_count, last_renewal_at, recurrence_stopped_at, dunning_started_at, dunning_failure_count, last_failure_at, last_failure_code, grace_until, sepa_mandate_id, notes, created_at",
+      "id, app_cabinet_id, app_user_id, cabinet_name, cabinet_email, admin_email, admin_name, invoice_prefix, plan, extra_collaborators, first_payment_cents, renewal_amount_cents, currency, status, started_at, current_period_end, monetico_reference, monetico_order_date, payment_environment, renewal_count, last_renewal_at, recurrence_stopped_at, dunning_started_at, dunning_failure_count, last_failure_at, last_failure_code, grace_until, sepa_mandate_id, notes, created_at, stripe_subscription_id",
     )
     .eq("id", id)
     .maybeSingle();
@@ -345,6 +348,48 @@ export default async function AbonnementDetailPage({ params }: { params: Promise
             </p>
           </div>
         </Card>
+
+        {/* ANNULATION TOTALE — l'exception, pas le geste courant. Volontairement
+            à part, en bas de page, derrière un motif écrit : rembourser et
+            fermer un accès ne doit pas se trouver à côté des boutons du
+            quotidien. */}
+        {sub.stripe_subscription_id && sub.status !== "canceled" && (
+          <Card>
+            <div className="border-b border-border p-4">
+              <h2 className="text-[15px] font-semibold text-[color:var(--destructive)]">
+                Annulation totale
+              </h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Rembourse le dernier paiement, supprime l&apos;abonnement chez Stripe,
+                résilie le contrat et ferme l&apos;accès au logiciel. Réservé aux
+                erreurs de souscription, doubles comptes, fraudes et litiges — une
+                résiliation ordinaire se fait depuis l&apos;espace du praticien et
+                laisse l&apos;accès ouvert jusqu&apos;au terme réglé.
+              </p>
+            </div>
+            <div className="p-4">
+              <form action={annulerTotalement} className="flex flex-col gap-3">
+                <input type="hidden" name="id" value={sub.id} />
+                <input
+                  type="text"
+                  name="motif"
+                  required
+                  minLength={10}
+                  maxLength={300}
+                  placeholder="Motif (conservé au journal d'audit) : double compte, erreur de souscription…"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-[13px]"
+                />
+                <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                  <input type="checkbox" required className="size-4 accent-[color:var(--destructive)]" />
+                  Je confirme : l&apos;argent est rendu et l&apos;accès fermé immédiatement.
+                </label>
+                <Button type="submit" variant="destructive" size="sm" className="self-start">
+                  Annuler totalement et rembourser
+                </Button>
+              </form>
+            </div>
+          </Card>
+        )}
 
         {pendingChange && (
           <Card>

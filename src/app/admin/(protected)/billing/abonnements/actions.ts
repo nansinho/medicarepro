@@ -5,6 +5,7 @@ import { getStaffUser } from "@/lib/admin/auth";
 import { serviceClient } from "@/lib/supabase/service";
 import { logAudit } from "@/lib/audit";
 import { stopRecurrence } from "@/lib/billing/recurrence";
+import { cancelSubscriptionFully } from "@/lib/billing/full-cancellation";
 import {
   activeChange,
   withdrawChange,
@@ -116,4 +117,61 @@ export async function retirerDemande(formData: FormData) {
   if (!outcome.ok) {
     throw new ActionError(outcome.error);
   }
+}
+
+/**
+ * ANNULATION TOTALE : on défait tout, tout de suite.
+ *
+ * À ne pas confondre avec la résiliation, qui est le geste normal d'un
+ * praticien qui s'en va — effet au terme, accès dû, rien de remboursé. Ceci est
+ * l'exception : erreur de souscription, double compte, fraude, litige, cabinet
+ * qui n'aurait jamais dû exister.
+ *
+ * Trois systèmes bougent ensemble — Stripe rembourse et supprime, notre contrat
+ * passe résilié, l'application ferme l'accès. N'en faire que deux laisse un
+ * cabinet remboursé qui travaille encore, ou un cabinet coupé qu'on continue de
+ * prélever.
+ *
+ * Le MOTIF est obligatoire : c'est une opération irréversible qui rend de
+ * l'argent, et six mois plus tard personne ne se souviendra pourquoi.
+ */
+export async function annulerTotalement(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const motif = String(formData.get("motif") ?? "").trim();
+  if (!id) return;
+  if (motif.length < 10) {
+    throw new ActionError(
+      "Indiquez le motif de l'annulation (10 caractères minimum) : il est conservé au journal d'audit.",
+    );
+  }
+
+  const { staff } = await requireAdminService();
+
+  const resultat = await cancelSubscriptionFully({
+    subscriptionId: id,
+    reason: motif,
+    actor: staff.email,
+  });
+
+  await logAudit({
+    action: "admin.subscription.fully_canceled",
+    entityType: "subscriptions",
+    entityId: id,
+    diff: {
+      motif,
+      refundedCents: resultat.refundedCents,
+      refundIssue: resultat.refundIssue ?? null,
+      appNotified: resultat.appNotified,
+    },
+    actorId: staff.id,
+    actorEmail: staff.email,
+  });
+
+  revalidatePath(`/admin/billing/abonnements/${id}`);
+  revalidatePath("/admin/billing/abonnements");
+
+  /* On ne jette PAS sur un remboursement manqué : l'abonnement est bien
+     supprimé et l'accès fermé, ce qui est l'essentiel. L'alerte porte déjà
+     l'échec, et le masquer derrière une erreur d'écran ferait croire que rien
+     n'a été fait. */
 }
