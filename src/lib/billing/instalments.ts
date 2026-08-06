@@ -110,12 +110,15 @@ export async function openAnchoredAnnualSubscription(input: {
   paidAt: Date;
   metadata?: Record<string, string>;
 }): Promise<{ subscriptionId: string; currentPeriodEnd: Date }> {
+  /* La demande d'abord, la configuration ensuite : un échelonnement sur le
+     mensuel est impossible quoi qu'on ait configuré, et le dire ainsi évite de
+     faire chercher un taux de TVA à qui a simplement demandé l'impossible. */
+  if (input.plan !== "ANNUAL") {
+    throw new Error("L'échelonnement n'existe que sur l'offre 12 mois.");
+  }
   const { prices, taxRate } = stripeConfig();
   if (!taxRate) {
     throw new Error("Aucun taux de TVA Stripe configuré : abonnement non ouvert.");
-  }
-  if (input.plan !== "ANNUAL") {
-    throw new Error("L'échelonnement n'existe que sur l'offre 12 mois.");
   }
   if (!prices.annual) {
     throw new Error("Aucun prix annuel Stripe configuré.");
