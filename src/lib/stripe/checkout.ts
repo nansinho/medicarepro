@@ -178,6 +178,29 @@ export function buildCheckoutParams(
     const libelle = `Offre 12 mois MediCare Pro : 1er versement sur ${versements.length}`;
     return {
       mode: "payment",
+      /* SEULEMENT LA CARTE, et c'est le seul endroit du fichier où l'on impose
+         une liste. Ailleurs on laisse Stripe décider, parce qu'une liste en dur
+         avait fait refuser toute session le 06/08/2026.
+
+         Ici c'est différent : le montage exige un moyen de paiement REDÉBITABLE
+         HORS PRÉSENCE du client. Les versements 2 et 3, puis la reconduction
+         annuelle, sont prélevés par nous, un mois et un an plus tard. Un moyen
+         qui ne se laisse pas redébiter en silence — Klarna, Satispay — ferait
+         échouer le deuxième versement, et notre règle passe alors le cabinet en
+         lecture seule IMMÉDIATEMENT. On suspendrait un praticien pour une faute
+         qui serait la nôtre.
+
+         Ces deux moyens sont absents du compte réel aujourd'hui (vérifié le
+         06/08/2026 : carte, Apple Pay, Link, Samsung Pay), mais ils sont
+         activables en deux clics depuis le tableau de bord, et la panne serait
+         alors silencieuse.
+
+         « card » ne retire rien de visible : Apple Pay, Google Pay, Link et
+         Samsung Pay sont des portefeuilles adossés à une carte et restent
+         proposés. Le prélèvement SEPA est lui aussi redébitable et aura sa place
+         ici le jour où il sera activé sur le compte réel — l'ajouter avant le
+         ferait refuser toute session. */
+      payment_method_types: ["card"],
       locale: "fr",
       client_reference_id: input.reference,
       ...client,

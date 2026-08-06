@@ -2277,7 +2277,13 @@ export default function CheckoutFlow({
                     Envoi en cours…
                   </>
                 ) : (
-                  `Payer ${row.totalLabel} par carte`
+                  /* LE BOUTON ANNONCE CE QUI VA ÊTRE DÉBITÉ, pas le prix de
+                     l'offre. Sur un règlement échelonné les deux diffèrent, et
+                     c'est le bouton qu'on lit — pas le paragraphe au-dessus.
+                     Il affichait 838,08 € là où 279,36 € allaient partir : le
+                     praticien croit qu'on lui prend l'année entière, et celui
+                     qui valide quand même conteste en découvrant l'écart. */
+                  `Payer ${versements.length > 0 ? formatEuros(versements[0]) : row.totalLabel} par carte`
                 )}
               </button>
             )}

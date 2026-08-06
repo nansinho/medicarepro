@@ -337,6 +337,26 @@ describe("buildCheckoutParams — règlement en trois fois", () => {
     expect(message).toMatch(/lecture seule/);
   });
 
+  /* LE MONTAGE EXIGE UN MOYEN REDÉBITABLE HORS PRÉSENCE DU CLIENT : les
+     versements 2 et 3, puis la reconduction, sont prélevés par nous des
+     semaines plus tard. Klarna et Satispay ne se laissent pas redébiter ainsi —
+     ils étaient proposés en essai le 06/08/2026 — et notre règle passe le
+     cabinet en lecture seule dès le premier refus. On suspendrait un praticien
+     pour une faute qui serait la nôtre. */
+  it("n'accepte que la carte, seule redébitable sans le client", async () => {
+    const { buildCheckoutParams } = await charger();
+    expect(buildCheckoutParams(TROIS).payment_method_types).toEqual(["card"]);
+  });
+
+  /* Le comptant, lui, ne prélève jamais rien hors présence : Stripe doit y
+     garder la main, sinon une liste en dur fait refuser toute session dès qu'un
+     moyen est désactivé — ce qui s'est produit en production. */
+  it("laisse le comptant libre de tout moyen imposé", async () => {
+    const { buildCheckoutParams } = await charger();
+    expect(buildCheckoutParams(ANNUEL).payment_method_types).toBeUndefined();
+    expect(buildCheckoutParams(BASE).payment_method_types).toBeUndefined();
+  });
+
   it("garde deux adresses de retour distinctes, comme en comptant", async () => {
     const { buildCheckoutParams } = await charger();
     const p = buildCheckoutParams(TROIS);
