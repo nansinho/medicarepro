@@ -129,6 +129,31 @@ describe("verifyStripeEvent", () => {
   });
 });
 
+describe("payloadHint — nommer la cause d'un refus, sans rien lui accorder", () => {
+  it("lit le monde annoncé et le type, pour l'alerte seulement", async () => {
+    const { payloadHint } = await charger();
+    const hint = payloadHint(
+      JSON.stringify({ livemode: false, type: "invoice.paid", data: {} }),
+    );
+    expect(hint.livemode).toBe(false);
+    expect(hint.type).toBe("invoice.paid");
+  });
+
+  it("ne jette sur rien de ce qu'on peut lui envoyer", async () => {
+    const { payloadHint } = await charger();
+    expect(payloadHint("")).toEqual({});
+    expect(payloadHint("pas du json")).toEqual({});
+    expect(payloadHint("null")).toEqual({});
+    expect(payloadHint(JSON.stringify({ livemode: "oui", type: 42 }))).toEqual({});
+  });
+
+  it("tronque un type démesuré (il finit dans un courriel)", async () => {
+    const { payloadHint } = await charger();
+    const hint = payloadHint(JSON.stringify({ type: "x".repeat(500) }));
+    expect(hint.type).toHaveLength(60);
+  });
+});
+
 describe("eventMatchesEnvironment", () => {
   it("accepte un événement d'essai avec une clé d'essai", async () => {
     const { verifyStripeEvent, eventMatchesEnvironment } = await charger();

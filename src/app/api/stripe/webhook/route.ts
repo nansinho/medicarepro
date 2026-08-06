@@ -2,6 +2,7 @@ import { after, type NextRequest } from "next/server";
 import { serviceClient } from "@/lib/supabase/service";
 import {
   eventMatchesEnvironment,
+  payloadHint,
   projectStripeEvent,
   verifyStripeEvent,
 } from "@/lib/stripe/webhook";
@@ -67,10 +68,41 @@ export async function POST(request: NextRequest) {
     /* Jamais le corps, jamais la signature : seulement la raison. Un refus de
        signature est soit une erreur de configuration, soit une tentative. */
     console.error("[stripe-webhook] signature refusée :", verified.reason);
-    await alerteStripe("Notification Stripe non authentifiée", [
-      `Raison : ${verified.reason}`,
-      "Si des paiements sont en cours, vérifier STRIPE_WEBHOOK_SECRET dans Coolify : tant qu'il est faux, AUCUN paiement n'est enregistré côté MediCare Pro.",
-    ]);
+
+    /* SANS EN-TÊTE `stripe-signature`, l'appel ne vient pas de Stripe : c'est
+       un robot qui balaie les adresses connues, et une URL publique en reçoit
+       tous les jours. En faire un courriel donnerait au premier venu le droit
+       de remplir la boîte du client. Le journal suffit. */
+    if (!signature) return ack("signature absente", 400);
+
+    /* Signature présente et refusée. On lit le corps SANS LUI FAIRE CONFIANCE,
+       uniquement pour dire dans l'alerte ce qui se passe vraiment. */
+    const annonce = payloadHint(rawBody);
+    const lignes = [`Raison : ${verified.reason}`];
+    if (annonce.type) lignes.push(`Type annoncé : ${annonce.type}`);
+
+    if (annonce.livemode !== undefined && annonce.livemode !== stripeLiveMode()) {
+      /* LE CAS COURANT, ET IL EST BÉNIN. Une notification d'essai ne peut pas
+         être signée avec la clé du monde réel : elle échoue à l'entrée, avant
+         même le contrôle d'environnement plus bas, qui ne la verra jamais. */
+      lignes.push(
+        `Cette notification se dit ${annonce.livemode ? "réelle" : "d'ESSAI"}, or ce site tourne en ${stripeLiveMode() ? "réel" : "ESSAI"}.`,
+        "Un point de terminaison Stripe du mauvais monde pointe donc sur cette adresse. À retirer dans le tableau de bord Stripe (Développeurs puis Webhooks), en vérifiant le sélecteur Test / Réel en haut de page.",
+        "Les paiements réels ne sont pas concernés : leurs notifications, elles, sont authentifiées normalement.",
+      );
+    } else {
+      lignes.push(
+        "Si des paiements sont en cours, vérifier STRIPE_WEBHOOK_SECRET dans Coolify : tant qu'il est faux, AUCUN paiement n'est enregistré côté MediCare Pro.",
+      );
+    }
+    lignes.push(
+      "Alertes de ce type regroupées : une par heure au maximum, quel que soit le nombre de notifications refusées.",
+    );
+
+    await alerteStripe("Notification Stripe non authentifiée", lignes, {
+      throttleKey: "stripe-signature",
+      throttleSeconds: 3600,
+    });
     // 400 : Stripe le montre dans le tableau de bord, ce qu'on veut voir.
     return ack("signature refusée", 400);
   }
@@ -88,12 +120,19 @@ export async function POST(request: NextRequest) {
       "livemode =",
       event.livemode,
     );
-    await alerteStripe("Notification Stripe d'un autre environnement", [
-      `Type : ${event.type}`,
-      `Événement livemode : ${event.livemode}`,
-      `Nos clés livemode : ${stripeLiveMode()}`,
-      "Rien n'a été enregistré. Un point de terminaison de test pointe sur la production, ou l'inverse.",
-    ]);
+    await alerteStripe(
+      "Notification Stripe d'un autre environnement",
+      [
+        `Type : ${event.type}`,
+        `Événement livemode : ${event.livemode}`,
+        `Nos clés livemode : ${stripeLiveMode()}`,
+        "Rien n'a été enregistré. Un point de terminaison de test pointe sur la production, ou l'inverse.",
+        "Alertes de ce type regroupées : une par heure au maximum.",
+      ],
+      /* Même robinet que le refus de signature : la cause est un réglage, et
+         un réglage ne se corrige pas plus vite parce qu'on l'a dit trente fois. */
+      { throttleKey: "stripe-environnement", throttleSeconds: 3600 },
+    );
     return ack("environnement non concordant");
   }
 

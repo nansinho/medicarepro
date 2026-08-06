@@ -66,6 +66,36 @@ export function verifyStripeEvent(
 }
 
 /**
+ * Ce que le corps PRÉTEND être, lu sans être authentifié.
+ *
+ * Rien de ce qu'il contient ne doit être appliqué : cette lecture ne sert qu'à
+ * NOMMER la cause d'un refus de signature. Sans elle, l'alerte se lit « No
+ * signatures found matching the expected signature » et laisse croire à un
+ * secret perdu, donc à des paiements qui ne s'enregistrent plus. Or la cause
+ * courante est tout autre, et sans gravité : un point de terminaison d'essai
+ * qui pointe sur la production, dont les notifications ne peuvent évidemment
+ * pas être signées avec la clé du monde réel.
+ */
+export function payloadHint(rawBody: string): {
+  livemode?: boolean;
+  type?: string;
+} {
+  try {
+    const parsed = JSON.parse(rawBody) as {
+      livemode?: unknown;
+      type?: unknown;
+    };
+    return {
+      livemode:
+        typeof parsed.livemode === "boolean" ? parsed.livemode : undefined,
+      type: typeof parsed.type === "string" ? parsed.type.slice(0, 60) : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
  * L'événement vient-il du même monde que nos clés ?
  *
  * Une notification d'essai ne doit JAMAIS muter un contrat réel, ni l'inverse.

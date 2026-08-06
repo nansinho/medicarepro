@@ -2,6 +2,7 @@ import "server-only";
 import { sendMail } from "@/lib/email";
 import { billingAlertEmail } from "@/lib/emails/checkout-templates";
 import { billingEnv, hasBilling } from "@/lib/env";
+import { serviceClient } from "@/lib/supabase/service";
 
 /* ============================================================
    L'ALERTE INTERNE DE FACTURATION, dans son propre module.
@@ -21,13 +22,52 @@ import { billingEnv, hasBilling } from "@/lib/env";
    dans aucun cycle.
    ============================================================ */
 
+/**
+ * Une alerte qui se répète cesse d'être une alerte.
+ *
+ * Certaines causes ne produisent pas un incident mais un ROBINET : un point de
+ * terminaison mal réglé re-livre des dizaines de fois, et Stripe insiste trois
+ * jours durant. Le 06/08/2026, la boîte du client a reçu une trentaine de fois
+ * le même message en deux heures, et il a cessé de les lire. C'est exactement
+ * l'effet inverse de celui qu'on cherche.
+ *
+ * Les appelants concernés passent donc une clé : la première alerte part, les
+ * suivantes sont tues pendant la fenêtre demandée. Le compteur est en base, et
+ * vaut donc pour toutes les instances du serveur.
+ *
+ * En panne de compteur, on ALERTE quand même : mieux vaut un courriel de trop
+ * qu'un incident muet.
+ */
+async function alerteAutorisee(key: string, seconds: number): Promise<boolean> {
+  const supabase = serviceClient();
+  if (!supabase) return true;
+  const { data, error } = await supabase.rpc("hit_rate_limit", {
+    p_bucket: `alert:${key}`,
+    p_limit: 1,
+    p_window_seconds: seconds,
+  });
+  if (error) return true;
+  return data === true;
+}
+
 /** Alerte interne — best-effort, ne jette jamais. */
 export async function alerteStripe(
   title: string,
   lines: string[],
+  options: { throttleKey?: string; throttleSeconds?: number } = {},
 ): Promise<void> {
   try {
     if (!hasBilling()) return;
+    if (
+      options.throttleKey &&
+      !(await alerteAutorisee(
+        options.throttleKey,
+        options.throttleSeconds ?? 3600,
+      ))
+    ) {
+      console.warn(`[billing] alerte groupée (${options.throttleKey}) : ${title}`);
+      return;
+    }
     const mail = billingAlertEmail({ title, lines });
     await sendMail({ to: billingEnv().billingAlertsTo, ...mail });
   } catch (err) {
