@@ -325,6 +325,9 @@ export default function CheckoutFlow({
   /* ---- Turnstile ---- */
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileReady, setTurnstileReady] = useState(false);
+  /* Le script n'est jamais arrivé : on le DIT, au lieu de laisser un cadre vide
+     sous un message qui réclame une validation impossible. */
+  const [turnstileBloque, setTurnstileBloque] = useState(false);
   const turnstileHost = useRef<HTMLDivElement | null>(null);
   const turnstileWidgetId = useRef<string | null>(null);
 
@@ -433,21 +436,50 @@ export default function CheckoutFlow({
     }
   }, [step, cabinet.name, sepaEnabled, stepKeys]);
 
-  /* Rend le widget Turnstile à l'arrivée sur le récapitulatif (rendu explicite). */
-  useEffect(() => {
-    if (stepKeys[step] !== "recap" || !siteKey || !turnstileReady) return;
-    const api = window.turnstile;
-    const host = turnstileHost.current;
-    if (!api || !host || turnstileWidgetId.current !== null) return;
+  /* DESSINE LE WIDGET DÈS QUE L'API EXISTE, sans attendre qu'on nous le dise.
 
-    turnstileWidgetId.current = api.render(host, {
-      sitekey: siteKey,
-      callback: (token: string) => setTurnstileToken(token),
-      "expired-callback": () => setTurnstileToken(""),
-      "error-callback": () => setTurnstileToken(""),
-    });
+     Le rendu dépendait du `onReady` de `next/script`. Ce signal n'arrive pas
+     toujours : script déjà en cache, exécution différée par Safari, ou
+     navigation interne qui remonte le composant après le chargement. Dans ces
+     cas le widget n'était JAMAIS dessiné — un cadre vide, aucune erreur, et un
+     praticien coincé sur « Merci de valider la vérification anti-robot » sans
+     rien à cliquer. Constaté en production sur Safari le 06/08/2026.
+
+     On observe donc directement `window.turnstile`, ce qui couvre le script
+     déjà chargé comme celui qui arrive. Au bout de dix secondes on abandonne :
+     le blocage est alors réel (extension, réseau d'entreprise), et l'écran doit
+     le dire plutôt que de tourner indéfiniment. */
+  useEffect(() => {
+    if (stepKeys[step] !== "recap" || !siteKey) return;
+
+    let arrete = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const limite = Date.now() + 10_000;
+
+    const essayer = () => {
+      if (arrete || turnstileWidgetId.current !== null) return;
+      const api = window.turnstile;
+      const host = turnstileHost.current;
+      if (api && host) {
+        turnstileWidgetId.current = api.render(host, {
+          sitekey: siteKey,
+          callback: (token: string) => setTurnstileToken(token),
+          "expired-callback": () => setTurnstileToken(""),
+          "error-callback": () => setTurnstileToken(""),
+        });
+        return;
+      }
+      if (Date.now() > limite) {
+        setTurnstileBloque(true);
+        return;
+      }
+      timer = setTimeout(essayer, 150);
+    };
+    essayer();
 
     return () => {
+      arrete = true;
+      if (timer) clearTimeout(timer);
       if (turnstileWidgetId.current !== null) {
         try {
           window.turnstile?.remove(turnstileWidgetId.current);
@@ -458,7 +490,7 @@ export default function CheckoutFlow({
         setTurnstileToken("");
       }
     };
-  }, [step, siteKey, turnstileReady, stepKeys]);
+  }, [step, siteKey, stepKeys]);
 
   function resetTurnstile() {
     if (turnstileWidgetId.current !== null) {
@@ -1705,7 +1737,24 @@ export default function CheckoutFlow({
                       className="cf-turnstile"
                       data-sitekey={siteKey}
                     />
-                    {errors["turnstileToken"] && (
+                    {/* Le script n'est jamais arrivé. On le dit, et on donne
+                        une issue : sans ça, le praticien lit « Merci de valider
+                        la vérification anti-robot » au-dessus d'un cadre vide,
+                        et il n'a RIEN à cliquer. */}
+                    {turnstileBloque && (
+                      <div className={s.banner} role="alert">
+                        <IconAlert />
+                        <span>
+                          La vérification anti-robot n&apos;a pas pu se charger.
+                          Elle est parfois bloquée par un bloqueur de publicité,
+                          une extension de confidentialité ou un réseau
+                          d&apos;entreprise. Rechargez la page, essayez un autre
+                          navigateur, ou écrivez-nous à contact@medicarepro.fr —
+                          nous finalisons votre inscription avec vous.
+                        </span>
+                      </div>
+                    )}
+                    {errors["turnstileToken"] && !turnstileBloque && (
                       <p className={s.fieldError} id="turnstile-err">
                         <IconAlert /> {errors["turnstileToken"]}
                       </p>
