@@ -263,6 +263,122 @@
   color: #0f7a4f;
 }
 
+/* ---- SIRET guidé : le champ propose les établissements réels ----
+   La liste se superpose aux champs suivants (elle ne doit pas faire
+   sauter le formulaire à chaque frappe) et reste sous la barre d'étapes. */
+.siretBox {
+  position: relative;
+}
+.siretList {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 318px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(31, 84, 153, 0.16);
+}
+.siretListHead {
+  padding: 8px 10px 6px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.siretOption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s var(--ease);
+}
+.siretOptionActive {
+  background: var(--color-light);
+}
+.siretOptionTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.siretOptionName {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.siretTag {
+  flex: none;
+  font-style: normal;
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--color-light);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-primary-dark);
+}
+.siretTagOff {
+  background: #fdecec;
+  border-color: #f2caca;
+  color: #b4332f;
+}
+.siretOptionMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+/* Les chiffres déjà tapés se détachent : on voit le numéro se compléter. */
+.siretNum {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+.siretNum b {
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+.siretCity::before {
+  content: "·";
+  margin-right: 9px;
+  color: var(--color-border-soft);
+}
+.siretStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.siretHelp {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.siretHelp:hover {
+  text-decoration: underline;
+}
+
 .inputWrap {
   position: relative;
 }
@@ -468,6 +584,68 @@
 .accent {
   color: var(--color-primary);
   font-weight: 700;
+}
+
+/* ---- Règlement en trois fois ----
+   Le calendrier est écrit noir sur blanc, rangs et montants compris : c'est ce
+   qui sépare un étalement d'une mauvaise surprise au deuxième prélèvement. */
+.instalmentToggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--color-navy);
+}
+.instalmentToggle input {
+  margin-top: 3px;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.instalmentToggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.instalmentHint {
+  font-size: 0.82rem;
+  color: var(--color-body);
+  font-weight: 400;
+  line-height: 1.45;
+}
+.instalmentPlan {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--color-border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  color: var(--color-body);
+}
+.instalmentPlan li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.instalmentPlan li b {
+  color: var(--color-navy);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.instalmentTotal {
+  padding-top: 7px;
+  border-top: 1px dashed var(--color-border-soft);
+}
+.instalmentTotal b {
+  color: var(--color-primary) !important;
 }
 
 /* ---- Notes d'information ---- */

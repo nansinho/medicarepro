@@ -4,6 +4,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { processDuePendingSignups } from "@/lib/billing/worker";
 import { captureDueEntries } from "@/lib/billing/capture";
 import { replayUnprocessedStripeEvents } from "@/lib/billing/stripe-replay";
+import { emitDueInstalments } from "@/lib/billing/instalments";
 
 /* ============================================================
    /api/cron/provision-retry — relance périodique du provisioning
@@ -45,7 +46,24 @@ async function handle(request: Request): Promise<Response> {
      transitoire). Sans ce passage, l'argent resterait indéfiniment autorisé
      mais jamais encaissé. */
   const captured = await captureDueEntries(20);
-  return Response.json({ processed, captured, stripe });
+  /* LES VERSEMENTS DE L'OFFRE EN TROIS FOIS. Stripe ne les connaît pas : il ne
+     se réveille qu'au douzième mois. Sans ce passage, les deux tiers du prix ne
+     seraient jamais réclamés — le praticien réglerait 99,36 € pour douze mois
+     d'accès, et personne ne s'en apercevrait avant la comptabilité.
+
+     Greffé ici plutôt que sur une route à part : la réservation est atomique en
+     base, donc partager le cron ne peut pas produire de double prélèvement, et
+     ça évite un déclencheur de plus à programmer et à surveiller.
+
+     Isolé du reste : un incident sur les versements ne doit pas empêcher le
+     provisioning des dossiers payés, qui est plus urgent encore. */
+  let instalments: unknown;
+  try {
+    instalments = await emitDueInstalments(20);
+  } catch (err) {
+    instalments = { error: err instanceof Error ? err.message : String(err) };
+  }
+  return Response.json({ processed, captured, stripe, instalments });
 }
 
 export async function POST(request: Request) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import Script from "next/script";
 import { friendlyFormatIBAN, isValidIBAN } from "ibantools";
 import {
@@ -9,8 +9,20 @@ import {
   SepaSchema,
   CheckoutSchema,
 } from "@/lib/checkout/schema";
+import {
+  splitSiretMatch,
+  SUGGEST_MIN_DIGITS,
+  type SiretSuggestion,
+} from "@/lib/checkout/siret";
 import type { BillingPlan } from "@/lib/checkout/pricing";
-import { PRICING_VERSION, MAX_EXTRA_COLLABORATORS } from "@/lib/checkout/pricing";
+import {
+  PRICING_VERSION,
+  MAX_EXTRA_COLLABORATORS,
+  checkoutAmountCents,
+  instalmentAmountsCents,
+  instalmentsAvailable,
+  formatEuros,
+} from "@/lib/checkout/pricing";
 import { LEGAL_DOCUMENTS } from "@/lib/legal/registry";
 import { mandateText } from "@/lib/sepa/mandate-text";
 import { maskIban } from "@/lib/sepa/iban";
@@ -276,6 +288,10 @@ export default function CheckoutFlow({
   const [step, setStep] = useState(0);
   const [plan, setPlan] = useState<BillingPlan>(initialPlan);
   const [extra, setExtra] = useState(0);
+  /* Règlement de l'offre 12 mois en trois versements. Réinitialisé dès qu'on
+     repasse au mensuel : laisser le choix actif produirait un récapitulatif
+     annonçant des versements sur une formule qui n'en accepte pas. */
+  const [instalments, setInstalments] = useState(false);
   const [cabinet, setCabinet] = useState({
     name: "",
     email: "",
@@ -303,11 +319,36 @@ export default function CheckoutFlow({
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [website, setWebsite] = useState(""); // honeypot — reste vide chez un humain
 
-  /* ---- Auto-remplissage SIRET (annuaire des entreprises) ---- */
+  /* ---- SIRET : verdict sur le numéro complet (14 chiffres) ----
+     « found » et « error » ne se ressemblent pas : le premier ouvre la
+     porte, le second (annuaire injoignable) la laisse ouverte faute de
+     savoir. Seuls « not_found » et « closed » arrêtent l'inscription. */
   const [siretLookup, setSiretLookup] = useState<{
-    status: "idle" | "loading" | "found" | "not_found" | "error";
+    status: "idle" | "loading" | "found" | "closed" | "not_found" | "error";
     name?: string;
   }>({ status: "idle" });
+
+  /* ---- SIRET : guidage de saisie (7 chiffres et plus) ----
+     On ne garde ici que la DERNIÈRE RÉPONSE DU SERVEUR, telle quelle. Les
+     chiffres suivants ne peuvent que rétrécir cette liste : ils la filtrent
+     au rendu, sans rien redemander ni rien stocker de plus. Une saisie
+     complète coûte ainsi une poignée d'appels, pas un par frappe. */
+  const [siretSuggest, setSiretSuggest] = useState<{
+    status: "idle" | "loading" | "ok" | "unavailable";
+    /** Préfixe auquel `items` répond. */
+    prefix: string;
+    items: SiretSuggestion[];
+    didYouMean?: boolean;
+    truncated?: boolean;
+  }>({ status: "idle", prefix: "", items: [] });
+  const [siretOpen, setSiretOpen] = useState(false);
+  const [siretActive, setSiretActive] = useState(-1);
+  /* Le même contenu, lisible depuis l'effet sans le relancer. */
+  const siretCache = useRef<{
+    prefix: string;
+    items: SiretSuggestion[];
+    didYouMean: boolean;
+  } | null>(null);
 
   /* ---- État technique ---- */
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -335,6 +376,16 @@ export default function CheckoutFlow({
   const firstRender = useRef(true);
 
   const row = prices[plan][extra];
+  /* Le même découpage que le serveur, au centime près : le reste de la division
+     tombe sur le premier versement. Ce n'est qu'un affichage — les montants
+     réellement facturés sont recalculés côté serveur — mais un écart d'un
+     centime entre l'écran et le débit est exactement ce qui fait écrire un
+     praticien. */
+  const echelonnable = instalmentsAvailable(plan);
+  const versements =
+    echelonnable && instalments
+      ? instalmentAmountsCents(checkoutAmountCents(plan, extra))
+      : [];
   const ibanValid = isValidIBAN(sepa.iban);
 
   /* Focus + remontée en haut de carte à chaque changement d'étape. */
@@ -370,12 +421,23 @@ export default function CheckoutFlow({
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cabinet, user, passwordConfirm, sepa, mandateAccepted, termsAccepted]);
+  }, [
+    cabinet,
+    user,
+    passwordConfirm,
+    sepa,
+    mandateAccepted,
+    termsAccepted,
+    /* Le verdict SIRET arrive APRÈS la frappe : sans lui dans les
+       dépendances, « Vérification en cours » resterait affiché en rouge
+       une fois l'établissement confirmé. */
+    siretLookup.status,
+  ]);
 
-  /* SIRET complet (14 chiffres) → interrogation de l'annuaire des
-     entreprises et pré-remplissage des champs ENCORE VIDES uniquement
-     (on n'écrase jamais une saisie). Service de confort : toute erreur
-     est silencieuse et n'empêche pas de continuer. */
+  /* SIRET complet (14 chiffres) → VERDICT de l'annuaire des entreprises, et
+     pré-remplissage des champs ENCORE VIDES uniquement (on n'écrase jamais
+     une saisie). Le verdict conditionne le passage à l'étape suivante ;
+     l'annuaire injoignable ne bloque personne (statut « error »). */
   useEffect(() => {
     const siret = cabinet.siretNumber;
     if (siret.length !== 14) {
@@ -395,12 +457,18 @@ export default function CheckoutFlow({
           return;
         }
         const data = (await res.json()) as {
+          status?: string;
           found: boolean;
           name?: string;
           address?: string;
           postalCode?: string;
           city?: string;
+          active?: boolean;
         };
+        if (data.status === "unavailable") {
+          setSiretLookup({ status: "error" });
+          return;
+        }
         if (!data.found) {
           setSiretLookup({ status: "not_found" });
           return;
@@ -416,11 +484,93 @@ export default function CheckoutFlow({
               : p.postalCode,
           city: p.city.trim() === "" && data.city ? data.city : p.city,
         }));
-        setSiretLookup({ status: "found", name: data.name });
+        setSiretLookup({
+          status: data.active === false ? "closed" : "found",
+          name: data.name,
+        });
       } catch {
         if (!controller.signal.aborted) setSiretLookup({ status: "error" });
       }
     }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [cabinet.siretNumber]);
+
+  /* GUIDAGE DE SAISIE. À partir du 7ᵉ chiffre, l'annuaire ne rend plus des
+     hypothèses mais des établissements réels, et leur nombre fond à chaque
+     frappe : dix, puis un, puis les établissements de l'entreprise (voir
+     `lib/checkout/annuaire.ts` pour la mécanique).
+
+     Le rétrécissement se fait D'ABORD dans le navigateur : les chiffres
+     suivants ne peuvent que réduire une liste déjà connue. On ne redemande
+     au serveur que lorsqu'elle se vide, c'est-à-dire quand on change
+     vraiment de question. */
+  useEffect(() => {
+    const prefix = cabinet.siretNumber;
+    /* Rien à demander : trop court pour que la question ait un sens, ou
+       déjà complet (c'est alors le verdict qui parle, plus la liste). */
+    if (prefix.length < SUGGEST_MIN_DIGITS || prefix.length >= 14) return;
+
+    /* Déjà répondu : la liste en main contient encore ce préfixe, le rendu
+       n'a qu'à la filtrer. C'est ce qui rend les chiffres suivants gratuits. */
+    const vu = siretCache.current;
+    if (vu) {
+      if (vu.didYouMean && vu.prefix === prefix) return;
+      if (
+        !vu.didYouMean &&
+        prefix.startsWith(vu.prefix) &&
+        vu.items.some((i) => i.siret.startsWith(prefix))
+      ) {
+        return;
+      }
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSiretSuggest((p) => ({ ...p, status: "loading" }));
+      try {
+        const res = await fetch(
+          `/api/checkout/siret/suggest?prefix=${prefix}`,
+          { signal: controller.signal, credentials: "same-origin" },
+        );
+        if (!res.ok) {
+          siretCache.current = null;
+          setSiretSuggest({ status: "unavailable", prefix, items: [] });
+          return;
+        }
+        const data = (await res.json()) as {
+          status?: string;
+          items?: SiretSuggestion[];
+          didYouMean?: boolean;
+          truncated?: boolean;
+        };
+        if (data.status === "unavailable") {
+          siretCache.current = null;
+          setSiretSuggest({ status: "unavailable", prefix, items: [] });
+          return;
+        }
+        const items = Array.isArray(data.items) ? data.items : [];
+        siretCache.current = {
+          prefix,
+          items,
+          didYouMean: data.didYouMean === true,
+        };
+        setSiretSuggest({
+          status: "ok",
+          prefix,
+          items,
+          didYouMean: data.didYouMean,
+          truncated: data.truncated,
+        });
+      } catch {
+        if (!controller.signal.aborted) {
+          siretCache.current = null;
+          setSiretSuggest({ status: "unavailable", prefix, items: [] });
+        }
+      }
+    }, 260);
     return () => {
       clearTimeout(timer);
       controller.abort();
@@ -520,6 +670,79 @@ export default function CheckoutFlow({
     [sepaIcs, cabinet, sepa.accountHolder, sepa.iban, ibanValid],
   );
 
+  /* ---- Choix d'un établissement proposé ----
+     On écrase ici les coordonnées, contrairement au pré-remplissage
+     automatique : désigner son établissement dans la liste est un geste
+     délibéré, et c'est l'adresse officielle qui doit figurer sur les
+     factures. Ce qui manque à l'annuaire ne détruit rien. */
+  function pickSiret(item: SiretSuggestion) {
+    setCabinet((p) => ({
+      ...p,
+      siretNumber: item.siret,
+      name: item.name || p.name,
+      address: item.address ?? p.address,
+      postalCode: item.postalCode ?? p.postalCode,
+      city: item.city ?? p.city,
+    }));
+    siretCache.current = null;
+    setSiretOpen(false);
+    setSiretActive(-1);
+  }
+
+  /* Navigation clavier de la liste (motif combobox ARIA) : la souris n'est
+     pas la seule façon de choisir, et le champ garde le focus tout du long. */
+  function onSiretKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    const items = siretItems;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (items.length === 0) return;
+      event.preventDefault();
+      setSiretOpen(true);
+      setSiretActive((i) => {
+        const suivant = event.key === "ArrowDown" ? i + 1 : i - 1;
+        if (suivant < 0) return items.length - 1;
+        if (suivant >= items.length) return 0;
+        return suivant;
+      });
+      return;
+    }
+    if (event.key === "Enter" && siretOpen && items[siretActive]) {
+      event.preventDefault(); // sinon la touche valide l'étape au passage
+      pickSiret(items[siretActive]);
+      return;
+    }
+    if (event.key === "Escape" && siretOpen) {
+      event.preventDefault();
+      setSiretOpen(false);
+      setSiretActive(-1);
+    }
+  }
+
+  /* CE QUI EST RÉELLEMENT PROPOSÉ À L'ÉCRAN : la dernière réponse du serveur,
+     rétrécie aux chiffres tapés depuis. Dérivé à chaque rendu plutôt que
+     stocké : la liste ne peut donc jamais rester en retard d'une frappe. */
+  const siretDigits = cabinet.siretNumber;
+  const siretItems = useMemo(() => {
+    if (siretDigits.length < SUGGEST_MIN_DIGITS || siretDigits.length >= 14) {
+      return [];
+    }
+    const { prefix, items, didYouMean } = siretSuggest;
+    if (items.length === 0) return items;
+    // Une correction de faute ne vaut que pour le numéro exact qui l'a produite.
+    if (didYouMean) return prefix === siretDigits ? items : [];
+    if (!siretDigits.startsWith(prefix)) return [];
+    return items.filter((i) => i.siret.startsWith(siretDigits));
+  }, [siretSuggest, siretDigits]);
+
+  /** Chiffres restant à taper avant que des propositions soient possibles. */
+  const siretNeed =
+    siretDigits.length > 0 && siretDigits.length < SUGGEST_MIN_DIGITS
+      ? SUGGEST_MIN_DIGITS - siretDigits.length
+      : 0;
+
+  /* La liste ne s'affiche que si elle a quelque chose à proposer : un cadre
+     vide sous le champ ne renseignerait personne. */
+  const listeSiretOuverte = siretOpen && siretItems.length > 0;
+
   /* ---- Validation par étape (identifiée par sa CLÉ, pas son index) ---- */
   function validateStep(index: number): Record<string, string> {
     const errs: Record<string, string> = {};
@@ -530,6 +753,23 @@ export default function CheckoutFlow({
         for (const issue of parsed.error.issues) {
           const k = `cabinet.${issue.path.join(".")}`;
           if (!errs[k]) errs[k] = issue.message;
+        }
+      }
+      /* LE SIRET DOIT ÊTRE CONFIRMÉ PAR L'ANNUAIRE pour passer l'étape.
+         Le même contrôle est refait à la soumission côté serveur (c'est
+         lui qui fait foi) : ici on épargne au praticien de saisir tout
+         son dossier avant d'apprendre que le numéro ne va pas.
+         L'annuaire injoignable (« error ») ne retient personne. */
+      if (!errs["cabinet.siretNumber"]) {
+        if (siretLookup.status === "loading") {
+          errs["cabinet.siretNumber"] =
+            "Vérification du SIRET en cours, un instant.";
+        } else if (siretLookup.status === "not_found") {
+          errs["cabinet.siretNumber"] =
+            "Ce SIRET est introuvable au répertoire officiel des entreprises.";
+        } else if (siretLookup.status === "closed") {
+          errs["cabinet.siretNumber"] =
+            "Cet établissement est déclaré fermé au répertoire officiel.";
         }
       }
     } else if (key === "admin") {
@@ -647,6 +887,7 @@ export default function CheckoutFlow({
     const parsed = CheckoutSchema.safeParse({
       plan,
       extraCollaborators: extra,
+      instalments: echelonnable && instalments,
       cabinet,
       user,
       ...(sepaEnabled ? { sepa, mandateAccepted } : {}),
@@ -990,11 +1231,63 @@ export default function CheckoutFlow({
                     <span className={s.accent}>{row.monthlyLabel} TTC/mois</span>
                   </span>
                   <span className={s.collabTotal}>
-                    Facturé aujourd&apos;hui&nbsp;: {row.totalLabel} TTC{" "}
-                    {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
+                    Facturé aujourd&apos;hui&nbsp;:{" "}
+                    {versements.length > 0
+                      ? `${formatEuros(versements[0])} TTC (1er versement)`
+                      : `${row.totalLabel} TTC ${plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}`}
                   </span>
                 </div>
               </div>
+
+              {/* ---- Règlement en trois fois — offre 12 mois uniquement ----
+
+                  N'apparaît QUE sur l'annuelle : le mensuel est déjà un
+                  étalement, et proposer d'y découper 29,88 € en trois n'aurait
+                  aucun sens.
+
+                  Le calendrier est écrit en clair, montants et rangs compris.
+                  C'est la seule chose qui distingue un étalement d'une mauvaise
+                  surprise : un praticien qui découvre un second prélèvement un
+                  mois plus tard conteste auprès de sa banque, et une
+                  contestation coûte plus cher que le versement. */}
+              {echelonnable && (
+                <div className={s.collab}>
+                  <label className={s.instalmentToggle}>
+                    <input
+                      type="checkbox"
+                      checked={instalments}
+                      onChange={(e) => setInstalments(e.target.checked)}
+                    />
+                    <span>
+                      <b>Régler en 3 fois, sans frais</b>
+                      <span className={s.instalmentHint}>
+                        Trois versements mensuels au lieu d&apos;un paiement
+                        unique. Votre accès est ouvert pour 12 mois dès le
+                        premier.
+                      </span>
+                    </span>
+                  </label>
+
+                  {versements.length > 0 && (
+                    <ol className={s.instalmentPlan}>
+                      {versements.map((montant, i) => (
+                        <li key={i}>
+                          <span>
+                            {i === 0
+                              ? "Aujourd'hui"
+                              : `Dans ${i} mois`}
+                          </span>
+                          <b>{formatEuros(montant)} TTC</b>
+                        </li>
+                      ))}
+                      <li className={s.instalmentTotal}>
+                        <span>Total, sans supplément</span>
+                        <b>{row.totalLabel} TTC</b>
+                      </li>
+                    </ol>
+                  )}
+                </div>
+              )}
 
               <div className={s.alert}>
                 <IconAlert />
@@ -1060,57 +1353,208 @@ export default function CheckoutFlow({
                 <label className={s.label} htmlFor="cab-siret">
                   SIRET
                 </label>
-                <input
-                  id="cab-siret"
-                  className={`${s.input} ${
-                    errors["cabinet.siretNumber"] ? s.inputInvalid : ""
-                  }`}
-                  type="text"
-                  value={cabinet.siretNumber}
-                  onChange={(e) =>
-                    setCabinet((p) => ({
-                      ...p,
-                      siretNumber: e.target.value.replace(/\D/g, "").slice(0, 14),
-                    }))
-                  }
-                  inputMode="numeric"
-                  placeholder="14 chiffres"
-                  maxLength={14}
-                  autoComplete="off"
-                  aria-invalid={errors["cabinet.siretNumber"] ? true : undefined}
-                  aria-describedby={
-                    errors["cabinet.siretNumber"] ? "cab-siret-err" : "cab-siret-live"
-                  }
-                />
-                {errors["cabinet.siretNumber"] ? (
-                  <p className={s.fieldError} id="cab-siret-err">
-                    <IconAlert /> {errors["cabinet.siretNumber"]}
-                  </p>
-                ) : siretLookup.status === "loading" ? (
-                  <p className={s.hint} id="cab-siret-live">
-                    Recherche dans l&apos;annuaire des entreprises…
-                  </p>
-                ) : siretLookup.status === "found" ? (
-                  <p className={s.ibanOk} id="cab-siret-live">
-                    ✓ {siretLookup.name ?? "Établissement trouvé"} — coordonnées
-                    pré-remplies ci-dessous, vérifiez-les.
-                  </p>
-                ) : siretLookup.status === "not_found" ? (
-                  <p className={s.fieldError} id="cab-siret-live">
-                    <IconAlert /> SIRET introuvable dans l&apos;annuaire des
-                    entreprises — vérifiez votre saisie.
-                  </p>
-                ) : siretLookup.status === "error" ? (
-                  <p className={s.hint} id="cab-siret-live">
-                    Annuaire momentanément indisponible — remplissez les champs
-                    manuellement.
-                  </p>
-                ) : (
-                  <p className={s.hint} id="cab-siret-live">
-                    Vos coordonnées se pré-rempliront automatiquement depuis
-                    l&apos;annuaire officiel des entreprises.
-                  </p>
-                )}
+                <div className={s.siretBox}>
+                  <input
+                    id="cab-siret"
+                    className={`${s.input} ${
+                      errors["cabinet.siretNumber"] ? s.inputInvalid : ""
+                    }`}
+                    type="text"
+                    value={cabinet.siretNumber}
+                    onChange={(e) => {
+                      setSiretOpen(true);
+                      setSiretActive(-1); // la ligne surlignée ne survit pas à une frappe
+                      setCabinet((p) => ({
+                        ...p,
+                        siretNumber: e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 14),
+                      }));
+                    }}
+                    onKeyDown={onSiretKeyDown}
+                    onFocus={() => setSiretOpen(true)}
+                    onBlur={() => setSiretOpen(false)}
+                    inputMode="numeric"
+                    placeholder="Tapez les premiers chiffres"
+                    maxLength={14}
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={listeSiretOuverte}
+                    aria-controls="cab-siret-list"
+                    aria-autocomplete="list"
+                    aria-activedescendant={
+                      listeSiretOuverte && siretActive >= 0
+                        ? `cab-siret-opt-${siretActive}`
+                        : undefined
+                    }
+                    aria-invalid={errors["cabinet.siretNumber"] ? true : undefined}
+                    aria-describedby="cab-siret-live"
+                  />
+                  {listeSiretOuverte && (
+                    <ul
+                      className={s.siretList}
+                      id="cab-siret-list"
+                      role="listbox"
+                      aria-label="Établissements correspondant à votre saisie"
+                    >
+                      {siretSuggest.didYouMean && (
+                        <li className={s.siretListHead} role="presentation">
+                          Ce numéro ne peut pas exister. Vouliez-vous dire :
+                        </li>
+                      )}
+                      {siretItems.map((item, i) => {
+                        const [tape, reste] = splitSiretMatch(
+                          item.siret,
+                          siretSuggest.didYouMean ? 0 : cabinet.siretNumber.length,
+                        );
+                        return (
+                          <li
+                            key={item.siret}
+                            id={`cab-siret-opt-${i}`}
+                            role="option"
+                            aria-selected={i === siretActive}
+                            className={`${s.siretOption} ${
+                              i === siretActive ? s.siretOptionActive : ""
+                            }`}
+                            /* Le clic ne doit pas voler le focus au champ,
+                               sinon `onBlur` referme la liste avant que le
+                               choix ne soit enregistré. */
+                            onMouseDown={(e) => e.preventDefault()}
+                            onMouseEnter={() => setSiretActive(i)}
+                            onClick={() => pickSiret(item)}
+                          >
+                            <span className={s.siretOptionTop}>
+                              <span className={s.siretOptionName}>
+                                {item.name}
+                              </span>
+                              {item.health && (
+                                <em className={s.siretTag}>Santé</em>
+                              )}
+                              {item.establishmentCount > 1 &&
+                                item.headquarters && (
+                                  <em className={s.siretTag}>Siège</em>
+                                )}
+                              {!item.active && (
+                                <em className={`${s.siretTag} ${s.siretTagOff}`}>
+                                  Fermé
+                                </em>
+                              )}
+                            </span>
+                            <span className={s.siretOptionMeta}>
+                              <span className={s.siretNum}>
+                                <b>{tape}</b>
+                                {reste}
+                              </span>
+                              {(item.postalCode || item.city) && (
+                                <span className={s.siretCity}>
+                                  {[item.postalCode, item.city]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                </span>
+                              )}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Une seule ligne d'état à la fois, annoncée aux lecteurs
+                    d'écran : c'est elle qui dit combien d'établissements
+                    restent possibles, puis si le numéro est confirmé. */}
+                <div id="cab-siret-live" className={s.siretStatus} aria-live="polite">
+                  {errors["cabinet.siretNumber"] ? (
+                    <p className={s.fieldError}>
+                      <IconAlert /> {errors["cabinet.siretNumber"]}
+                    </p>
+                  ) : siretLookup.status === "loading" ? (
+                    <p className={s.hint}>
+                      Vérification auprès de l&apos;annuaire des entreprises…
+                    </p>
+                  ) : siretLookup.status === "found" ? (
+                    <p className={s.ibanOk}>
+                      ✓ {siretLookup.name ?? "Établissement confirmé"}. Vos
+                      coordonnées sont pré-remplies ci-dessous, vérifiez-les.
+                    </p>
+                  ) : siretLookup.status === "closed" ? (
+                    <p className={s.fieldError}>
+                      <IconAlert /> Cet établissement est déclaré fermé au
+                      répertoire officiel des entreprises.
+                    </p>
+                  ) : siretLookup.status === "not_found" ? (
+                    <p className={s.fieldError}>
+                      <IconAlert /> Ce SIRET est introuvable au répertoire
+                      officiel des entreprises.
+                    </p>
+                  ) : siretLookup.status === "error" ? (
+                    <p className={s.hint}>
+                      Annuaire momentanément indisponible. Votre numéro sera
+                      vérifié à la validation du dossier.
+                    </p>
+                  ) : siretNeed > 0 ? (
+                    <p className={s.hint}>
+                      Encore {siretNeed} chiffre{siretNeed > 1 ? "s" : ""} et
+                      nous vous proposons votre établissement.
+                    </p>
+                  ) : siretSuggest.status === "loading" ? (
+                    <p className={s.hint}>Recherche des établissements possibles…</p>
+                  ) : siretSuggest.status === "unavailable" ? (
+                    <p className={s.hint}>
+                      Annuaire momentanément indisponible. Saisissez vos 14
+                      chiffres, nous vérifierons ensuite.
+                    </p>
+                  ) : siretItems.length > 0 ? (
+                    <p className={s.hint}>
+                      {siretItems.length} établissement
+                      {siretItems.length > 1 ? "s" : ""} possible
+                      {siretItems.length > 1 ? "s" : ""}
+                      {siretSuggest.didYouMean
+                        ? " après correction"
+                        : ""}. Choisissez le vôtre dans la liste, ou continuez à
+                      taper.
+                    </p>
+                  ) : siretSuggest.status === "ok" && siretSuggest.truncated ? (
+                    <p className={s.hint}>
+                      Cette entreprise compte de nombreux établissements.
+                      Continuez la saisie pour retrouver le vôtre.
+                    </p>
+                  ) : siretSuggest.status === "ok" ? (
+                    <p className={s.hint}>
+                      Aucun établissement connu ne porte ces chiffres. Vérifiez
+                      votre saisie.
+                    </p>
+                  ) : (
+                    <p className={s.hint}>
+                      Tapez les premiers chiffres : nous retrouvons votre
+                      établissement et remplissons vos coordonnées.
+                    </p>
+                  )}
+
+                  {/* La porte de secours. Un établissement immatriculé depuis
+                      quelques jours, ou dont le dirigeant a demandé la
+                      non-diffusion, est absent de l'annuaire public sans rien
+                      avoir à se reprocher. */}
+                  {(siretLookup.status === "not_found" ||
+                    siretLookup.status === "closed") && (
+                    <p className={s.hint}>
+                      Votre numéro est pourtant exact ? Un établissement tout
+                      juste immatriculé, ou non diffusible à sa demande,
+                      n&apos;apparaît pas dans l&apos;annuaire public.{" "}
+                      <a
+                        className={s.siretHelp}
+                        href={`mailto:contact@medicarepro.fr?subject=${encodeURIComponent(
+                          "Vérification de mon SIRET",
+                        )}&body=${encodeURIComponent(
+                          `Bonjour,\n\nMon SIRET ${cabinet.siretNumber} n'est pas reconnu lors de l'inscription. Pouvez-vous vérifier et ouvrir mon accès ?\n\nCabinet : \nTéléphone : \n`,
+                        )}`}
+                      >
+                        Écrivez-nous
+                      </a>
+                      , nous vérifions et ouvrons votre accès.
+                    </p>
+                  )}
+                </div>
               </div>
               <Field
                 id="cab-name"
@@ -1620,9 +2064,22 @@ export default function CheckoutFlow({
                       Mensualité&nbsp;: <b>{row.monthlyLabel} TTC/mois</b>
                     </span>
                     <span className={s.recapTotal}>
-                      Débité aujourd&apos;hui par carte&nbsp;: {row.totalLabel}{" "}
-                      TTC {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
+                      Débité aujourd&apos;hui par carte&nbsp;:{" "}
+                      {versements.length > 0
+                        ? `${formatEuros(versements[0])} TTC (1er des ${versements.length} versements)`
+                        : `${row.totalLabel} TTC ${plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}`}
                     </span>
+                    {/* Le calendrier RÉPÉTÉ ici, et pas seulement à l'étape 1 :
+                        c'est le dernier écran avant le débit, et c'est celui
+                        qu'on relit quand on conteste. */}
+                    {versements.length > 1 && (
+                      <span>
+                        Puis {versements.length - 1} versements de{" "}
+                        <b>{formatEuros(versements[1])} TTC</b>, prélevés
+                        automatiquement à un mois d&apos;intervalle sur la même
+                        carte. Total {row.totalLabel} TTC, sans supplément.
+                      </span>
+                    )}
                     {!sepaEnabled &&
                       (plan === "ANNUAL" && !annualRenews ? (
                         <span>

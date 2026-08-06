@@ -1,9 +1,12 @@
 import "server-only";
 import type Stripe from "stripe";
 import { serviceClient } from "@/lib/supabase/service";
-import { sendMail } from "@/lib/email";
-import { billingAlertEmail } from "@/lib/emails/checkout-templates";
-import { billingEnv, hasBilling } from "@/lib/env";
+import { alerteStripe } from "@/lib/billing/alerts";
+import {
+  applyInstalmentFailed,
+  applyInstalmentPaid,
+  instalmentFromInvoice,
+} from "@/lib/billing/instalments";
 import { finalizeOrderPayment } from "@/lib/billing/attach";
 import {
   applyStripeSignupPayment,
@@ -36,22 +39,10 @@ import { factsFromCompletedSession } from "@/lib/stripe/webhook";
    cron pour les reprises.
    ============================================================ */
 
-/** Alerte interne — best-effort, ne jette jamais. */
-export async function alerteStripe(
-  title: string,
-  lines: string[],
-): Promise<void> {
-  try {
-    if (!hasBilling()) return;
-    const mail = billingAlertEmail({ title, lines });
-    await sendMail({ to: billingEnv().billingAlertsTo, ...mail });
-  } catch (err) {
-    console.error(
-      "[stripe-events] échec alerte :",
-      err instanceof Error ? err.message : String(err),
-    );
-  }
-}
+/* `alerteStripe` a déménagé dans `@/lib/billing/alerts` : elle est désormais
+   appelée des deux côtés du routage des versements, et la laisser ici créait un
+   cycle d'imports. Réexportée pour ne pas casser les appelants existants. */
+export { alerteStripe };
 
 /** Une date telle qu'on l'écrit dans un email : « 17 août 2026 ». */
 function frDate(date: Date): string {
@@ -245,6 +236,32 @@ export async function applyStripeEvent(
 
   if (event.type === "invoice.paid" || event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice;
+
+    /* UN VERSEMENT DE L'OFFRE EN TROIS FOIS, ET RIEN D'AUTRE.
+       Ce test vient EN PREMIER, et l'ordre n'est pas cosmétique.
+
+       Ces factures sont volontairement détachées de l'abonnement Stripe : les y
+       rattacher les ferait fusionner avec la facture annuelle. Elles n'ont donc
+       aucun abonnement, et le test suivant les classerait « facture sans
+       abonnement » puis les jetterait — les deux tiers du prix ne seraient
+       jamais encaissés dans notre registre.
+
+       Et si on les laissait passer pour des reconductions, ce serait pire :
+       `applyStripeInvoicePaid` lit la fin de période sur la ligne de facture, or
+       une ligne ponctuelle finit AUJOURD'HUI. Le praticien verrait son accès
+       ramené à la date du jour au moment même où il paie. */
+    const versement = instalmentFromInvoice(invoice);
+    if (versement) {
+      if (event.type === "invoice.paid") {
+        await applyInstalmentPaid(supabase, invoice, versement);
+      } else {
+        await applyInstalmentFailed(supabase, invoice, versement);
+      }
+      await mirrorStripeInvoice(invoice, versement.subscriptionId);
+      await marquerTraite();
+      return;
+    }
+
     const abonnement = subscriptionIdOf(invoice);
     if (!abonnement) {
       /* Une facture hors abonnement (ponctuelle, régularisation) ne concerne

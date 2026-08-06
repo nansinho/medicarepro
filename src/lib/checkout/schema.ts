@@ -88,6 +88,20 @@ export const CheckoutSchema = z.object({
     .min(0)
     .max(MAX_EXTRA_COLLABORATORS)
     .default(0),
+  /**
+   * Règlement de l'offre 12 mois en trois versements mensuels.
+   *
+   * Une simple intention : les MONTANTS ne viennent jamais du navigateur, ils
+   * sont recalculés côté serveur à partir de la grille. Ignoré sur le mensuel,
+   * qui est déjà un étalement.
+   *
+   * BOOLÉEN STRICT, PAS COERCITIF. `z.coerce.boolean()` applique `Boolean(v)` :
+   * la chaîne « false » y vaut VRAI, comme « non » et « 0 ». Un dossier posté à
+   * la main aurait donc basculé en trois versements en croyant les refuser, et
+   * le praticien se serait retrouvé avec un échéancier qu'aucun écran ne lui a
+   * proposé. Ici seul un vrai booléen passe.
+   */
+  instalments: z.boolean().default(false),
   cabinet: CabinetSchema,
   user: UserSchema,
   /** Mandat SEPA : présent uniquement si l'étape SEPA est active (flag

@@ -94,6 +94,50 @@ export function checkoutAmountCents(
 /** Montant du renouvellement — même formule que le 1er paiement. */
 export const renewalAmountCents = checkoutAmountCents;
 
+/* ============================================================
+   PAIEMENT EN TROIS FOIS — offre 12 mois uniquement.
+
+   Décidé le 06/08/2026 : trois versements sur trois mois consécutifs, sans
+   frais. Le client a écarté le paiement en deux fois puis en quatre — trois
+   mois d'affilée est son arbitrage entre l'effort demandé au praticien et le
+   temps pendant lequel nous portons le risque.
+
+   POURQUOI SEULEMENT L'ANNUEL. Le mensuel est déjà un étalement : le découper
+   à nouveau produirait des versements de dix euros pour un coût de traitement
+   identique. L'échelonnement n'existe que pour amortir les 298,08 € demandés
+   d'un coup.
+
+   LE DÉCOUPAGE DOIT TOMBER JUSTE. 29 808 / 3 = 9 936 exactement, mais ce n'est
+   vrai que pour un titulaire seul : avec des collaborateurs, le total n'est pas
+   toujours divisible par trois. Un arrondi naïf ferait payer un centime de trop
+   ou de moins, et cet écart-là finit par se voir sur une facture. On met donc le
+   reste sur le PREMIER versement — celui qui est encaissé tout de suite, sous
+   les yeux du praticien, plutôt que sur un prélèvement qu'il découvrira seul.
+   ============================================================ */
+
+/** Nombre de versements de l'offre échelonnée. */
+export const INSTALMENT_COUNT = 3;
+
+/**
+ * Les montants des versements, dans l'ordre, dont la somme vaut EXACTEMENT le
+ * prix annuel. Le premier absorbe le reste de la division.
+ */
+export function instalmentAmountsCents(totalCents: number): number[] {
+  if (!Number.isInteger(totalCents) || totalCents <= 0) {
+    throw new Error("Montant à échelonner invalide.");
+  }
+  const part = Math.floor(totalCents / INSTALMENT_COUNT);
+  const reste = totalCents - part * INSTALMENT_COUNT;
+  const parts = Array.from({ length: INSTALMENT_COUNT }, () => part);
+  parts[0] += reste;
+  return parts;
+}
+
+/** L'échelonnement n'est proposé que sur l'offre 12 mois. */
+export function instalmentsAvailable(plan: BillingPlan): boolean {
+  return plan === "ANNUAL";
+}
+
 /**
  * Libellé commercial de l'offre — utilisé sur les factures, les reçus et
  * les alertes internes. Source unique : premier paiement ET reconductions.

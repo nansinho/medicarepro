@@ -217,3 +217,131 @@ describe("buildCheckoutParams", () => {
     expect(p.customer).toBe("cus_test_cabinet");
   });
 });
+
+/* ============================================================
+   RÈGLEMENT EN TROIS FOIS.
+
+   Ce n'est PAS une session d'abonnement, et c'est le cœur du sujet. Deux
+   montages ont été mesurés chez Stripe le 06/08/2026 avant de retenir celui-ci :
+
+     - abonnement + ancrage du cycle à 12 mois  -> 397,41 € prélevés (l'année
+       entière EN PLUS du versement), car une ligne ponctuelle interdit
+       `proration_behavior: none` dans Checkout ;
+     - abonnement + période d'essai de 12 mois  -> le bon montant, mais Stripe
+       imprime une ligne « Essai gratuit » à 0 € sur une facture pourtant
+       payée, et une facture finalisée n'est plus modifiable.
+
+   D'où une session en MODE PAIEMENT : la facture ne porte que notre ligne.
+   L'abonnement est ouvert ensuite par nous, hors Checkout.
+   ============================================================ */
+describe("buildCheckoutParams — règlement en trois fois", () => {
+  const ANNUEL = { ...BASE, plan: "ANNUAL" as const };
+  const TROIS = { ...ANNUEL, instalments: [9936, 9936, 9936] };
+
+  it("encaisse le premier versement, et rien de plus", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams(TROIS);
+    expect(p.mode).toBe("payment");
+    expect(p.line_items).toHaveLength(1);
+    expect(p.line_items?.[0]?.price_data?.unit_amount).toBe(9936);
+    /* TTC comme nos prix de catalogue : sans ça la TVA s'ajouterait par-dessus
+       et le praticien paierait 119,23 € au lieu de 99,36 €. */
+    expect(p.line_items?.[0]?.price_data?.tax_behavior).toBe("inclusive");
+  });
+
+  /* AUCUN ABONNEMENT ICI. S'il en naissait un, Stripe facturerait les douze
+     mois par-dessus le versement, ou imprimerait « Essai gratuit ». */
+  it("n'ouvre aucun abonnement depuis Checkout", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams(TROIS);
+    expect(p.subscription_data).toBeUndefined();
+    expect(JSON.stringify(p)).not.toContain("trial_end");
+    expect(JSON.stringify(p)).not.toContain("billing_cycle_anchor");
+  });
+
+  /* En mode paiement il n'y a pas de `subscription_data` pour porter le taux :
+     sans lui la facture sort sans ligne de TVA, et une facture française sans
+     TVA ne vaut rien pour la comptabilité du cabinet. */
+  it("porte la TVA sur la ligne elle-même", async () => {
+    const { buildCheckoutParams } = await charger();
+    expect(buildCheckoutParams(TROIS).line_items?.[0]?.tax_rates).toEqual([
+      "txr_tva20",
+    ]);
+  });
+
+  it("refuse de vendre en versements sans taux de TVA configuré", async () => {
+    const { buildCheckoutParams } = await charger({ STRIPE_TAX_RATE_TEST: "" });
+    expect(() => buildCheckoutParams(TROIS)).toThrow(/TVA/);
+  });
+
+  /* Une vraie facture, pas un reçu de paiement : le praticien la remet à son
+     comptable. Et la carte doit survivre à la session, sinon il n'y aurait rien
+     à prélever le mois prochain. */
+  it("émet une facture et conserve la carte pour les versements suivants", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams(TROIS);
+    expect(p.invoice_creation?.enabled).toBe(true);
+    expect(p.payment_intent_data?.setup_future_usage).toBe("off_session");
+  });
+
+  /* Ces trois valeurs sont le SEUL lien entre la session et l'abonnement qu'on
+     ouvrira après : en mode paiement, rien d'autre ne les porte. */
+  it("transmet de quoi ouvrir l'abonnement après le paiement", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams({ ...TROIS, extraCollaborators: 2 });
+    expect(p.metadata?.instalments).toBe("3");
+    expect(p.metadata?.plan).toBe("ANNUAL");
+    expect(p.metadata?.collaborators).toBe("2");
+    expect(p.client_reference_id).toBe("MPABCDEFGH12");
+  });
+
+  it("ne change rien au paiement comptant", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams(ANNUEL);
+    expect(p.mode).toBe("subscription");
+    expect(p.line_items).toEqual([{ price: "price_annuel", quantity: 1 }]);
+    expect(p.invoice_creation).toBeUndefined();
+    expect(JSON.stringify(p)).not.toContain("versement");
+  });
+
+  /* Le mensuel est déjà un étalement : le redécouper produirait des versements
+     de dix euros pour un coût de traitement identique. */
+  it("refuse l'échelonnement sur la formule mensuelle", async () => {
+    const { buildCheckoutParams } = await charger();
+    expect(() =>
+      buildCheckoutParams({ ...BASE, instalments: [996, 996, 996] }),
+    ).toThrow(/12 mois/);
+  });
+
+  it("refuse un échelonnement dégénéré ou des montants aberrants", async () => {
+    const { buildCheckoutParams } = await charger();
+    expect(() => buildCheckoutParams({ ...ANNUEL, instalments: [29808] })).toThrow(
+      /deux versements/,
+    );
+    expect(() =>
+      buildCheckoutParams({ ...ANNUEL, instalments: [9936, 0, 9936] }),
+    ).toThrow(/invalide/);
+    expect(() =>
+      buildCheckoutParams({ ...ANNUEL, instalments: [9936, -1, 9936] }),
+    ).toThrow(/invalide/);
+  });
+
+  /* Ce qu'il lit juste avant de payer. Le laisser découvrir le second
+     prélèvement un mois plus tard est ce qui produit une contestation bancaire,
+     laquelle coûte plus cher que le versement lui-même. */
+  it("annonce le calendrier ET la conséquence d'un refus", async () => {
+    const { buildCheckoutParams } = await charger();
+    const submit = buildCheckoutParams(TROIS).custom_text?.submit;
+    const message = (typeof submit === "object" && submit?.message) || "";
+    expect(message).toMatch(/1er de 3 versements/);
+    expect(message).toMatch(/lecture seule/);
+  });
+
+  it("garde deux adresses de retour distinctes, comme en comptant", async () => {
+    const { buildCheckoutParams } = await charger();
+    const p = buildCheckoutParams(TROIS);
+    expect(p.success_url).toContain("/mon-abonnement/merci");
+    expect(p.cancel_url).toContain("/mon-abonnement/echec");
+    expect(p.success_url).not.toBe(p.cancel_url);
+  });
+});

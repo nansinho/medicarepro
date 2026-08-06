@@ -2,6 +2,7 @@ import "server-only";
 import type Stripe from "stripe";
 import { stripe, stripeLiveMode } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/env";
+import { openAnchoredAnnualSubscription } from "@/lib/billing/instalments";
 
 /* ============================================================
    Notifications Stripe : authentifier, puis projeter.
@@ -195,12 +196,69 @@ export async function factsFromCompletedSession(
     };
   }
 
+  const customerIdSession =
+    typeof session.customer === "string"
+      ? session.customer
+      : (session.customer?.id ?? null);
+
   const subscriptionId =
     typeof session.subscription === "string"
       ? session.subscription
       : (session.subscription?.id ?? null);
+
+  /* UNE SOUSCRIPTION RÉGLÉE EN PLUSIEURS FOIS N'A PAS D'ABONNEMENT ICI.
+
+     Elle passe par une session en MODE PAIEMENT : c'est le seul moyen d'obtenir
+     une facture ne portant que notre ligne, sans le « Essai gratuit » à 0 € que
+     Stripe imprime dès qu'une période d'essai entre en jeu. L'abonnement des
+     douze mois est donc ouvert ici, une fois l'argent acquis.
+
+     L'ORDRE EST VOULU : l'argent d'abord, l'abonnement ensuite. L'inverse
+     laisserait un abonnement vivant en face d'un paiement qui n'a jamais
+     abouti, et le cabinet serait prélevé dans douze mois sans avoir rien reçu.
+     Si c'est cette création-ci qui échoue, l'événement reste non traité et le
+     cron le rejoue — le praticien a payé, son dossier attend, rien n'est perdu. */
   if (!subscriptionId) {
-    return { ok: false, reason: "session sans abonnement rattaché" };
+    const nbVersements = Number.parseInt(session.metadata?.instalments ?? "", 10);
+    if (!Number.isInteger(nbVersements) || nbVersements < 2) {
+      return { ok: false, reason: "session sans abonnement rattaché" };
+    }
+    if (!customerIdSession) {
+      return { ok: false, reason: "session échelonnée sans client Stripe" };
+    }
+    try {
+      const ouvert = await openAnchoredAnnualSubscription({
+        reference,
+        customerId: customerIdSession,
+        /* La carte que le praticien vient d'utiliser, conservée par
+           `setup_future_usage`. Sans elle, il n'y aurait rien à prélever au
+           deuxième versement. */
+        paymentMethodId: await savedPaymentMethodOf(session),
+        plan: (session.metadata?.plan as "ANNUAL") ?? "ANNUAL",
+        extraCollaborators: Number.parseInt(session.metadata?.collaborators ?? "0", 10) || 0,
+        paidAt: new Date(event.created * 1000),
+        metadata: { instalments: String(nbVersements) },
+      });
+      return {
+        ok: true,
+        reference,
+        amountCents: session.amount_total ?? null,
+        currency: session.currency?.toUpperCase() ?? null,
+        occurredAt: new Date(event.created * 1000),
+        stripe: {
+          subscriptionId: ouvert.subscriptionId,
+          customerId: customerIdSession,
+          currentPeriodEnd: ouvert.currentPeriodEnd,
+        },
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        reason: `abonnement échelonné non ouvert : ${
+          err instanceof Error ? err.message.slice(0, 160) : "?"
+        }`,
+      };
+    }
   }
 
   let currentPeriodEnd: Date;
@@ -235,4 +293,32 @@ export async function factsFromCompletedSession(
     occurredAt: new Date(event.created * 1000),
     stripe: { subscriptionId, customerId, currentPeriodEnd },
   };
+}
+
+/**
+ * La carte que le praticien vient d'utiliser, conservée pour les échéances.
+ *
+ * `setup_future_usage: "off_session"` l'attache au client au moment du
+ * paiement ; c'est le PaymentIntent de la session qui dit laquelle. Sans elle,
+ * l'abonnement naîtrait sans moyen de paiement et le deuxième versement
+ * n'aurait rien à débiter.
+ *
+ * Ne jette jamais : un abonnement sans carte est rattrapable — Stripe réclamera
+ * au praticien de la renseigner — alors qu'une souscription bloquée sur un
+ * paiement déjà encaissé ne l'est pas.
+ */
+async function savedPaymentMethodOf(
+  session: Stripe.Checkout.Session,
+): Promise<string | undefined> {
+  try {
+    const pi =
+      typeof session.payment_intent === "string"
+        ? await stripe().paymentIntents.retrieve(session.payment_intent)
+        : session.payment_intent;
+    if (!pi) return undefined;
+    const pm = pi.payment_method;
+    return typeof pm === "string" ? pm : (pm?.id ?? undefined);
+  } catch {
+    return undefined;
+  }
 }

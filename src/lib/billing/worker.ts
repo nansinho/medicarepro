@@ -19,10 +19,12 @@ import {
 } from "@/lib/provisioning";
 import {
   renewalAmountCents,
+  instalmentAmountsCents,
   formatEuros,
   planLabel,
   type BillingPlan,
 } from "@/lib/checkout/pricing";
+import { unMoisApres } from "@/lib/billing/instalments";
 import {
   paymentReceiptEmail,
   provisioningIncidentEmailClient,
@@ -115,6 +117,13 @@ type PendingSignupRow = {
   stripe_customer_id: string | null;
   /** L'échéance telle que Stripe la tient. Fait autorité, jamais recalculée. */
   stripe_current_period_end: string | null;
+  /**
+   * Nombre de versements convenus au tunnel (0 ou 1 = paiement comptant).
+   *
+   * Porté par le dossier d'inscription parce que c'est le seul lien entre le
+   * choix fait à l'écran et le contrat, créé bien après le paiement.
+   */
+  instalment_count: number;
 };
 
 /* ------------------------------------------------------------
@@ -507,6 +516,27 @@ async function finalizeSuccess(
            rappels d'échéance à un client qui n'a rien à faire. */
         recurrence_stopped_at:
           !parStripe && row.plan === "ANNUAL" ? startedAt.toISOString() : null,
+        /* LE CALENDRIER DES VERSEMENTS, quand le praticien a choisi d'étaler.
+
+           Il s'ouvre ICI et nulle part ailleurs : c'est le seul endroit où le
+           contrat existe enfin, et où le choix fait dans le tunnel est encore
+           connu. Ne pas le poser laisserait un cabinet ayant réglé 99,36 € avec
+           douze mois d'accès et plus rien à payer.
+
+           Le premier versement est déjà encaissé — c'est lui qui a ouvert la
+           session — d'où le compteur à 1. Les montants sont figés maintenant :
+           un praticien qui a consenti à 99,36 € ne doit pas se voir réclamer
+           autre chose si la grille tarifaire bouge d'ici le mois prochain. */
+        ...(row.instalment_count > 1
+          ? {
+              instalment_total_count: row.instalment_count,
+              instalment_paid_count: 1,
+              instalment_amounts_cents: instalmentAmountsCents(
+                renewalAmountCents(row.plan, row.extra_collaborators),
+              ),
+              next_instalment_at: unMoisApres(startedAt).toISOString(),
+            }
+          : {}),
       })
       .select("id")
       .single();
@@ -762,11 +792,26 @@ async function finalizeSuccess(
       const accessUntilLabel =
         !reconduit && isAnnual && periodEndDate ? frDate(periodEndDate) : undefined;
 
+      /* LE REÇU D'UN RÈGLEMENT ÉCHELONNÉ NE DIT PAS LA MÊME CHOSE.
+
+         Sans cette distinction, le praticien lit « Offre 12 mois : 99,36 € » —
+         c'est-à-dire le prix d'une offre à 298,08 €, présenté comme s'il avait
+         tout réglé. Il découvrirait le deuxième prélèvement un mois plus tard
+         sans y avoir été préparé, et c'est ce qui produit une contestation
+         bancaire. Le reçu est le document qu'il garde : il doit porter le
+         calendrier, pas un montant isolé. */
+      const echelonne = row.instalment_count > 1;
       const receipt = paymentReceiptEmail({
         adminFirstName: user.firstName,
         cabinetName: cabinet.name,
-        planLabel: label,
-        amountLabel: formatEuros(row.amount_cents),
+        planLabel: echelonne
+          ? `${label} — réglée en ${row.instalment_count} versements`
+          : label,
+        amountLabel: echelonne
+          ? `${formatEuros(row.amount_cents)} (1er des ${row.instalment_count} versements, total ${formatEuros(
+              renewalAmountCents(row.plan, row.extra_collaborators),
+            )})`
+          : formatEuros(row.amount_cents),
         reference: row.monetico_reference,
         paidAtLabel: frDateTime(row.paid_at),
         invoiceNumber,

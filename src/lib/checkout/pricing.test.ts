@@ -6,6 +6,9 @@ import {
   planFromPlanKey,
   renewalAmountCents,
   MAX_EXTRA_COLLABORATORS,
+  instalmentAmountsCents,
+  instalmentsAvailable,
+  INSTALMENT_COUNT,
 } from "./pricing";
 import { baseInvoicePrefix, invoicePrefixCandidates } from "./invoice-prefix";
 import { CheckoutSchema } from "./schema";
@@ -207,5 +210,66 @@ describe("CheckoutSchema (règles du contrat dev B §6)", () => {
     expect(
       CheckoutSchema.safeParse({ ...valid, mandateAccepted: false }).success,
     ).toBe(true);
+  });
+});
+
+/* ============================================================
+   Découpage en versements.
+
+   La somme des versements DOIT valoir le prix annoncé, au centime. Un arrondi
+   qui perd un centime le perd sur chaque contrat échelonné, et l'écart se
+   découvre au rapprochement comptable, des mois plus tard.
+   ============================================================ */
+describe("instalmentAmountsCents", () => {
+  it("tombe juste sur le tarif du titulaire seul", () => {
+    expect(instalmentAmountsCents(29808)).toEqual([9936, 9936, 9936]);
+  });
+
+  it("rend toujours exactement le total, quel que soit le nombre de collaborateurs", () => {
+    for (let collab = 0; collab <= 30; collab += 1) {
+      const total = checkoutAmountCents("ANNUAL", collab);
+      const parts = instalmentAmountsCents(total);
+      expect(parts).toHaveLength(INSTALMENT_COUNT);
+      expect(parts.reduce((a, b) => a + b, 0)).toBe(total);
+      expect(parts.every((p) => Number.isInteger(p) && p > 0)).toBe(true);
+    }
+  });
+
+  /* Le reste va sur le PREMIER versement : celui qui est encaissé sous les yeux
+     du praticien, pas sur un prélèvement qu'il découvrirait seul. */
+  it("met le reste de la division sur le premier versement", () => {
+    expect(instalmentAmountsCents(100)).toEqual([34, 33, 33]);
+    expect(instalmentAmountsCents(101)).toEqual([35, 33, 33]);
+    expect(instalmentAmountsCents(99)).toEqual([33, 33, 33]);
+  });
+
+  it("refuse un montant qui n'est pas un entier positif", () => {
+    expect(() => instalmentAmountsCents(0)).toThrow();
+    expect(() => instalmentAmountsCents(-300)).toThrow();
+    expect(() => instalmentAmountsCents(99.5)).toThrow();
+  });
+
+  /* Découper 29,88 € en trois produirait des versements de dix euros pour un
+     coût de traitement identique : le mensuel est déjà un étalement. */
+  it("n'ouvre l'échelonnement que sur l'offre 12 mois", () => {
+    expect(instalmentsAvailable("ANNUAL")).toBe(true);
+    expect(instalmentsAvailable("MONTHLY")).toBe(false);
+  });
+});
+
+/* Le drapeau d'échelonnement ne doit basculer que sur un VRAI booléen : avec
+   une coercition, la chaîne « false » vaut Boolean("false") === true, et un
+   dossier posté à la main ouvrirait un échéancier qu'aucun écran n'a proposé. */
+describe("CheckoutSchema — drapeau d'échelonnement", () => {
+  const champ = CheckoutSchema.shape.instalments;
+  it("accepte les booléens et rien d'autre", () => {
+    expect(champ.parse(true)).toBe(true);
+    expect(champ.parse(false)).toBe(false);
+    expect(champ.parse(undefined)).toBe(false);
+  });
+  it("refuse les chaînes, y compris celles qui ressemblent à un refus", () => {
+    for (const v of ["false", "non", "0", "true", 1]) {
+      expect(() => champ.parse(v)).toThrow();
+    }
   });
 });

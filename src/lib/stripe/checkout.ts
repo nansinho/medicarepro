@@ -47,6 +47,11 @@ export type CheckoutInput = {
   errorPath: string;
   /** Métadonnées supplémentaires, reprises sur la session et l'abonnement. */
   metadata?: Record<string, string>;
+  /**
+   * Versements convenus, dans l'ordre, quand le praticien choisit d'échelonner.
+   * Absent ou vide = paiement comptant. Réservé à l'offre 12 mois.
+   */
+  instalments?: number[];
 };
 
 /**
@@ -108,7 +113,114 @@ export function buildCheckoutParams(
     lineItems.push({ price: collabPrice, quantity: input.extraCollaborators });
   }
 
-  const metadata = { ...input.metadata, reference: input.reference };
+  /* Contrôles de l'échelonnement. Le montage lui-même est plus bas : il ne
+     produit PAS une session d'abonnement, et c'est expliqué là où il se joue. */
+  const versements = input.instalments ?? [];
+  if (versements.length > 0) {
+    if (!annuel) {
+      /* Le mensuel est déjà un étalement : le redécouper produirait des
+         versements de dix euros pour un coût de traitement identique. */
+      throw new Error("Le paiement en plusieurs fois n'existe que sur l'offre 12 mois.");
+    }
+    if (versements.length < 2) {
+      throw new Error("Un échelonnement demande au moins deux versements.");
+    }
+    if (versements.some((v) => !Number.isInteger(v) || v <= 0)) {
+      throw new Error("Montant de versement invalide.");
+    }
+  }
+
+  const metadata = {
+    ...input.metadata,
+    reference: input.reference,
+    ...(versements.length > 0
+      ? {
+          instalments: String(versements.length),
+          /* Repris à l'identique quand NOUS créerons l'abonnement, après le
+             paiement : la session en mode paiement n'en porte aucun, donc ces
+             deux valeurs sont le seul moyen de savoir quoi ouvrir. */
+          plan: input.plan,
+          collaborators: String(input.extraCollaborators),
+        }
+      : {}),
+  };
+
+  const client = input.customerId
+    ? {
+        customer: input.customerId,
+        customer_update: { address: "auto" as const, name: "auto" as const },
+      }
+    : { customer_email: input.customerEmail };
+
+  /* ---------- RÈGLEMENT EN PLUSIEURS FOIS ----------
+
+     UNE SESSION DE PAIEMENT, PAS D'ABONNEMENT, et c'est tout le sujet.
+
+     Le premier montage passait par un abonnement doté d'une « période d'essai »
+     de douze mois. Il fonctionnait et prélevait le bon montant, mais Stripe
+     ajoutait d'office à la facture une ligne à 0 € libellée « Essai gratuit » —
+     sur un document où le praticien venait de payer 99,36 €, et qu'il remet à
+     son comptable. Cette ligne n'est ni paramétrable, ni modifiable après coup
+     (« This invoice is no longer editable », mesuré le 06/08/2026).
+
+     Ici on encaisse le premier versement comme un achat simple : la facture ne
+     porte QUE notre ligne, avec notre libellé. L'abonnement des douze mois est
+     ouvert juste après, par nous, ancré à un an et sans prorata — ce que
+     l'API accepte alors que Checkout le refuse dès qu'une ligne ponctuelle est
+     présente. Il naît « actif », sans essai et sans facture.
+
+     POURQUOI ENCAISSER ICI ET PAS APRÈS COUP. Le praticien est devant son
+     écran, sa banque peut lui demander une validation 3-D Secure et il la donne
+     dans la seconde. Un prélèvement lancé hors sa présence n'a pas cette
+     chance : c'est le premier versement, celui qui ouvre le compte, et il doit
+     aboutir. La carte est conservée pour les deux suivants. */
+  if (versements.length > 0) {
+    const libelle = `Offre 12 mois MediCare Pro : 1er versement sur ${versements.length}`;
+    return {
+      mode: "payment",
+      locale: "fr",
+      client_reference_id: input.reference,
+      ...client,
+      metadata,
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            unit_amount: versements[0],
+            /* Nos prix de catalogue sont TTC : sans cette mention la TVA
+               s'ajouterait par-dessus et le praticien paierait 119,23 €. */
+            tax_behavior: "inclusive",
+            product_data: { name: libelle },
+          },
+          quantity: 1,
+          /* En mode paiement il n'y a pas de `subscription_data` pour porter le
+             taux : sans lui la facture sort sans ligne de TVA, et une facture
+             française sans TVA ne vaut rien pour la comptabilité du cabinet. */
+          tax_rates: [taxRate],
+        },
+      ],
+      /* Sans ça, Stripe n'émet qu'un reçu de paiement. Le praticien a droit à
+         une vraie facture, numérotée, avec l'adresse du cabinet. */
+      invoice_creation: {
+        enabled: true,
+        invoice_data: { metadata, description: libelle },
+      },
+      payment_intent_data: {
+        /* CONSERVE LA CARTE pour les deux versements suivants. Sans elle, il n'y
+           aurait tout simplement rien à prélever le mois prochain. */
+        setup_future_usage: "off_session",
+        metadata,
+        description: libelle,
+      },
+      custom_text: {
+        submit: {
+          message: `Vous réglez aujourd'hui le 1er de ${versements.length} versements. Les ${versements.length - 1} suivants seront prélevés automatiquement sur cette carte, à un mois d'intervalle. Votre accès est ouvert pour douze mois dès ce paiement ; en cas de versement refusé, il passe en lecture seule jusqu'au règlement. Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS.`,
+        },
+      },
+      success_url: `${siteUrl(input.successPath)}?ref=${encodeURIComponent(input.reference)}`,
+      cancel_url: `${siteUrl(input.errorPath)}?ref=${encodeURIComponent(input.reference)}`,
+    };
+  }
 
   return {
     mode: "subscription",
@@ -126,15 +238,10 @@ export function buildCheckoutParams(
        déploiement, et couper un moyen de paiement ne cassera plus la vente. */
     locale: "fr",
     client_reference_id: input.reference,
-    /* L'un OU l'autre : Stripe refuse les deux ensemble. */
-    ...(input.customerId
-      ? {
-          customer: input.customerId,
-          /* Autorise Stripe à mettre à jour l'adresse si le client la corrige
-             sur la page de paiement, plutôt que de la figer à notre copie. */
-          customer_update: { address: "auto" as const, name: "auto" as const },
-        }
-      : { customer_email: input.customerEmail }),
+    /* L'un OU l'autre : Stripe refuse les deux ensemble. `customer_update`
+       autorise Stripe à corriger l'adresse si le client la rectifie sur la page
+       de paiement, plutôt que de la figer à notre copie. */
+    ...client,
     metadata,
     /* CE QUE LE PRATICIEN LIT JUSTE AVANT DE PAYER.
 
@@ -161,7 +268,7 @@ export function buildCheckoutParams(
       /* Le libellé repris sur la facture et sur le relevé bancaire du
          praticien. Sans lui, il lit une ligne « MediCare Pro » sans savoir de
          quelle formule il s'agit. */
-      description: `Abonnement MediCare Pro — ${
+      description: `Abonnement MediCare Pro : ${
         input.plan === "ANNUAL" ? "offre 12 mois" : "mensuel sans engagement"
       }${
         input.extraCollaborators > 0

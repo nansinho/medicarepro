@@ -9,7 +9,12 @@ import { createSignupCustomer } from "@/lib/stripe/customer";
 import { stripeLiveMode } from "@/lib/stripe/client";
 import { CheckoutSchema } from "@/lib/checkout/schema";
 import { verifyRppsOnline } from "@/lib/checkout/rpps";
-import { checkoutAmountCents } from "@/lib/checkout/pricing";
+import { verifySiret } from "@/lib/checkout/annuaire";
+import {
+  checkoutAmountCents,
+  instalmentAmountsCents,
+  instalmentsAvailable,
+} from "@/lib/checkout/pricing";
 import { invoicePrefixCandidates } from "@/lib/checkout/invoice-prefix";
 import {
   checkAvailability,
@@ -295,7 +300,51 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const amountCents = checkoutAmountCents(input.plan, input.extraCollaborators);
+  /* SIRET contre l'annuaire des entreprises. BLOQUANT depuis le 06/08/2026 :
+     on n'ouvre plus de compte à un numéro que le répertoire officiel ne
+     connaît pas, ou qui désigne un établissement fermé.
+
+     C'est ici que le contrôle fait foi. Le tunnel le dit plus tôt, à la
+     saisie, mais cette route s'appelle aussi sans lui.
+
+     Même prudence que pour le RPPS : seule une réponse CERTAINE refuse.
+     Une panne de l'annuaire rend « unavailable » et laisse passer, sinon
+     une indisponibilité chez l'État fermerait notre tunnel de vente. */
+  const siretVerdict = await verifySiret(cabinet.siretNumber);
+  if (siretVerdict.status === "not_found" || siretVerdict.status === "closed") {
+    const message =
+      siretVerdict.status === "closed"
+        ? "Cet établissement est déclaré fermé au répertoire officiel des entreprises. Saisissez le SIRET de votre établissement en activité."
+        : "Ce SIRET est introuvable au répertoire officiel des entreprises. Vérifiez votre saisie.";
+    return Response.json(
+      {
+        error: `${message} S'il vient d'être immatriculé ou s'il est non diffusible, écrivez-nous à contact@medicarepro.fr : nous vérifions et ouvrons votre accès.`,
+        issues: [
+          { path: ["cabinet", "siretNumber"], message },
+        ],
+      },
+      { status: 422 },
+    );
+  }
+
+  /* LE PRIX COMPLET DE L'OFFRE — ce que le cabinet doit au total pour douze
+     mois, quelle que soit la façon dont il le règle. */
+  const totalCents = checkoutAmountCents(input.plan, input.extraCollaborators);
+
+  /* LE DÉCOUPAGE, s'il a été demandé ET s'il est permis sur cette formule. On
+     ne se fie pas au navigateur pour dire ce qui est éligible : le mensuel est
+     déjà un étalement, et l'accepter produirait des versements de dix euros. */
+  const versements =
+    input.instalments && instalmentsAvailable(input.plan)
+      ? instalmentAmountsCents(totalCents)
+      : [];
+
+  /* CE QUE STRIPE VA RÉELLEMENT PRÉLEVER MAINTENANT. La distinction est tout
+     sauf cosmétique : `amount_cents` est le montant confronté à l'encaissement
+     Stripe au retour. Y laisser le prix annuel ferait crier l'écart de montant
+     à chaque souscription échelonnée, et le premier paiement serait archivé à
+     298,08 € alors que 99,36 € ont été débités. */
+  const amountCents = versements.length > 0 ? versements[0] : totalCents;
   const reference = newMoneticoReference();
   const nowIso = new Date().toISOString();
 
@@ -394,6 +443,10 @@ export async function POST(request: NextRequest) {
       plan: input.plan,
       extra_collaborators: input.extraCollaborators,
       amount_cents: amountCents,
+      /* Le seul lien entre le choix fait à l'écran et le contrat, qui ne naîtra
+         qu'après le paiement : sans lui, le calendrier des versements ne serait
+         jamais ouvert et les deux tiers du prix ne seraient jamais réclamés. */
+      instalment_count: versements.length,
       currency: "EUR",
       cabinet: {
         name: cabinet.name,
@@ -474,6 +527,7 @@ export async function POST(request: NextRequest) {
     user,
     invoicePrefix,
     amountCents,
+    instalments: versements,
     statusToken,
     ip,
     userAgent,
@@ -499,6 +553,8 @@ async function openStripeCheckout(args: {
   reference: string;
   plan: "MONTHLY" | "ANNUAL";
   extraCollaborators: number;
+  /** Versements convenus, dans l'ordre. Vide = paiement comptant. */
+  instalments: number[];
   cabinet: {
     name: string;
     email: string;
@@ -536,6 +592,7 @@ async function openStripeCheckout(args: {
       reference: args.reference,
       plan: args.plan,
       extraCollaborators: args.extraCollaborators,
+      instalments: args.instalments,
       customerId,
       /* DEUX adresses distinctes, comme chez Monetico et pour la même raison :
          c'est le seul signal qui parvient au navigateur avant la notification
