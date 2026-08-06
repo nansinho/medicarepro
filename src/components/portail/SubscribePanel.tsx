@@ -3,7 +3,13 @@
 import { useMemo, useState } from "react";
 import MoneticoRedirectForm from "@/components/checkout/MoneticoRedirectForm";
 import { LEGAL_DOCUMENTS, TERMS_LABEL } from "@/lib/legal/registry";
-import { MAX_EXTRA_COLLABORATORS } from "@/lib/checkout/pricing";
+import {
+  MAX_EXTRA_COLLABORATORS,
+  checkoutAmountCents,
+  instalmentAmountsCents,
+  instalmentsAvailable,
+  formatEuros,
+} from "@/lib/checkout/pricing";
 import PdfViewer, { type PdfDoc } from "@/components/checkout/PdfViewer";
 import pdfStyles from "@/components/checkout/PdfViewer.module.css";
 import s from "./Portal.module.css";
@@ -50,12 +56,28 @@ export default function SubscribePanel({
     monthlyEnabled ? "MONTHLY" : "ANNUAL",
   );
   const [extra, setExtra] = useState(0);
+  /* Règlement en trois fois. Un cabinet déjà installé qui régularise sa
+     facturation paie l'année entière d'un coup : c'est ici que la somme est la
+     plus lourde, donc ici que l'étalement sert le plus. */
+  const [instalments, setInstalments] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [redirect, setRedirect] = useState<Redirect | null>(null);
 
   const row = useMemo(() => prices[plan][extra], [prices, plan, extra]);
+  /* Le même découpage que le serveur, au centime près : le reste de la division
+     tombe sur le premier versement. Ce n'est qu'un affichage — les montants
+     facturés sont recalculés côté serveur — mais un écart d'un centime entre
+     l'écran et le débit est ce qui fait écrire un praticien. */
+  const echelonnable = instalmentsAvailable(plan);
+  const versements = useMemo(
+    () =>
+      echelonnable && instalments
+        ? instalmentAmountsCents(checkoutAmountCents(plan, extra))
+        : [],
+    [echelonnable, instalments, plan, extra],
+  );
 
   if (redirect) {
     return <MoneticoRedirectForm action={redirect.action} fields={redirect.fields} />;
@@ -69,7 +91,11 @@ export default function SubscribePanel({
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, extraCollaborators: extra }),
+        body: JSON.stringify({
+          plan,
+          extraCollaborators: extra,
+          instalments: echelonnable && instalments,
+        }),
       });
       if (res.ok) {
         const reponse = (await res.json()) as Redirect & { url?: string };
@@ -198,10 +224,52 @@ export default function SubscribePanel({
           </div>
         </div>
 
+        {/* ---- Règlement en trois fois — offre 12 mois uniquement ----
+            Le mensuel est déjà un étalement : le redécouper n'aurait pas de
+            sens. Le calendrier est écrit en clair, montants et échéances
+            comprises : un praticien qui découvre un second prélèvement un mois
+            plus tard conteste auprès de sa banque, et une contestation coûte
+            plus cher que le versement. */}
+        {echelonnable && (
+          <div className={s.instalmentBox}>
+            <label className={s.instalmentToggle}>
+              <input
+                type="checkbox"
+                checked={instalments}
+                onChange={(e) => setInstalments(e.target.checked)}
+              />
+              <span>
+                <b>Régler en 3 fois, sans frais</b>
+                <span className={s.instalmentHint}>
+                  Trois versements mensuels au lieu d&apos;un paiement unique.
+                  Rien ne change pour votre cabinet, l&apos;accès reste ouvert
+                  douze mois dès le premier.
+                </span>
+              </span>
+            </label>
+            {versements.length > 0 && (
+              <ol className={s.instalmentPlan}>
+                {versements.map((montant, i) => (
+                  <li key={i}>
+                    <span>{i === 0 ? "Aujourd'hui" : `Dans ${i} mois`}</span>
+                    <b>{formatEuros(montant)} TTC</b>
+                  </li>
+                ))}
+                <li className={s.instalmentTotal}>
+                  <span>Total, sans supplément</span>
+                  <b>{row.totalLabel} TTC</b>
+                </li>
+              </ol>
+            )}
+          </div>
+        )}
+
         <div className={s.recap}>
           <span className={s.recapLabel}>Payé aujourd&apos;hui</span>
           <span className={s.recapValue}>
-            {row.totalLabel} TTC {plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}
+            {versements.length > 0
+              ? `${formatEuros(versements[0])} TTC (1er des ${versements.length} versements)`
+              : `${row.totalLabel} TTC ${plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}`}
           </span>
         </div>
 
@@ -293,7 +361,10 @@ export default function SubscribePanel({
                 Préparation du paiement…
               </>
             ) : (
-              `Payer ${row.totalLabel} et activer mon abonnement`
+              /* LE BOUTON ANNONCE CE QUI VA ÊTRE DÉBITÉ, pas le prix de
+                 l'offre : sur un règlement échelonné les deux diffèrent, et
+                 c'est le bouton qu'on lit. */
+              `Payer ${versements.length > 0 ? formatEuros(versements[0]) : row.totalLabel} et activer mon abonnement`
             )}
           </button>
         </div>

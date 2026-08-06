@@ -966,3 +966,70 @@
   margin-top: 10px;
   line-height: 1.5;
 }
+
+/* ---- Règlement en trois fois (souscription depuis l'espace abonnement) ----
+   Même écriture que dans le tunnel de vente : le calendrier est posé noir sur
+   blanc, échéances et montants compris. C'est ce qui sépare un étalement d'une
+   mauvaise surprise au deuxième prélèvement. */
+.instalmentBox {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+}
+.instalmentToggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--color-navy);
+}
+.instalmentToggle input {
+  margin-top: 3px;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.instalmentToggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.instalmentHint {
+  font-size: 0.82rem;
+  color: var(--color-body);
+  font-weight: 400;
+  line-height: 1.45;
+}
+.instalmentPlan {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--color-border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 0.86rem;
+  color: var(--color-body);
+}
+.instalmentPlan li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.instalmentPlan li b {
+  color: var(--color-navy);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.instalmentTotal {
+  padding-top: 7px;
+  border-top: 1px dashed var(--color-border-soft);
+}
+.instalmentTotal b {
+  color: var(--color-primary) !important;
+}

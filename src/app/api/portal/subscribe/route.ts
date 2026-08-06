@@ -8,6 +8,8 @@ import { openSession, PORTAL_COOKIE } from "@/lib/billing/portal";
 import { openOrder, openStripeOrder } from "@/lib/billing/orders";
 import {
   checkoutAmountCents,
+  instalmentAmountsCents,
+  instalmentsAvailable,
   MAX_EXTRA_COLLABORATORS,
   type BillingPlan,
 } from "@/lib/checkout/pricing";
@@ -63,13 +65,18 @@ export async function POST(request: NextRequest) {
 
   let plan: BillingPlan;
   let extra: number;
+  let veutEchelonner = false;
   try {
     const body = (await request.json()) as {
       plan?: unknown;
       extraCollaborators?: unknown;
+      instalments?: unknown;
     };
     plan = body.plan === "MONTHLY" ? "MONTHLY" : "ANNUAL";
     extra = Number(body.extraCollaborators ?? 0);
+    /* Booléen STRICT : `Boolean("false")` vaut vrai, et un dossier posté à la
+       main basculerait en versements en croyant les refuser. */
+    veutEchelonner = body.instalments === true;
   } catch {
     return Response.json({ error: "Requête invalide." }, { status: 400 });
   }
@@ -107,7 +114,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const amountCents = checkoutAmountCents(plan, extra);
+  /* Le prix complet de l'offre, puis son découpage éventuel. Les MONTANTS ne
+     viennent jamais du navigateur : il n'envoie qu'une intention, et le serveur
+     recalcule tout depuis la grille. */
+  const totalCents = checkoutAmountCents(plan, extra);
+  const versements =
+    veutEchelonner && instalmentsAvailable(plan)
+      ? instalmentAmountsCents(totalCents)
+      : [];
+  /* Ce que Stripe prélève MAINTENANT, et non le prix de l'offre : c'est ce
+     montant qui sera confronté à l'encaissement au retour. */
+  const amountCents = versements.length > 0 ? versements[0] : totalCents;
   const c = session.cabinet;
 
   /* Preuve de consentement — MÊME EXIGENCE QUE LE TUNNEL (art. 5 CGV v2.1) :
@@ -142,6 +159,7 @@ export async function POST(request: NextRequest) {
     plan,
     extraCollaborators: extra,
     amountCents,
+    instalments: versements,
     appCabinetId: session.appCabinetId,
     appUserId: session.appUserId,
     subscriptionId: null,

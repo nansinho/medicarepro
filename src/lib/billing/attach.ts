@@ -1,5 +1,6 @@
 import "server-only";
 import { serviceClient } from "@/lib/supabase/service";
+import { unMoisApres } from "@/lib/billing/instalments";
 import { billingEnv } from "@/lib/env";
 import { sendMail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -17,6 +18,7 @@ import {
   formatEuros,
   planLabel,
   renewalAmountCents,
+  instalmentAmountsCents,
   type BillingPlan,
 } from "@/lib/checkout/pricing";
 import {
@@ -56,6 +58,9 @@ type OrderRow = {
   status: string;
   monetico_reference: string;
   monetico_order_date: string | null;
+  /** Versements convenus (0 ou 1 = comptant). Porté par la commande, parce que
+      le contrat qu'il alimente ne naîtra qu'après l'encaissement. */
+  instalment_count: number;
   /** Plateforme où vit la commande. NULL pour les lignes antérieures à 0033. */
   payment_environment: "test" | "production" | null;
   /** Prestataire qui a encaissé. NULL pour les lignes antérieures à 0034. */
@@ -113,7 +118,7 @@ function addMonthsClamped(date: Date, months: number): Date {
 }
 
 const ORDER_COLUMNS =
-  "id, subscription_id, app_cabinet_id, app_user_id, kind, plan, role, extra_collaborators, amount_cents, currency, status, monetico_reference, monetico_order_date, payment_environment, payment_provider, applied_at, billing_snapshot";
+  "id, subscription_id, app_cabinet_id, app_user_id, kind, plan, role, extra_collaborators, amount_cents, currency, status, monetico_reference, monetico_order_date, payment_environment, payment_provider, applied_at, billing_snapshot, instalment_count";
 
 /**
  * Point d'entrée unique des paiements portant sur une commande hors tunnel.
@@ -746,6 +751,24 @@ async function finalizeAttach(
       recurrence_stopped_at:
         !parStripe && order.plan === "ANNUAL" ? startedAt.toISOString() : null,
       notes: "Souscription depuis l'espace abonnement (cabinet existant).",
+      /* LE CALENDRIER DES VERSEMENTS, quand la souscription a été réglée en
+         plusieurs fois. Sans lui, le cabinet aurait payé un tiers du prix pour
+         douze mois d'accès et plus rien ne réclamerait le reste.
+
+         Ce chemin est celui d'un cabinet DÉJÀ INSTALLÉ qui régularise sa
+         facturation : c'est là que l'addition est la plus lourde (838,08 € pour
+         un cabinet à trois collaborateurs), donc là que l'étalement sert le
+         plus. L'oublier ici revenait à ne le proposer qu'aux nouveaux venus. */
+      ...(order.instalment_count > 1
+        ? {
+            instalment_total_count: order.instalment_count,
+            instalment_paid_count: 1,
+            instalment_amounts_cents: instalmentAmountsCents(
+              renewalAmountCents(order.plan, order.extra_collaborators),
+            ),
+            next_instalment_at: unMoisApres(startedAt).toISOString(),
+          }
+        : {}),
     })
     .select("id")
     .single();

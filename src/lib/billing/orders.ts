@@ -250,6 +250,8 @@ export type OpenOrderInput = {
   plan: BillingPlan;
   extraCollaborators: number;
   amountCents: number;
+  /** Versements convenus, dans l'ordre. Vide ou absent = paiement comptant. */
+  instalments?: number[];
   appCabinetId: string;
   appUserId?: string | null;
   /** null pour une souscription : le contrat n'existe pas encore. */
@@ -431,6 +433,10 @@ export async function openStripeOrder(
     reference,
     plan: input.plan,
     extraCollaborators: input.extraCollaborators,
+    /* Le règlement en plusieurs fois vaut aussi pour un cabinet déjà installé
+       qui régularise sa facturation. C'est même là que l'addition est la plus
+       lourde, donc là que l'étalement sert le plus. */
+    instalments: input.instalments,
     customerId,
     successPath: input.returnPath,
     errorPath: input.errorPath,
@@ -447,6 +453,10 @@ export async function openStripeOrder(
       role: input.plan === "MONTHLY" ? "recurring" : "oneshot",
       plan: input.plan,
       extra_collaborators: input.extraCollaborators,
+      /* Le seul lien entre le choix fait à l'écran et le contrat, qui ne naîtra
+         qu'après l'encaissement : sans lui, le calendrier ne serait jamais
+         ouvert et les deux tiers du prix ne seraient jamais réclamés. */
+      instalment_count: input.instalments?.length ?? 0,
       /* Ce montant est INDICATIF : il sert aux écrans et aux alertes, pas à
          l'encaissement. Le montant qui fait foi est celui du catalogue Stripe,
          et il est relu sur la facture émise. */
