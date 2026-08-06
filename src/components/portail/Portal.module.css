@@ -800,3 +800,169 @@
     transform: none;
   }
 }
+
+/* ============================================================
+   REFONTE DE L'ESPACE ABONNEMENT — 06/08/2026
+
+   CE QUI N'ALLAIT PAS. L'écran répondait à la question la plus importante —
+   combien je paie, et quand — au milieu d'une liste grise de quatre lignes
+   étiquette/valeur, qui se lisait comme un extrait de base de données. Les trois
+   actions avaient le même poids visuel, « Résilier » y compris. Et la colonne de
+   droite se terminait sur un bloc à moitié vide.
+
+   CE QU'ON FAIT. Un bandeau qui affirme le montant et l'échéance, des faits
+   secondaires réduits à une ligne de repères, et une hiérarchie d'actions :
+   changer de formule est l'action courante, résilier est un lien discret qu'on
+   ne clique pas par mégarde.
+   ============================================================ */
+
+.summary {
+  display: grid;
+  gap: 26px;
+  padding: 28px;
+  border-radius: 22px;
+  background:
+    radial-gradient(70% 120% at 100% 0%, rgba(43, 111, 214, 0.1) 0%, transparent 62%),
+    linear-gradient(180deg, #ffffff 0%, #f6fafe 100%);
+  border: 1px solid var(--color-border-soft);
+  box-shadow: 0 22px 55px rgba(31, 84, 153, 0.09);
+}
+@media (min-width: 720px) {
+  .summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.summaryPlan {
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  letter-spacing: 0.02em;
+}
+/* Le montant est le premier mot de l'écran : il doit se lire sans chercher. */
+.summaryAmount {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: clamp(2.1rem, 5vw, 2.9rem);
+  color: var(--color-navy);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin-top: 2px;
+}
+.summaryUnit {
+  font-size: 0.42em;
+  font-weight: 600;
+  color: var(--color-body);
+  margin-left: 6px;
+}
+.summaryWhen {
+  font-family: var(--font-body);
+  font-size: 0.94rem;
+  color: var(--color-body);
+  margin-top: 10px;
+}
+.summaryWhen b {
+  color: var(--color-navy);
+  font-weight: 700;
+}
+
+/* Les faits secondaires : une ligne de repères, pas un tableau. */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  padding-top: 20px;
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border-soft);
+}
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.factLabel {
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-navy-soft);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.factValue {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--color-navy);
+}
+
+/* Hiérarchie d'actions : une principale, une secondaire, et la résiliation
+   reléguée en lien discret — on ne résilie pas par mégarde. */
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 22px;
+  margin-top: 22px;
+  border-top: 1px solid var(--color-border-soft);
+}
+.actionSpacer {
+  flex: 1 1 auto;
+}
+.linkDanger {
+  background: none;
+  border: 0;
+  padding: 6px 2px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--color-navy-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.linkDanger:hover:not(:disabled) {
+  color: #b4332f;
+}
+.linkDanger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* Le pied de la colonne des factures : les coordonnées de facturation, en
+   appui du bloc au-dessus plutôt qu'en panneau à moitié vide. */
+.billingFoot {
+  border-top: 1px solid var(--color-border-soft);
+  padding: 18px 28px 22px;
+  background: #fafcfe;
+}
+.billingFootTitle {
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--color-navy-soft);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.billingFootLine {
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+  color: var(--color-body);
+  line-height: 1.55;
+}
+.billingFootLine b {
+  color: var(--color-navy);
+  font-weight: 600;
+}
+.billingFootNote {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  margin-top: 10px;
+  line-height: 1.5;
+}

@@ -1086,74 +1086,85 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
     <div className={s.space}>
       {pdf && <PdfViewer doc={pdf} onClose={() => setPdf(null)} />}
 
+      {/* Le statut a rejoint le bandeau du contrat, où il qualifie ce qu'il
+          annonce. Le répéter ici en ferait deux vérités à confronter. */}
       <div className={s.hero}>
         <div className={s.heroText}>
           <h1 className={s.title}>Mon abonnement</h1>
           <p className={s.subtitle}>{props.cabinetName}</p>
         </div>
-        <span className={`${s.pill} ${statusPill.cls}`}>
-          <span className={s.dot} aria-hidden="true" />
-          {statusPill.text}
-        </span>
       </div>
 
       {renderStatusNotice()}
 
       <div className={s.grid}>
         <div className={s.panel}>
-          <div className={s.panelHead}>
-            <span className={s.panelTitle}>Votre contrat</span>
-          </div>
-          <div className={s.panelBody}>
-            <div className={s.planLine}>
-              <span className={s.planName}>{props.planLabelText}</span>
-              <span className={s.planPrice}>
+          {/* LE BANDEAU RÉPOND D'ABORD. Un praticien vient ici pour savoir
+              combien il paie et quand — pas pour lire un tableau. Le montant
+              est le premier mot de l'écran, l'échéance la première phrase. */}
+          <div className={s.summary}>
+            <div>
+              <div className={s.summaryPlan}>{props.planLabelText}</div>
+              <div className={s.summaryAmount}>
                 {props.renewalAmountLabel}
-                <span className={s.planPriceUnit}>
-                  {" "}
+                <span className={s.summaryUnit}>
                   TTC {props.plan === "MONTHLY" ? "/ mois" : "/ an"}
                 </span>
-              </span>
+              </div>
+              <p className={s.summaryWhen}>
+                {!props.periodRunning ? (
+                  <>
+                    Période terminée le <b>{props.periodEndLabel}</b>
+                  </>
+                ) : props.recurrenceStopped ? (
+                  <>
+                    Accès jusqu&apos;au <b>{props.periodEndLabel}</b>, sans
+                    reconduction
+                  </>
+                ) : (
+                  <>
+                    Prochain prélèvement le <b>{props.periodEndLabel}</b>, sur
+                    votre carte
+                  </>
+                )}
+              </p>
             </div>
+            <span className={`${s.pill} ${statusPill.cls}`}>
+              <span className={s.dot} aria-hidden="true" />
+              {statusPill.text}
+            </span>
+          </div>
 
-            <div className={s.kv}>
-              <div className={s.kvRow}>
-                <span className={s.kvLabel}>
-                  {!props.periodRunning
-                    ? "Période terminée le"
-                    : props.recurrenceStopped
-                      ? "Accès jusqu'au"
-                      : "Prochain prélèvement"}
-                </span>
-                <span className={s.kvValue}>{props.periodEndLabel}</span>
-              </div>
-              <div className={s.kvRow}>
-                <span className={s.kvLabel}>Reconduction automatique</span>
-                <span className={s.kvValue}>
-                  {props.recurrenceStopped ? "Arrêtée" : "Active"}
-                </span>
-              </div>
-              <div className={s.kvRow}>
-                <span className={s.kvLabel}>Collaborateurs inclus</span>
-                <span className={s.kvValue}>
+          <div className={s.panelBody}>
+            {/* Les faits secondaires, en repères plutôt qu'en tableau : ils se
+                balaient du regard sans se lire ligne à ligne. */}
+            <div className={s.facts} style={{ borderTop: 0, paddingTop: 0 }}>
+              <div className={s.fact}>
+                <span className={s.factLabel}>Collaborateurs</span>
+                <span className={s.factValue}>
                   {props.extraCollaborators === 0
                     ? "Titulaire seul"
                     : `Titulaire + ${props.extraCollaborators}`}
                 </span>
               </div>
-              <div className={s.kvRow}>
-                <span className={s.kvLabel}>Moyen de paiement</span>
-                <span className={`${s.kvValue} ${s.kvValueMuted}`}>
-                  Carte bancaire
+              <div className={s.fact}>
+                <span className={s.factLabel}>Reconduction</span>
+                <span className={s.factValue}>
+                  {props.recurrenceStopped ? "Arrêtée" : "Automatique"}
                 </span>
+              </div>
+              <div className={s.fact}>
+                <span className={s.factLabel}>Paiement</span>
+                <span className={s.factValue}>Carte bancaire</span>
               </div>
             </div>
 
-            {/* Actions rangées de la moins engageante à la plus engageante. */}
-            <div className={s.actions}>
+            {/* HIÉRARCHIE : une action courante, une secondaire, et la
+                résiliation en lien discret — on ne résilie pas par mégarde. */}
+            <div className={s.actionRow}>
               <button
                 type="button"
-                className={`${s.btn} ${s.btnGhost}`}
+                className={`${s.btn} ${s.btnPrimary}`}
                 onClick={() => openDrawer("plan")}
                 disabled={!props.checkoutOpen || Boolean(change)}
               >
@@ -1167,13 +1178,14 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
               >
                 Changer de carte
               </button>
+              <span className={s.actionSpacer} />
               {!change && (
                 <button
                   type="button"
-                  className={`${s.btn} ${s.btnDanger}`}
+                  className={s.linkDanger}
                   onClick={() => openDrawer("cancel")}
                 >
-                  Résilier
+                  Résilier mon abonnement
                 </button>
               )}
             </div>
@@ -1187,8 +1199,7 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 22 }}>
-          <div className={s.panel}>
+        <div className={s.panel}>
             <div className={s.panelHead}>
               <span className={s.panelTitle}>Factures</span>
               {props.invoices.length > 0 && (
@@ -1224,41 +1235,28 @@ export default function SubscriptionSpace(props: SubscriptionSpaceProps) {
                 </div>
               )}
             </div>
-          </div>
 
-          <div className={s.panel}>
-            <div className={s.panelHead}>
-              <span className={s.panelTitle}>Facturation</span>
-            </div>
-            <div className={s.panelBody}>
-              <div className={s.kv}>
-                <div className={s.kvRow}>
-                  <span className={s.kvLabel}>Cabinet</span>
-                  <span className={s.kvValue}>{props.cabinetName}</span>
-                </div>
-                {props.billing.address && (
-                  <div className={s.kvBlock}>
-                    <span className={s.kvLabel}>Adresse de facturation</span>
-                    <span className={`${s.kvBlockValue} ${s.kvBlockValueMuted}`}>
-                      {props.billing.address}
-                      {props.billing.postalCity
-                        ? `, ${props.billing.postalCity}`
-                        : ""}
-                    </span>
-                  </div>
-                )}
-                <div className={s.kvBlock}>
-                  <span className={s.kvLabel}>Factures envoyées à</span>
-                  <span className={`${s.kvBlockValue} ${s.kvBlockValueMuted}`}>
-                    {props.billing.adminEmail || "—"}
-                  </span>
-                </div>
-              </div>
-              <p className={s.empty}>
-                Ces informations viennent de votre logiciel. Modifiez-les depuis
-                la page Cabinet, ou écrivez-nous à {CONTACT}.
-              </p>
-            </div>
+          {/* Les coordonnées de facturation en PIED du panneau des factures,
+              plutôt qu'en second panneau : seules, elles laissaient un bloc à
+              moitié vide sous une liste déjà courte. */}
+          <div className={s.billingFoot}>
+            <div className={s.billingFootTitle}>Facturé à</div>
+            <p className={s.billingFootLine}>
+              <b>{props.cabinetName}</b>
+              {props.billing.address ? (
+                <>
+                  <br />
+                  {props.billing.address}
+                  {props.billing.postalCity ? `, ${props.billing.postalCity}` : ""}
+                </>
+              ) : null}
+              <br />
+              {props.billing.adminEmail || "—"}
+            </p>
+            <p className={s.billingFootNote}>
+              Ces informations viennent de votre logiciel. Modifiez-les depuis la
+              page Cabinet, ou écrivez-nous à {CONTACT}.
+            </p>
           </div>
         </div>
       </div>
