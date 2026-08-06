@@ -13,6 +13,8 @@ import { processDuePendingSignups } from "@/lib/billing/worker";
 import { registerPaymentFailure } from "@/lib/billing/dunning";
 import { notifyRenewal } from "@/lib/provisioning";
 import { mirrorStripeInvoice } from "@/lib/stripe/invoices";
+import { formatEuros } from "@/lib/checkout/pricing";
+import { logAudit } from "@/lib/audit";
 import { factsFromCompletedSession } from "@/lib/stripe/webhook";
 
 /* ============================================================
@@ -382,8 +384,222 @@ export async function applyStripeEvent(
     return;
   }
 
+  /* UN REMBOURSEMENT.
+
+     POURQUOI CE CHEMIN EXISTE. Un remboursement se décide chez Stripe, en deux
+     clics, souvent par quelqu'un qui n'ouvrira jamais notre back-office. Sans
+     ce chemin, l'argent repart et notre registre continue d'affirmer que la
+     facture est payée : l'écriture comptable reste au crédit, aucun avoir
+     n'existe, et le rapprochement est faux jusqu'à ce qu'un comptable le
+     découvre des mois plus tard.
+
+     CE QU'ON NE FAIT PAS : couper l'accès. Un remboursement peut être partiel,
+     commercial, ou une régularisation d'erreur — fermer d'office le logiciel
+     d'un praticien qui a peut-être encore droit à sa période serait brutal et
+     souvent faux. On inscrit le fait, on prévient, et un humain décide. */
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+    await applyStripeRefund(supabase, charge, event, eventId);
+    await marquerTraite();
+    return;
+  }
+
+  /* UNE CONTESTATION BANCAIRE. Le client a contesté auprès de sa banque.
+
+     C'est l'événement le plus urgent de tout ce fichier : Stripe retient
+     immédiatement le montant ET prélève des frais de dossier, et il y a un
+     DÉLAI pour répondre avec des preuves — passé lequel la contestation est
+     perdue d'office. Personne ne le découvrira en lisant des journaux : ça doit
+     sonner. */
+  if (
+    event.type === "charge.dispute.created" ||
+    event.type === "charge.dispute.closed"
+  ) {
+    const litige = event.data.object as Stripe.Dispute;
+    await noterLitige(supabase, litige, event.type);
+    await marquerTraite();
+    return;
+  }
+
   /* Les autres types sont journalisés et attendent leur lot. `processed_at`
      reste NULL : un oubli se voit, il ne se confond pas avec un succès. */
+}
+
+/** Le contrat que porte un paiement, retrouvé par sa facture ou son abonnement. */
+async function contratDuPaiement(
+  supabase: NonNullable<ReturnType<typeof serviceClient>>,
+  invoiceId: string | null,
+): Promise<{
+  id: string;
+  cabinet_name: string;
+  currency: string;
+  payment_environment: string | null;
+} | null> {
+  if (!invoiceId) return null;
+  /* On passe par NOTRE miroir de facture : c'est lui qui porte le lien vers le
+     contrat, et il a été écrit à l'encaissement. */
+  const { data } = await supabase
+    .from("invoices")
+    .select("subscription_id")
+    .eq("stripe_invoice_id", invoiceId)
+    .maybeSingle();
+  const subId = (data as { subscription_id: string | null } | null)?.subscription_id;
+  if (!subId) return null;
+
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("id, cabinet_name, currency, payment_environment")
+    .eq("id", subId)
+    .maybeSingle();
+  return (sub as {
+    id: string;
+    cabinet_name: string;
+    currency: string;
+    payment_environment: string | null;
+  } | null) ?? null;
+}
+
+/**
+ * Inscrit un remboursement : écriture comptable négative, avoir au registre,
+ * et alerte.
+ *
+ * Le montant vient de `amount_refunded`, qui est CUMULÉ : deux remboursements
+ * partiels sur la même transaction produisent deux événements dont le second
+ * porte le total. On enregistre donc la DIFFÉRENCE avec ce qu'on a déjà inscrit,
+ * sans quoi un remboursement de 10 € puis de 5 € en compterait 25.
+ */
+async function applyStripeRefund(
+  supabase: NonNullable<ReturnType<typeof serviceClient>>,
+  charge: Stripe.Charge,
+  event: Stripe.Event,
+  eventId: string,
+): Promise<void> {
+  /* `invoice` n'est plus déclaré sur le type Charge des versions récentes du
+     SDK, alors que l'API le renvoie toujours. On le lit défensivement plutôt
+     que de perdre le rattachement à la facture — c'est exactement le
+     déménagement qui avait fait tomber les reconductions. */
+  const invoiceId = idAbonnement(
+    (charge as unknown as { invoice?: unknown }).invoice,
+  );
+  const contrat = await contratDuPaiement(supabase, invoiceId);
+  const occurredAt = new Date(event.created * 1000);
+  const cumul = charge.amount_refunded ?? 0;
+  const devise = (charge.currency ?? "eur").toUpperCase();
+
+  /* Ce qui a déjà été inscrit pour cette transaction. */
+  const { data: dejaVu } = await supabase
+    .from("billing_ledger")
+    .select("amount_cents")
+    .eq("event_type", "card_refund")
+    .eq("reference", charge.id);
+  const deja = (dejaVu ?? []).reduce(
+    (t, l) => t + Math.abs((l as { amount_cents: number }).amount_cents),
+    0,
+  );
+  const nouveau = cumul - deja;
+  if (nouveau <= 0) {
+    /* Rien de neuf : re-livraison, ou remboursement déjà inscrit. */
+    await supabase
+      .from("stripe_events")
+      .update({ process_error: "remboursement déjà inscrit" })
+      .eq("event_id", eventId);
+    return;
+  }
+
+  /* Écriture NÉGATIVE : le journal est append-only, on n'efface pas une
+     recette, on lui oppose une contrepartie. */
+  await supabase.from("billing_ledger").insert({
+    event_type: "card_refund",
+    payment_provider: "stripe",
+    payment_environment: contrat?.payment_environment ?? null,
+    amount_cents: -nouveau,
+    currency: devise,
+    occurred_at: occurredAt.toISOString(),
+    captured_at: occurredAt.toISOString(),
+    reference: charge.id,
+    subscription_id: contrat?.id ?? null,
+    cabinet_name: contrat?.cabinet_name ?? "(cabinet inconnu)",
+    meta: {
+      provider: "stripe",
+      stripe_invoice_id: invoiceId,
+      total_rembourse_cents: cumul,
+      integral: charge.refunded === true,
+    },
+  });
+
+  await alerteStripe(
+    charge.refunded ? "Remboursement TOTAL" : "Remboursement partiel",
+    [
+      `Cabinet : ${contrat?.cabinet_name ?? "(non retrouvé)"}`,
+      `Montant remboursé à l'instant : ${formatEuros(nouveau)}`,
+      `Total remboursé sur cette transaction : ${formatEuros(cumul)}`,
+      `Transaction Stripe : ${charge.id}`,
+      `Facture : ${invoiceId ?? "(hors facture)"}`,
+      contrat
+        ? "Une écriture négative a été inscrite au journal comptable. L'ACCÈS N'A PAS ÉTÉ COUPÉ : un remboursement peut être partiel ou commercial, et la décision de résilier appartient à un humain — elle se prend depuis la fiche de l'abonnement."
+        : "AUCUN contrat retrouvé pour cette transaction : l'écriture est inscrite sans rattachement, à régulariser à la main.",
+    ],
+  );
+
+  await logAudit({
+    action: "billing.refunded",
+    entityType: "subscription",
+    entityId: contrat?.id ?? charge.id,
+    diff: { provider: "stripe", amountCents: nouveau, total: cumul },
+  });
+}
+
+/**
+ * Une contestation bancaire.
+ *
+ * On n'écrit RIEN au journal comptable : tant que le litige n'est pas tranché,
+ * l'argent n'est ni perdu ni acquis, et l'inscrire fausserait le rapprochement
+ * dans un sens comme dans l'autre. Ce qui compte ici, c'est que quelqu'un soit
+ * prévenu à temps.
+ */
+async function noterLitige(
+  supabase: NonNullable<ReturnType<typeof serviceClient>>,
+  litige: Stripe.Dispute,
+  type: string,
+): Promise<void> {
+  const chargeId =
+    typeof litige.charge === "string" ? litige.charge : (litige.charge?.id ?? null);
+  let cabinet = "(non retrouvé)";
+  if (chargeId) {
+    const { data } = await supabase
+      .from("billing_ledger")
+      .select("cabinet_name")
+      .eq("reference", chargeId)
+      .limit(1)
+      .maybeSingle();
+    cabinet = (data as { cabinet_name: string } | null)?.cabinet_name ?? cabinet;
+  }
+
+  const ouvert = type === "charge.dispute.created";
+  const echeance = litige.evidence_details?.due_by
+    ? frDate(new Date(litige.evidence_details.due_by * 1000))
+    : null;
+
+  await alerteStripe(
+    ouvert
+      ? "URGENT — Contestation bancaire ouverte"
+      : `Contestation bancaire close (${litige.status})`,
+    [
+      `Cabinet : ${cabinet}`,
+      `Montant : ${formatEuros(litige.amount ?? 0)}`,
+      `Motif : ${litige.reason ?? "(non précisé)"}`,
+      `État : ${litige.status}`,
+      `Litige Stripe : ${litige.id}`,
+      ...(ouvert
+        ? [
+            echeance
+              ? `RÉPONDRE AVANT LE ${echeance.toUpperCase()} — passé ce délai, la contestation est perdue d'office.`
+              : "Répondre au plus vite : passé le délai fixé par la banque, la contestation est perdue d'office.",
+            "Stripe a déjà retenu le montant et prélevé des frais de dossier. Les preuves se déposent depuis le tableau de bord Stripe : facture, preuve de service rendu, échanges avec le cabinet.",
+          ]
+        : ["Aucune action requise : le dossier est clos."]),
+    ],
+  );
 }
 
 /** Un identifiant d'abonnement, qu'il soit donné en clair ou développé. */
