@@ -153,7 +153,9 @@ export default function SubscribePanel({
             </div>
             <div className={s.planCardDesc}>
               {annualEnabled
-                ? `Facturé ${prices.ANNUAL[extra].totalLabel} par an, en une fois.`
+                ? versements.length > 0
+                  ? `Facturé ${prices.ANNUAL[extra].totalLabel} par an, réglés en ${versements.length} versements.`
+                  : `Facturé ${prices.ANNUAL[extra].totalLabel} par an, en une fois.`
                 : "Cette formule ouvrira prochainement."}
             </div>
           </button>

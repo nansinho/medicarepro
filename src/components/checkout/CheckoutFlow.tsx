@@ -1135,7 +1135,9 @@ export default function CheckoutFlow({
                   </div>
                   <div className={s.planDesc}>
                     {annualEnabled
-                      ? `Facturé ${prices.ANNUAL[0].totalLabel} par an, en une fois.`
+                      ? versements.length > 0
+                        ? `Facturé ${prices.ANNUAL[0].totalLabel} par an, réglés en ${versements.length} versements.`
+                        : `Facturé ${prices.ANNUAL[0].totalLabel} par an, en une fois.`
                       : "Cette formule ouvrira prochainement."}
                   </div>
                 </button>
