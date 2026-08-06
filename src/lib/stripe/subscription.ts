@@ -187,7 +187,9 @@ export async function startStripeCardUpdate(input: {
       mode: "setup",
       customer: input.customerId,
       currency: "eur",
-      payment_method_types: ["card", "sepa_debit"],
+      /* Pas de liste imposée : le tableau de bord Stripe décide. Une liste en
+         dur fait refuser la session entière dès qu'un moyen n'est pas activé
+         sur le compte. */
       locale: "fr",
       client_reference_id: input.reference,
       metadata: {

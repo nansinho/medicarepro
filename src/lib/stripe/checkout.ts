@@ -113,10 +113,17 @@ export function buildCheckoutParams(
   return {
     mode: "subscription",
     line_items: lineItems,
-    /* Carte ET prélèvement SEPA. Le mandat est porté par Stripe : plus d'ICS à
-       obtenir de la banque, plus de RUM à générer, plus de texte de mandat à
-       archiver nous-mêmes. */
-    payment_method_types: ["card", "sepa_debit"],
+    /* AUCUNE LISTE DE MOYENS DE PAIEMENT : c'est le tableau de bord Stripe qui
+       décide, et lui seul sait ce qui est réellement activé sur le compte.
+
+       On imposait ["card", "sepa_debit"]. Stripe valide la liste ENTIÈRE avant
+       d'ouvrir la page : le prélèvement SEPA n'étant pas activé sur le compte
+       réel, il refusait toute session — y compris pour un client qui voulait
+       payer par carte, et qui n'atteignait donc jamais la page de paiement.
+       Constaté le 06/08/2026 à la première mise en production.
+
+       En laissant Stripe choisir, activer le SEPA plus tard ne demandera aucun
+       déploiement, et couper un moyen de paiement ne cassera plus la vente. */
     locale: "fr",
     client_reference_id: input.reference,
     /* L'un OU l'autre : Stripe refuse les deux ensemble. */

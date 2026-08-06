@@ -209,7 +209,10 @@ describe("buildCheckoutParams", () => {
   it("propose la carte et le prélèvement SEPA, en français", async () => {
     const { buildCheckoutParams } = await charger();
     const p = buildCheckoutParams(BASE);
-    expect(p.payment_method_types).toEqual(["card", "sepa_debit"]);
+    /* AUCUNE liste imposée : Stripe propose ce qui est activé sur le compte.
+       Une liste en dur faisait refuser la session entière dès qu'un moyen
+       n'était pas activé — le client n'atteignait jamais la page de paiement. */
+    expect(p.payment_method_types).toBeUndefined();
     expect(p.locale).toBe("fr");
     expect(p.customer).toBe("cus_test_cabinet");
   });
