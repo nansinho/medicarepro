@@ -11,6 +11,8 @@ import v from "./visuals.module.css";
    posés sur une forme, formes coupées au bord des sections.
    Les variantes tournent par index (passé par la page) pour que
    deux visuels voisins ne se ressemblent jamais.
+   data-anim : le visuel se construit une fois, à son entrée à l'écran
+   (ScrollEffects) ou dès l'affichage dans le haut de page.
    ============================================================ */
 
 const TEAL = "var(--shape-teal)";
@@ -124,7 +126,7 @@ export function PhotoFrame({
   sizes?: string;
 }) {
   return (
-    <div className={v.frame}>
+    <div className={v.frame} data-anim="vis">
       {FRAME_DECO[variant % FRAME_DECO.length]}
       <div className={v.photo}>
         <Image
@@ -143,7 +145,7 @@ export function PhotoFrame({
 /** Carte blanche (logo, attestation…) posée sur une forme, comme une photo. */
 export function CardFrame({ children, variant = 0 }: { children: ReactNode; variant?: number }) {
   return (
-    <div className={v.frame}>
+    <div className={v.frame} data-anim="vis">
       {FRAME_DECO[variant % FRAME_DECO.length]}
       <div className={v.cardIn}>{children}</div>
     </div>
@@ -211,7 +213,7 @@ export function Devices({
   highlight?: Highlight | null;
 }) {
   return (
-    <div className={v.devs}>
+    <div className={v.devs} data-anim="vis">
       {DEVICE_DECO[variant % DEVICE_DECO.length]}
       {highlight && <DrawnArrow className={v.arrow} />}
       <div className={v.laptop} aria-hidden="true">
@@ -276,7 +278,7 @@ const EDGE: ReactNode[] = [
 
 export function EdgeShapes({ variant }: { variant: number }) {
   return (
-    <div className={v.edge} aria-hidden="true">
+    <div className={v.edge} data-anim="edge" aria-hidden="true">
       {EDGE[((variant % EDGE.length) + EDGE.length) % EDGE.length]}
     </div>
   );

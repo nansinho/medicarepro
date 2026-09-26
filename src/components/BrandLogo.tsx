@@ -10,7 +10,7 @@ import s from "./BrandLogo.module.css";
    ============================================================ */
 
 /** Proportions du logo horizontal (largeur / hauteur du fichier SVG). */
-const RATIO = 1256.5 / 230;
+const RATIO = 1332.5 / 300;
 
 type Props = {
   /** Hauteur du logo en px (= hauteur du pictogramme). */

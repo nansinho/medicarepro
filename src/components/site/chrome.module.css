@@ -6,6 +6,8 @@
    ============================================================ */
 
 .site {
+  /* Les couleurs du logo, en filet de marque (bandeau, carte du menu). */
+  --grad-logo: linear-gradient(90deg, #1fb6a8, #6ac6de 20%, #2e6fd0 40%, #8a2be2 60%, #eea700 80%, #4cc96b);
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.7;
@@ -18,58 +20,74 @@
   margin-inline: auto;
 }
 
-/* ---------- Bandeau promo ---------- */
+/* ---------- Bandeau promo ----------
+   Bleu nuit, montants en ambre, filet aux couleurs du logo en tête de
+   page. Discret par la taille, net par le contraste : il annonce, il ne
+   crie pas. */
 .promo {
-  background: var(--brand-amber);
-  color: var(--site-navy);
-  font: 400 15px/1.3 var(--font-body);
+  position: relative;
+  background: var(--site-ink);
+  color: rgba(255, 255, 255, 0.82);
+  font: 400 14.5px/1.35 var(--font-body);
+}
+.promo::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--grad-logo);
 }
 .promo .w {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px 20px;
+  gap: 8px 18px;
   flex-wrap: wrap;
-  min-height: 52px;
-  padding-block: 7px;
+  min-height: 46px;
+  padding-block: 9px 6px;
   text-align: center;
 }
 .promo b {
-  color: var(--site-navy);
+  color: #ffc53d;
   font-weight: 600;
 }
 .promo s {
-  opacity: 0.72;
+  opacity: 0.55;
 }
 .promoBtn {
   display: inline-flex;
   align-items: center;
-  height: 36px;
-  padding: 0 20px;
-  border-radius: 50px;
-  background: var(--brand-blue);
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fff;
   font: 600 13px/1 var(--font-body);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
   white-space: nowrap;
-  transition: background-color 0.2s;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+.promoBtn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s;
 }
 .promoBtn:hover {
-  background: var(--brand-blue-d);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+.promoBtn:hover svg {
+  transform: translateX(2px);
 }
 @media (max-width: 600px) {
   .promo {
     font-size: 13.5px;
   }
   .promo .w {
-    min-height: 46px;
-    gap: 8px 14px;
-  }
-  .promoBtn {
-    height: 32px;
-    padding: 0 14px;
-    font-size: 12px;
+    min-height: 44px;
+    gap: 6px 12px;
   }
 }
 
@@ -78,81 +96,124 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.97);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
   box-shadow: 0 1px 0 var(--site-line);
-  transition: box-shadow 0.3s;
+  transition:
+    box-shadow 0.3s,
+    background-color 0.3s;
 }
 .hdr.scrolled {
-  box-shadow: 0 8px 24px -16px rgba(20, 27, 52, 0.35);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 1px 0 var(--site-line),
+    0 14px 32px -22px rgba(20, 27, 52, 0.38);
 }
+/* Trois colonnes : le logo à gauche, le menu au CENTRE de la barre, les
+   actions à droite. Les colonnes latérales ne descendent jamais sous leur
+   contenu : si la place manque, le menu reste centré entre les deux. */
 .bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
-  gap: 28px;
-  height: 96px;
+  column-gap: 16px;
+  height: 88px;
 }
 .logo {
-  flex: none;
+  justify-self: start;
   display: inline-flex;
   align-items: center;
 }
+.navWrap {
+  justify-self: center;
+  height: 100%;
+}
+
+/* Les entrées occupent toute la hauteur de la barre : la zone de survol
+   rejoint le panneau sans trou, et la page courante se marque d'un trait au
+   ras du bas de la barre. La pastille de survol est dessinée à part. */
 .nav {
   display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: 6px;
-  list-style: none;
+  align-items: stretch;
+  gap: 10px;
+  height: 88px;
+  margin: 0;
   padding: 0;
-  margin-block: 0;
+  list-style: none;
 }
 .navItem {
-  position: relative;
+  display: flex;
 }
 .navLink {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 44px;
-  padding: 0 12px;
+  height: 100%;
+  padding: 0 16px;
   border: 0;
   background: transparent;
-  border-radius: 8px;
-  font: 400 15.5px/1 var(--font-body);
-  color: var(--site-text);
+  font: 500 15.5px/1 var(--font-body);
+  color: var(--site-ink);
   white-space: nowrap;
   cursor: pointer;
+  transition: color 0.2s;
+}
+.navLink::before {
+  content: "";
+  position: absolute;
+  inset: 22px 2px;
+  z-index: -1;
+  border-radius: 10px;
+  background: transparent;
+  transition: background-color 0.2s;
 }
 .navLink:hover,
-.navItem:focus-within > .navLink {
-  color: var(--brand-blue);
-}
+.navItem:hover > .navLink,
+.navItem.open > .navLink,
 .navLink.cur {
   color: var(--brand-blue);
-  font-weight: 500;
+}
+.navLink:hover::before,
+.navItem:hover > .navLink::before,
+.navItem.open > .navLink::before {
+  background: var(--tint-blue);
+}
+.navLink.cur::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--brand-blue);
 }
 .navLink svg {
   width: 14px;
   height: 14px;
+  opacity: 0.7;
   transition: transform 0.2s;
 }
 .navItem:hover > .navLink svg,
 .navItem.open > .navLink svg {
   transform: rotate(180deg);
 }
+
+/* ---------- Panneau d'un menu : pleine largeur, aligné sur le conteneur ---------- */
 .menu {
   position: absolute;
   left: 0;
+  right: 0;
   top: 100%;
-  min-width: 300px;
-  padding: 10px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow:
-    0 20px 40px -18px rgba(20, 27, 52, 0.35),
-    0 0 0 1px var(--site-line);
+  border-top: 1px solid var(--site-line);
+  box-shadow: 0 34px 60px -34px rgba(20, 27, 52, 0.4);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(6px);
+  transform: translateY(-4px);
   transition:
     opacity 0.18s,
     transform 0.18s,
@@ -164,27 +225,142 @@
   visibility: visible;
   transform: none;
 }
-.menu a {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 15px;
+.menuIn {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) minmax(250px, 330px);
+  gap: 56px;
+  padding-block: 44px 48px;
+}
+.menuTitle {
+  margin: 0;
+  font: 700 20px/1.25 var(--font-head);
   color: var(--site-ink);
 }
-.menu a:hover,
-.menu a:focus-visible {
-  background: var(--tint-blue);
+.menuLead {
+  margin: 10px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--site-text);
 }
-.menu a.cur {
+.menuAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  font: 600 14.5px/1 var(--font-body);
   color: var(--brand-blue);
-  font-weight: 500;
 }
+.menuAll svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 0.2s;
+}
+.menuAll:hover svg {
+  transform: translateX(3px);
+}
+.menuGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 10px 28px;
+}
+.menuLink {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  color: var(--site-ink);
+  transition: background-color 0.2s;
+}
+.menuLink:hover,
+.menuLink:focus-visible {
+  background: #f4f7fc;
+}
+.menuText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.menuLabel {
+  font: 600 15px/1.3 var(--font-body);
+}
+.menuLink.cur .menuLabel {
+  color: var(--brand-blue);
+}
+.menuDesc {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--site-muted);
+}
+.menuCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 26px 24px 22px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #f1f6fe, #e3edfb);
+  border: 1px solid #d9e6f8;
+  color: var(--site-ink);
+}
+.menuCard::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--grad-logo);
+}
+.menuCardKicker {
+  font: 600 12px/1 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-blue);
+}
+.menuCardTitle {
+  font: 700 18px/1.3 var(--font-head);
+}
+.menuCardText {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--site-text);
+}
+.menuCardCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 12px;
+  font: 600 14.5px/1 var(--font-body);
+  color: var(--brand-blue);
+}
+.menuCardCta svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 0.2s;
+}
+.menuCardPhone {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--site-muted);
+}
+.menuCardPhone svg {
+  width: 14px;
+  height: 14px;
+}
+.menuCard:hover .menuCardCta svg {
+  transform: translateX(3px);
+}
+
+/* Pastille d'une entrée : icône de la couleur de son module. */
 .mi {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
   background: var(--t, var(--tint-blue));
@@ -192,112 +368,156 @@
   flex: none;
 }
 .mi svg {
-  width: 17px;
-  height: 17px;
+  width: 19px;
+  height: 19px;
 }
 
+/* ---------- Actions à droite ---------- */
 .right {
+  justify-self: end;
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-left: auto;
-}
-.tel {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
-  padding-left: 18px;
-  border-left: 1px solid var(--site-line);
-  font: 400 15.5px/1 var(--font-body);
-  color: var(--brand-blue);
-  white-space: nowrap;
-}
-.tel svg {
-  width: 17px;
-  height: 17px;
-}
-.login {
-  font: 500 15px/1 var(--font-body);
-  color: var(--site-text);
-  white-space: nowrap;
-}
-.login:hover {
-  color: var(--brand-blue);
 }
 .iconBtn {
   display: inline-grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
+  border: 0;
   border-radius: 10px;
-  border: 1px solid var(--site-line);
-  background: #fff;
-  color: var(--site-ink);
+  background: var(--tint-blue);
+  color: var(--brand-blue-d);
   cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    color 0.2s;
 }
 .iconBtn:hover {
-  border-color: var(--brand-blue);
-  color: var(--brand-blue);
+  background: #dbe8fa;
 }
 .iconBtn svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
-.contact {
+/* Connexion : bouton secondaire, même hauteur et même coin que les deux autres. */
+.login {
   display: inline-flex;
   align-items: center;
-  height: 48px;
-  padding: 0 40px;
-  border-radius: 6px;
+  justify-content: center;
+  gap: 8px;
+  width: 180px;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--tint-blue);
+  font: 600 14.5px/1 var(--font-body);
+  color: var(--brand-blue-d);
+  white-space: nowrap;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    color 0.2s;
+}
+.login svg {
+  width: 16px;
+  height: 16px;
+}
+.login:hover {
+  background: #dbe8fa;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 180px;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
   background: var(--brand-blue);
   color: #fff;
-  font: 600 15px/1 var(--font-body);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font: 600 14.5px/1 var(--font-body);
   white-space: nowrap;
   transition: background-color 0.2s;
 }
-.contact:hover {
+.cta:hover {
   background: var(--brand-blue-d);
 }
 .burger {
   display: none;
 }
 
-@media (max-width: 1599px) {
-  .tel span {
+/* Connexion réduite à son icône tant que le conteneur n'a pas sa pleine
+   largeur : sinon les actions débordent sur le centre et le menu n'est plus
+   au milieu de la barre (mesuré : 76 px de décalage à 1600 px). */
+@media (max-width: 1799px) {
+  .login {
+    justify-content: center;
+    width: 40px;
+    padding: 0;
+  }
+  .loginText {
     display: none;
   }
-  .tel {
-    padding-left: 14px;
+}
+@media (max-width: 1599px) {
+  .bar {
+    column-gap: 20px;
   }
-  .contact {
-    padding: 0 26px;
+  .nav {
+    gap: 4px;
+  }
+  .navLink {
+    padding: 0 13px;
+  }
+  .navLink.cur::after {
+    left: 13px;
+    right: 13px;
+  }
+}
+@media (max-width: 1439px) {
+  .login {
+    display: none;
   }
 }
 @media (max-width: 1359px) {
   .bar {
-    gap: 18px;
+    column-gap: 18px;
+  }
+  .nav {
+    gap: 0;
   }
   .navLink {
-    padding: 0 9px;
+    padding: 0 10px;
     font-size: 15px;
   }
+  .navLink.cur::after {
+    left: 10px;
+    right: 10px;
+  }
   .login {
+    display: none;
+  }
+  .menuIn {
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  }
+  .menuCard {
     display: none;
   }
 }
 @media (max-width: 1180px) {
   .nav,
-  .tel,
-  .contact {
+  .cta {
     display: none;
   }
   .burger {
     display: inline-grid;
   }
   .bar {
-    height: 76px;
+    height: 72px;
   }
 }
 
@@ -305,14 +525,14 @@
    reste à l'écran jusqu'à 320px (la taille du logo passe par sa variable). */
 @media (max-width: 480px) {
   .bar {
-    gap: 12px;
-    height: 68px;
+    column-gap: 12px;
+    height: 64px;
   }
   .logo > span {
-    --brand-size: 36px !important;
+    --brand-size: 34px !important;
   }
   .right {
-    gap: 8px;
+    gap: 4px;
   }
   .iconBtn {
     width: 42px;
@@ -321,7 +541,7 @@
 }
 @media (max-width: 360px) {
   .logo > span {
-    --brand-size: 31px !important;
+    --brand-size: 30px !important;
   }
 }
 
@@ -388,152 +608,27 @@
   justify-content: center;
   gap: 8px;
   height: 50px;
-  border-radius: 50px;
-  font: 600 15px/1 var(--font-body);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  border-radius: 12px;
+  font: 600 15.5px/1 var(--font-body);
 }
+/* Même dessin que les boutons de la barre : capitales et pilules retirées. */
 .mPrimary {
   background: var(--brand-blue);
   color: #fff;
+  box-shadow: 0 10px 22px -12px rgba(46, 111, 208, 0.85);
 }
 .mOutline {
-  border: 2px solid var(--brand-blue);
-  color: var(--brand-blue);
+  border: 1px solid var(--site-line);
+  color: var(--site-ink);
 }
 .mTel {
   color: var(--site-ink);
-  text-transform: none !important;
-  letter-spacing: 0 !important;
   font-weight: 500 !important;
 }
 .mTel svg {
   width: 18px;
   height: 18px;
   color: var(--brand-blue);
-}
-
-/* ---------- Pied de page ---------- */
-.foot {
-  background: var(--site-navy);
-  color: #c3d3e6;
-  padding-block: 64px 34px;
-  font-size: 15px;
-}
-.ftop {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 1fr));
-  gap: 36px;
-}
-.fbrand p {
-  margin: 18px 0 0;
-  max-width: 34ch;
-  line-height: 1.6;
-}
-.fcontact {
-  display: grid;
-  gap: 8px;
-  margin-top: 20px;
-}
-.fcontact a,
-.fcontact span {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  color: #fff;
-}
-.fcontact svg {
-  width: 17px;
-  height: 17px;
-  color: var(--shape-sky);
-  flex: none;
-}
-.foot h2 {
-  margin: 0 0 16px;
-  font: 600 16px/1.3 var(--font-body);
-  color: #fff;
-}
-.foot ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-.foot a:hover {
-  color: #fff;
-  text-decoration: underline;
-}
-.fbadges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 22px;
-}
-.fbadges span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  font: 500 13px/1 var(--font-body);
-  color: #fff;
-}
-.fbadges svg {
-  width: 15px;
-  height: 15px;
-  color: var(--shape-teal);
-}
-.socials {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-.socials a {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-.socials a:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-.socials svg {
-  width: 17px;
-  height: 17px;
-}
-.fbottom {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px 24px;
-  margin-top: 48px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
-  font-size: 14px;
-}
-.legal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-}
-@media (max-width: 1080px) {
-  .ftop {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .fbrand {
-    grid-column: 1 / -1;
-  }
-}
-@media (max-width: 520px) {
-  .ftop {
-    gap: 30px 20px;
-  }
 }
 
 /* ---------- Réseaux sociaux, bord gauche ----------

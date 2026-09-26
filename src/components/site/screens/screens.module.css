@@ -956,3 +956,120 @@
   color:var(--ink);
   font-weight:600;
 }
+
+/* ============================================================
+   Mouvement : l'écran se remplit une fois, quand l'ordinateur arrive
+   (haut de page [data-hero], ou .in posé au défilement par
+   ScrollEffects sur le visuel). En-tête, puis cartes par paliers, puis
+   le détail propre à chaque écran : rendez-vous qui se posent, barres
+   qui montent, signature qui s'écrit, compte-rendu qui se rédige.
+   Aucune boucle (hors curseur de dictée) ; mouvement réduit : rien.
+   Les délais reprennent le préfixe de déclenchement : même spécificité
+   que l'animation, déclarés après elle, ils l'emportent.
+   ============================================================ */
+@keyframes up{from{opacity:0;transform:translateY(calc(14 * var(--u)))}}
+@keyframes down{from{opacity:0;transform:translateY(calc(-8 * var(--u)))}}
+@keyframes side{from{opacity:0;transform:translateX(calc(-12 * var(--u)))}}
+@keyframes pop{from{opacity:0;scale:.72}}
+@keyframes grow{from{scale:1 0}}
+@keyframes growX{from{scale:0 1}}
+@keyframes draw{0%{stroke-dashoffset:1;opacity:0}6%{opacity:1}to{stroke-dashoffset:0;opacity:1}}
+@keyframes toast{0%{opacity:0;transform:translateX(calc(40 * var(--u)))}65%{transform:translateX(calc(-3 * var(--u)))}}
+@keyframes vcard{from{opacity:0;transform:translateX(-24%) rotate(-7deg)}}
+
+@media (prefers-reduced-motion: no-preference) {
+  :global(:is([data-hero], .in)) .root :global(.app-head) {
+    animation:down .6s var(--ease) .35s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(.app-main > :not(.app-head, .toast, .g2, .g3, .g4, .bil-grid)),
+  :global(:is([data-hero], .in)) .root :global(:is(.g2, .g3, .g4, .bil-grid) > :not(.stack)),
+  :global(:is([data-hero], .in)) .root :global(.stack > *) {
+    animation:up .7s var(--ease) .45s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(:is(.g2, .g3, .g4, .bil-grid, .stack) > :nth-child(2)) { animation-delay:.55s }
+  :global(:is([data-hero], .in)) .root :global(:is(.g2, .g3, .g4, .bil-grid, .stack) > :nth-child(3)) { animation-delay:.65s }
+  :global(:is([data-hero], .in)) .root :global(:is(.g2, .g3, .g4, .bil-grid, .stack) > :nth-child(4)) { animation-delay:.75s }
+  :global(:is([data-hero], .in)) .root :global(:is(.g2, .g3, .g4, .bil-grid, .stack) > :nth-child(n+5)) { animation-delay:.85s }
+  :global(:is([data-hero], .in)) .root :global(.bil-grid > .stack > :nth-child(1)) { animation-delay:.6s }
+  :global(:is([data-hero], .in)) .root :global(.bil-grid > .stack > :nth-child(2)) { animation-delay:.72s }
+  :global(:is([data-hero], .in)) .root :global(.bil-grid > .stack > :nth-child(n+3)) { animation-delay:.84s }
+
+  /* Agenda : les rendez-vous se posent jour après jour. */
+  :global(:is([data-hero], .in)) .root :global(.ev) {
+    transform-origin:50% 0;
+    animation:pop .5s var(--ease) both;
+    animation-delay:calc(.75s + var(--i, 0) * 90ms);
+  }
+  :global(:is([data-hero], .in)) .root :global(.ev:nth-child(2)) { animation-delay:calc(.83s + var(--i, 0) * 90ms) }
+  :global(:is([data-hero], .in)) .root :global(.ev:nth-child(n+3)) { animation-delay:calc(.91s + var(--i, 0) * 90ms) }
+
+  /* Graphiques : les barres montent, mois après mois. */
+  :global(:is([data-hero], .in)) .root :global(.chart rect) {
+    transform-box:fill-box;
+    transform-origin:50% 100%;
+    animation:grow .8s var(--ease) both;
+    animation-delay:calc(.85s + var(--i, 0) * 60ms);
+  }
+
+  /* Bilan : les sites testés apparaissent, le site sans réponse appelle
+     l'attention trois fois puis se tait. */
+  :global(:is([data-hero], .in)) .root :global(.site .dot) {
+    transform-box:fill-box;
+    transform-origin:center;
+    animation:pop .45s var(--ease) .95s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(.site.ko .halo) {
+    animation:ping 1.1s ease-out 1.5s 3;
+  }
+  :global(:is([data-hero], .in)) .root :global(.scale4 i) {
+    transform-origin:0 50%;
+    animation:growX .5s var(--ease) 1s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(.scale4 i:nth-child(2)) { animation-delay:1.08s }
+  :global(:is([data-hero], .in)) .root :global(.scale4 i:nth-child(3)) { animation-delay:1.16s }
+  :global(:is([data-hero], .in)) .root :global(.scale4 i:nth-child(4)) { animation-delay:1.24s }
+
+  /* Facturation : la facture générée s'annonce. */
+  :global(:is([data-hero], .in)) .root :global(.toast) {
+    animation:toast .8s var(--ease) 1.2s both;
+  }
+
+  /* IA : le compte-rendu se rédige paragraphe par paragraphe. */
+  :global(:is([data-hero], .in)) .root :global(.cr > *) {
+    animation:up .55s var(--ease) .9s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(.cr > :nth-child(2)) { animation-delay:1.05s }
+  :global(:is([data-hero], .in)) .root :global(.cr > :nth-child(3)) { animation-delay:1.25s }
+  :global(:is([data-hero], .in)) .root :global(.cr > :nth-child(4)) { animation-delay:1.4s }
+  :global(:is([data-hero], .in)) .root :global(.cr > :nth-child(5)) { animation-delay:1.6s }
+  :global(:is([data-hero], .in)) .root :global(.cr > :nth-child(n+6)) { animation-delay:1.75s }
+
+  /* Tracés : signature, lignes de bascule, repères de l'orthèse. */
+  :global(:is([data-hero], .in)) .root :global(.sig-box path) {
+    stroke-dasharray:1;
+    animation:draw 1.7s ease-in-out 1s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(:is(.posture .tilt, .insole .ln)) {
+    stroke-dasharray:1;
+    animation:draw .7s ease-out 1.1s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(:is(.insole .el, .insole .el2)) {
+    transform-box:fill-box;
+    transform-origin:center;
+    animation:pop .5s var(--ease) .9s both;
+  }
+
+  /* Listes : cases cochées, capteurs, visites de la tournée. */
+  :global(:is([data-hero], .in)) .root :global(:is(.chk-l li, .sensor, .visit)) {
+    animation:side .5s var(--ease) .85s both;
+  }
+  :global(:is([data-hero], .in)) .root :global(:is(.chk-l li, .sensor, .visit):nth-of-type(2)) { animation-delay:.95s }
+  :global(:is([data-hero], .in)) .root :global(:is(.chk-l li, .sensor, .visit):nth-of-type(3)) { animation-delay:1.05s }
+  :global(:is([data-hero], .in)) .root :global(:is(.chk-l li, .sensor, .visit):nth-of-type(4)) { animation-delay:1.15s }
+  :global(:is([data-hero], .in)) .root :global(:is(.chk-l li, .sensor, .visit):nth-of-type(n+5)) { animation-delay:1.25s }
+
+  /* Carte Vitale : glissée dans le lecteur. */
+  :global(:is([data-hero], .in)) .root :global(.vcard) {
+    animation:vcard .9s var(--ease) .7s both;
+  }
+}

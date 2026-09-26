@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { AppHead, AppIcon, AppSide, AppWin, FootSole, Row, u } from "./core";
 
 /* ============================================================
@@ -65,7 +66,7 @@ export function AgendaScreen() {
           ))}
         </div>
         {WEEK.map((day, i) => (
-          <div key={i} className="cal-d">
+          <div key={i} className="cal-d" style={{ "--i": i } as CSSProperties}>
             {day.map((ev) => (
               <div
                 key={ev.top + ev.title}
@@ -223,13 +224,13 @@ export function OrthoScreen() {
               <path className="el" d="M24 102C45 95 82 95 104 102L103 114C82 107 45 107 25 114Z" />
               <path className="el2" d="M72 222C84 223 89 238 89 252C88 266 80 273 72 274Z" />
             </g>
-            <path className="ln" d="M184 107H206" />
+            <path className="ln" d="M184 107H206" pathLength={1} />
             <text x="210" y="104">BRC</text>
             <text x="210" y="116">3 mm</text>
-            <path className="ln" d="M169 246H206" />
+            <path className="ln" d="M169 246H206" pathLength={1} />
             <text x="210" y="243">Coin sup.</text>
             <text x="210" y="255">4 mm</text>
-            <path className="ln" d="M120 262H70" />
+            <path className="ln" d="M120 262H70" pathLength={1} />
             <text x="66" y="259" textAnchor="end">
               Talonnette
             </text>
@@ -401,7 +402,7 @@ function MonthChart() {
       {REC.map((r, i) => {
         const gx = x0 + i * gw + gw / 2;
         return (
-          <g key={i}>
+          <g key={i} style={{ "--i": i } as CSSProperties}>
             <rect className="b1" x={gx - 14} y={y0 - r * sy} width="13" height={r * sy} rx="2.5" />
             <rect className="b2" x={gx + 1} y={y0 - DEP[i] * sy} width="13" height={DEP[i] * sy} rx="2.5" />
             <text x={gx} y={y0 + 16} textAnchor="middle">

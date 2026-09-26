@@ -16,6 +16,7 @@ import type {
 import { Btn, Head, Paras, Split, fr, rich } from "./Kit";
 import { Icon } from "./icon";
 import { ACCENTS, ACCENT_BY_MOCKUP, CYCLE } from "./palette";
+import CountUp from "./CountUp";
 import { CornerMark } from "./Symbols";
 import { Devices, PhotoFrame, type Highlight } from "./Visuals";
 import type { ScreenKind } from "./screens/AppScreen";
@@ -184,9 +185,11 @@ export function BlogTeaserBlock({
 const NUM = (decimals = 0) =>
   new Intl.NumberFormat("fr-FR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
+const statDecimals = (s: Pick<CountStat, "to" | "decimals">) =>
+  s.decimals ?? (Number.isInteger(s.to) ? 0 : String(s.to).split(".")[1]?.length ?? 0);
+
 export function formatStat(s: Pick<CountStat, "to" | "prefix" | "suffix" | "decimals">) {
-  const decimals = s.decimals ?? (Number.isInteger(s.to) ? 0 : String(s.to).split(".")[1]?.length ?? 0);
-  return `${s.prefix ?? ""}${NUM(decimals).format(s.to)}${s.suffix ?? ""}`;
+  return `${s.prefix ?? ""}${NUM(statDecimals(s)).format(s.to)}${s.suffix ?? ""}`;
 }
 
 export function StatsBlock({ stats, onWhite }: { stats: CountStat[]; onWhite?: boolean }) {
@@ -199,7 +202,9 @@ export function StatsBlock({ stats, onWhite }: { stats: CountStat[]; onWhite?: b
           data-rv-kit=""
           style={{ "--c": ACCENTS[CYCLE[i % CYCLE.length]].c } as CSSProperties}
         >
-          <b>{formatStat(s)}</b>
+          <CountUp to={s.to} decimals={statDecimals(s)} prefix={s.prefix} suffix={s.suffix}>
+            {formatStat(s)}
+          </CountUp>
           <span>{fr(s.label)}</span>
         </div>
       ))}

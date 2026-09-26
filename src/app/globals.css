@@ -495,6 +495,95 @@ h1.sec-title {
   }
 }
 
+/* ---------- MOUVEMENT DE LA VITRINE (une fois, jamais en boucle) ----------
+   Haut de page ([data-hero]) : le texte entre par paliers dès le premier
+   affichage, sans attendre le script (le visuel se construit en même
+   temps, voir visuals.module.css).
+   [data-anim] : ScrollEffects met en attente (data-wait) ce qui est sous la
+   ligne de flottaison, puis pose .in à l'entrée à l'écran. Sans script,
+   rien n'est masqué. */
+@keyframes mp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+@keyframes mp-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+@keyframes mp-star {
+  0% {
+    opacity: 0;
+    scale: 0;
+    rotate: -90deg;
+  }
+  70% {
+    scale: 1.2;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-wait]:not(.in) {
+    opacity: 0;
+  }
+
+  [data-hero] [data-hero-text] > *,
+  [data-hero]:not(:has([data-hero-text])) > div:last-child > * {
+    animation: mp-rise 0.8s var(--ease) both;
+  }
+  [data-hero] [data-hero-text] > :nth-child(2),
+  [data-hero]:not(:has([data-hero-text])) > div:last-child > :nth-child(2) {
+    animation-delay: 0.07s;
+  }
+  [data-hero] [data-hero-text] > :nth-child(3),
+  [data-hero]:not(:has([data-hero-text])) > div:last-child > :nth-child(3) {
+    animation-delay: 0.14s;
+  }
+  [data-hero] [data-hero-text] > :nth-child(4),
+  [data-hero]:not(:has([data-hero-text])) > div:last-child > :nth-child(4) {
+    animation-delay: 0.22s;
+  }
+  [data-hero] [data-hero-text] > :nth-child(5),
+  [data-hero]:not(:has([data-hero-text])) > div:last-child > :nth-child(5) {
+    animation-delay: 0.3s;
+  }
+  [data-hero] [data-hero-text] > :nth-child(n + 6),
+  [data-hero]:not(:has([data-hero-text])) > div:last-child > :nth-child(n + 6) {
+    animation-delay: 0.38s;
+  }
+
+  /* Listes à l'étoile : les lignes arrivent l'une après l'autre, l'étoile
+     du logo éclot devant chacune. */
+  [data-anim="list"].in > li {
+    animation: mp-slide 0.6s var(--ease) both;
+  }
+  [data-anim="list"].in > li > svg:first-child {
+    animation: mp-star 0.6s var(--ease) both;
+  }
+  [data-anim="list"].in > li:nth-child(2),
+  [data-anim="list"].in > li:nth-child(2) > svg:first-child {
+    animation-delay: 0.09s;
+  }
+  [data-anim="list"].in > li:nth-child(3),
+  [data-anim="list"].in > li:nth-child(3) > svg:first-child {
+    animation-delay: 0.18s;
+  }
+  [data-anim="list"].in > li:nth-child(4),
+  [data-anim="list"].in > li:nth-child(4) > svg:first-child {
+    animation-delay: 0.27s;
+  }
+  [data-anim="list"].in > li:nth-child(5),
+  [data-anim="list"].in > li:nth-child(5) > svg:first-child {
+    animation-delay: 0.36s;
+  }
+  [data-anim="list"].in > li:nth-child(n + 6),
+  [data-anim="list"].in > li:nth-child(n + 6) > svg:first-child {
+    animation-delay: 0.45s;
+  }
+}
+
 /* Les keyframes du hero (rise, fadeScale, pop, floaty, drift1/2) sont
    définis dans Hero.module.css car CSS Modules y réécrit les noms. */
 

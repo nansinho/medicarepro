@@ -8,12 +8,16 @@ const figtree = Figtree({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
   display: "swap",
+  /* Sur la vitrine, seuls les titres du méga-menu l'emploient (connexion et
+     back office aussi) : chargée à la demande, sans concurrencer le haut de
+     page au premier affichage. */
+  preload: false,
 });
 
 const poppins = Poppins({
   variable: "--font-body",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -30,12 +34,13 @@ const inter = Inter({
    numéros de facture. Sans elle, tous ces `font-mono` tombaient sur la
    police système (Consolas ici, Menlo ailleurs) — des chiffres de largeurs
    différentes d'un poste à l'autre dans des colonnes de comptabilité.
-   La vitrine ne l'utilise pas : le sous-ensemble ne coûte rien au site. */
+   La vitrine ne l'utilise pas : pas de préchargement, elle ne coûte rien au site. */
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono-admin",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
+  preload: false,
 });
 
 /* viewport-fit=cover : nécessaire pour que env(safe-area-inset-*) se résolve

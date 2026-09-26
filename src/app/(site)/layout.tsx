@@ -6,6 +6,7 @@ import ScrollEffects from "@/components/ScrollEffects";
 import { getMenu } from "@/lib/cms/collections";
 import { getSettings } from "@/lib/cms/settings";
 import { getPublishedCities } from "@/lib/cms/cities";
+import { SETTINGS } from "@/data/content/site";
 import c from "@/components/site/chrome.module.css";
 
 /** Layout de l'espace public (vitrine) : bandeau promo, en-tête et pied de
@@ -18,8 +19,14 @@ export default async function SiteLayout({
     getSettings(),
     getPublishedCities(),
   ]);
-  /* Un réseau sans adresse réelle ("#") n'est pas affiché. */
-  const socials = settings.socials.filter((s) => /^https?:\/\//.test(s.href));
+  /* Réseaux du back office, complétés par ceux du code que la base n'a pas
+     encore (YouTube : l'ancien site en ligne ne connaît pas son icône, on ne
+     peut l'écrire en base qu'après la mise en ligne de la refonte).
+     Un réseau sans adresse réelle ("#") n'est pas affiché. */
+  const socials = [
+    ...settings.socials,
+    ...SETTINGS.socials.filter((s) => !settings.socials.some((d) => d.icon === s.icon)),
+  ].filter((s) => /^https?:\/\//.test(s.href));
 
   return (
     <div className={c.site}>

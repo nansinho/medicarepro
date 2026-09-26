@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BrandLogo from "@/components/BrandLogo";
 import SearchOverlay, { prefetchSearchIndex } from "@/components/SearchOverlay";
-import { Burger, Caret, Close, Phone, Search } from "@/components/icons";
+import { ArrowRight, Burger, Caret, Close, Phone, Search, User } from "@/components/icons";
 import { loginUrl } from "@/lib/appLinks";
 import type { MenuItem } from "@/data/content/site";
 import { Icon } from "./icon";
-import { navMeta } from "./navMeta";
+import { navIntro, navMeta } from "./navMeta";
 import c from "./chrome.module.css";
 
 type HeaderSettings = { logoLabel: string; loginLabel: string };
@@ -98,10 +98,10 @@ export default function SiteHeader({
     <header className={cx(c.hdr, scrolled && c.scrolled)}>
       <div className={cx(c.w, c.bar)}>
         <Link href="/" className={c.logo} aria-label={`${header.logoLabel}, accueil`}>
-          <BrandLogo size={46} />
+          <BrandLogo size={42} />
         </Link>
 
-        <nav aria-label="Navigation principale">
+        <nav aria-label="Navigation principale" className={c.navWrap}>
           <ul className={c.nav} ref={navRef}>
             {nav.map((item) =>
               item.children && item.children.length > 0 ? (
@@ -119,18 +119,61 @@ export default function SiteHeader({
                     {item.label}
                     <Caret aria-hidden="true" />
                   </button>
+                  {/* Panneau pleine largeur sous la barre, aligné sur le
+                      conteneur : une surface généreuse, jamais une petite
+                      boîte accrochée au libellé. */}
                   <div className={c.menu}>
-                    {item.children.map((ch) => (
-                      <Link
-                        key={ch.href + ch.label}
-                        href={ch.href}
-                        className={isActive(ch.href) && !ch.href.includes("#") ? c.cur : undefined}
-                        aria-current={isActive(ch.href) && !ch.href.includes("#") ? "page" : undefined}
-                      >
-                        <MenuIcon href={ch.href} />
-                        {ch.label}
-                      </Link>
-                    ))}
+                    <div className={cx(c.w, c.menuIn)}>
+                      <div className={c.menuIntro}>
+                        <p className={c.menuTitle}>{item.label}</p>
+                        {navIntro(item.href) && (
+                          <p className={c.menuLead}>{navIntro(item.href)}</p>
+                        )}
+                        {!item.children.some((ch) => ch.href === item.href) && (
+                          <Link href={item.href} className={c.menuAll}>
+                            Tout voir
+                            <ArrowRight aria-hidden="true" />
+                          </Link>
+                        )}
+                      </div>
+                      <div className={c.menuGrid}>
+                        {item.children.map((ch) => {
+                          const courant = isActive(ch.href) && !ch.href.includes("#");
+                          const desc = navMeta(ch.href).d;
+                          return (
+                            <Link
+                              key={ch.href + ch.label}
+                              href={ch.href}
+                              className={cx(c.menuLink, courant && c.cur)}
+                              aria-current={courant ? "page" : undefined}
+                            >
+                              <MenuIcon href={ch.href} />
+                              <span className={c.menuText}>
+                                <span className={c.menuLabel}>{ch.label}</span>
+                                {desc && <span className={c.menuDesc}>{desc}</span>}
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                      {!item.children.some((ch) => ch.href.startsWith("/contact")) && (
+                        <Link href="/contact" className={c.menuCard}>
+                          <span className={c.menuCardKicker}>Démonstration</span>
+                          <span className={c.menuCardTitle}>Voir MediCare Pro en action</span>
+                          <span className={c.menuCardText}>
+                            Un conseiller vous présente le logiciel et répond à vos questions.
+                          </span>
+                          <span className={c.menuCardCta}>
+                            Demander une démo
+                            <ArrowRight aria-hidden="true" />
+                          </span>
+                          <span className={c.menuCardPhone}>
+                            <Phone aria-hidden="true" />
+                            ou au {contact.phone}
+                          </span>
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </li>
               ) : (
@@ -148,14 +191,10 @@ export default function SiteHeader({
           </ul>
         </nav>
 
+        {/* Trois éléments, même hauteur, même dessin. Le téléphone n'est plus
+            dans la barre : il vit dans la carte « Démonstration » des menus,
+            dans le menu mobile et dans le pied de page. */}
         <div className={c.right}>
-          <a href={contact.phoneHref} className={c.tel} aria-label={`Appeler le ${contact.phone}`}>
-            <Phone aria-hidden="true" />
-            <span>{contact.phone}</span>
-          </a>
-          <a href={loginUrl()} className={c.login}>
-            {header.loginLabel}
-          </a>
           <button
             type="button"
             className={c.iconBtn}
@@ -166,8 +205,14 @@ export default function SiteHeader({
           >
             <Search aria-hidden="true" />
           </button>
-          <Link href="/contact" className={c.contact}>
-            Contact
+          <a href={loginUrl()} className={c.login} aria-label={header.loginLabel}>
+            <User aria-hidden="true" />
+            <span className={c.loginText}>{header.loginLabel}</span>
+          </a>
+          {/* L'appel à l'action de la page, pas un raccourci vers « Contact » :
+              c'est ce qu'on attend d'un visiteur qui découvre le logiciel. */}
+          <Link href="/contact" className={c.cta}>
+            Demander une démo
           </Link>
           <button
             type="button"

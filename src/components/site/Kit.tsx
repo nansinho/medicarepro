@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { ChevronRight } from "@/components/icons";
 import { emphasize, lines } from "@/components/cms/inline";
 import { resolveHref } from "@/lib/appLinks";
+import { Icon } from "./icon";
+import { ACCENTS, CYCLE } from "./palette";
 import { StarMark } from "./Symbols";
 import { EdgeShapes } from "./Visuals";
 import k from "./kit.module.css";
@@ -73,6 +75,7 @@ export function Section({
     <section
       id={id}
       aria-labelledby={labelledBy}
+      data-hero={hero ? "" : undefined}
       className={cx(
         k.sec,
         k[`t_${tint}`],
@@ -281,6 +284,7 @@ export function StarList({
   return (
     <ul
       className={k.list}
+      data-anim="list"
       style={color ? ({ "--c": color } as CSSProperties) : undefined}
     >
       {items.map((item) => (
@@ -361,7 +365,7 @@ export function HeroGrid({
 }) {
   return (
     <div className={cx(k.two, k.heroTwo)}>
-      <div>{children}</div>
+      <div data-hero-text="">{children}</div>
       <div className={k.vis}>{visual}</div>
     </div>
   );
@@ -417,19 +421,34 @@ export function CrumbJsonLd({
 
 /* ---------- Ligne de preuves ---------- */
 
-export function TrustLine({ items }: { items: string[] }) {
+/** Preuves en grille régulière (deux par ligne, une seule quand la colonne
+ *  est étroite) : chaque preuve garde son icône, dans une pastille aux
+ *  couleurs du logo, sans retour à la ligne bancal ni point orphelin. */
+export function TrustLine({ items }: { items: { icon: string; label: string }[] }) {
   if (items.length === 0) return null;
   return (
-    <div className={k.trust}>
-      <StarMark />
-      {items.map((item, i) => (
-        <span key={item} style={{ display: "contents" }}>
-          {i > 0 && <span className={k.sep} aria-hidden="true" />}
-          <span className={k.it}>
-            {emphasize(fr(item), (seg, key) => <b key={key}>{seg}</b>)}
-          </span>
-        </span>
-      ))}
+    <div className={k.trustBox}>
+      <ul className={k.trust}>
+        {items.map((item, i) => {
+          const a = ACCENTS[CYCLE[i % CYCLE.length]];
+          return (
+            <li key={item.label} style={{ "--c": a.c, "--t": a.t } as CSSProperties}>
+              <span className={k.ic}>
+                <Icon name={item.icon} />
+              </span>
+              {/* Sans partie en gras, le libellé entier passe en encre :
+                  une preuve tout en gris paraît éteinte. */}
+              <span>
+                {item.label.includes("**") ? (
+                  emphasize(fr(item.label), (seg, key) => <b key={key}>{seg}</b>)
+                ) : (
+                  <b>{fr(item.label)}</b>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

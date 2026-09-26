@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { AppHead, AppIcon, AppSide, AppWin, Row, u } from "./core";
 
 /* ============================================================
@@ -46,6 +47,7 @@ export function SignatureScreen() {
             <svg viewBox="0 0 220 60">
               <path
                 d="M8 42c14-22 22-30 26-24 5 8-10 26-3 27 9 1 16-26 24-24 7 2-2 20 5 21 8 1 12-17 19-16 6 1 3 13 9 13 9 0 13-14 22-13 8 1 7 11 15 11 10 0 20-8 34-10 12-2 24 0 39 2"
+                pathLength={1}
                 fill="none"
                 stroke="#1C55B4"
                 strokeWidth="2.4"
@@ -259,7 +261,7 @@ export function StatsScreen() {
               const h = (c / max) * (y0 - top);
               const gx = x0 + i * gw + gw / 2;
               return (
-                <g key={i}>
+                <g key={i} style={{ "--i": i } as CSSProperties}>
                   <rect className={i === CONSULT.length - 1 ? "b1" : "b2"} x={gx - 11} y={y0 - h} width="22" height={h} rx="3" />
                   <text x={gx} y={y0 + 16} textAnchor="middle">
                     {"JFMAMJJAS"[i]}
@@ -385,8 +387,8 @@ export function PosturoScreen() {
             <line className="plumb" x1="80" y1="6" x2="80" y2="244" />
             <circle className="body" cx="84" cy="30" r="15" />
             <path className="body" d="M84 45v16M52 70l32-9 32 5M84 61l-3 72M81 133l-22 5M81 133l24 3M59 138l-4 50-2 48M105 136l3 50 2 48" />
-            <line className="tilt" x1="42" y1="71" x2="126" y2="62" />
-            <line className="tilt" x1="48" y1="140" x2="114" y2="134" />
+            <line className="tilt" x1="42" y1="71" x2="126" y2="62" pathLength={1} />
+            <line className="tilt" x1="48" y1="140" x2="114" y2="134" pathLength={1} />
             <text x="130" y="60">
               3°
             </text>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { resolveHref } from "@/lib/appLinks";
+import { ArrowRight } from "@/components/icons";
 import { fr } from "./Kit";
 import c from "./chrome.module.css";
 
@@ -21,8 +22,9 @@ function promoText(text: string): ReactNode {
 }
 
 /**
- * Bandeau promotionnel ambre au-dessus de l'en-tête (réglage `promoBanner`
- * du back office). Dans le flux de la page : il défile avec elle.
+ * Bandeau promotionnel au-dessus de l'en-tête (réglage `promoBanner` du back
+ * office) : bleu nuit, montants en ambre, filet aux couleurs du logo. Dans le
+ * flux de la page : il défile avec elle.
  */
 export default function SitePromo({ promo }: { promo: Promo }) {
   if (!promo.enabled || !promo.text.trim()) return null;
@@ -34,6 +36,7 @@ export default function SitePromo({ promo }: { promo: Promo }) {
         {href !== "" && (
           <Link href={resolveHref(href)} className={c.promoBtn}>
             {promo.linkLabel.trim() || "En savoir plus"}
+            <ArrowRight aria-hidden="true" />
           </Link>
         )}
       </div>

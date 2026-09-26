@@ -28,7 +28,6 @@ export default function PageHead({
   /** En-tête centré sans visuel, même si le CMS fournit une image. */
   textOnly?: boolean;
 }) {
-  const trust = (content.trust ?? []).map((t) => t.label);
   const text = (
     <>
       {crumbs ? (
@@ -41,14 +40,16 @@ export default function PageHead({
       )}
       {content.badge && <span className={k.badge}>{content.badge}</span>}
       <Title as="h1">{content.title}</Title>
-      {content.sub && <Sub>{content.sub}</Sub>}
-      {content.lead && (
-        <div style={{ marginTop: 18 }}>
-          <Text>{content.lead}</Text>
+      {/* Sous-titre et texte forment un seul chapô sous le h1 : le
+          sous-titre reste un cran sous le titre, le texte le détaille. */}
+      {(content.sub || content.lead) && (
+        <div className={k.intro}>
+          {content.sub && <Sub>{content.sub}</Sub>}
+          {content.lead && <Text>{content.lead}</Text>}
         </div>
       )}
       <BtnRow links={content.ctas ?? []} />
-      <TrustLine items={trust} />
+      <TrustLine items={content.trust ?? []} />
     </>
   );
 
@@ -66,7 +67,7 @@ export default function PageHead({
 
   return (
     <Section tint={tint} hero center={!visual}>
-      {visual ? <HeroGrid visual={visual}>{text}</HeroGrid> : <div style={{ maxWidth: 900, marginInline: "auto" }}>{text}</div>}
+      {visual ? <HeroGrid visual={visual}>{text}</HeroGrid> : <div data-hero-text="" style={{ maxWidth: 900, marginInline: "auto" }}>{text}</div>}
     </Section>
   );
 }

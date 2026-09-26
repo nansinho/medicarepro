@@ -83,12 +83,14 @@ export function DrawnArrow({ className }: { className?: string }) {
     >
       <path
         d="M8 62C18 26 58 8 100 22"
+        pathLength={1}
         stroke="currentColor"
         strokeWidth="7"
         strokeLinecap="round"
       />
       <path
         d="M82 8l22 14-20 16"
+        pathLength={1}
         stroke="currentColor"
         strokeWidth="7"
         strokeLinecap="round"

@@ -102,15 +102,6 @@ a.card:hover .cardLink svg,
 .cardLink:hover svg {
   transform: translateX(3px);
 }
-a.card {
-  transition:
-    box-shadow 0.25s,
-    transform 0.25s;
-}
-a.card:hover {
-  box-shadow: 0 22px 44px -28px rgba(20, 27, 52, 0.4);
-  transform: translateY(-2px);
-}
 .stat {
   display: inline-flex;
   align-self: flex-start;
@@ -980,4 +971,45 @@ a.card:hover {
 }
 .soon {
   border: 1px solid var(--site-line);
+}
+
+/* ---------- Mouvement ----------
+   Réponse d'ouverture de la FAQ, cartes qui se soulèvent au survol,
+   pastille d'icône qui s'incline. Une fois, sur geste de l'utilisateur. */
+@keyframes faqIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .faq details[open] p {
+    animation: faqIn 0.45s var(--ease);
+  }
+}
+a.card:hover {
+  box-shadow: 0 26px 48px -30px rgba(20, 27, 52, 0.45);
+}
+/* Le soulèvement passe par translate : transform et opacity restent à
+   l'apparition au défilement ([data-rv]), dont on garde la transition. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  a.card,
+  .card:has(.cardBtn) {
+    transition:
+      opacity 0.8s var(--ease),
+      transform 0.85s var(--ease),
+      translate 0.35s var(--ease),
+      box-shadow 0.35s var(--ease);
+  }
+  a.card:hover,
+  .card:has(.cardBtn):hover {
+    box-shadow: 0 26px 48px -30px rgba(20, 27, 52, 0.45);
+    translate: 0 -4px;
+  }
+  .ico {
+    transition: transform 0.45s var(--ease);
+  }
+  a.card:hover .ico {
+    transform: translateY(-2px) rotate(-8deg) scale(1.06);
+  }
 }

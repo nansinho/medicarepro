@@ -241,7 +241,7 @@ export default function ChartePage() {
         <img
           className={c.guide}
           src="/brand/guides/construction.svg"
-          alt="Construction du logo : le pictogramme mesure 2,3 x, PRO 0,48 x, l'espace entre pictogramme et texte 0,44 x, x étant la hauteur du M"
+          alt="Construction du logo : le pictogramme mesure 3 x, PRO 0,48 x, l'espace entre pictogramme et texte 0,5 x, x étant la hauteur du M"
         />
         <div className={c.parts}>
           <div style={{ "--c": "var(--brand-blue)" } as CSSProperties}>
@@ -254,7 +254,7 @@ export default function ChartePage() {
           </div>
           <div style={{ "--c": "var(--brand-teal)" } as CSSProperties}>
             <h3>Le pictogramme</h3>
-            <p>Hauteur 2,3 x dans la version horizontale, à 0,44 x du texte, centré sur les capitales.</p>
+            <p>Hauteur 3 x dans la version horizontale, à 0,5 x du texte, centré sur les capitales.</p>
           </div>
           <div style={{ "--c": "var(--brand-amber)" } as CSSProperties}>
             <h3>Version verticale</h3>

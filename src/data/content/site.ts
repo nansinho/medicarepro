@@ -335,3 +335,46 @@ export const JSONLD_SOFTWARE = {
   publisher: { "@id": "https://medicarepro.fr/#organization" },
   inLanguage: "fr-FR",
 };
+
+/* ------------------------------------------------------------------ */
+/* Pied de page : bandeau d'appel, texte de référencement, crédit       */
+/* ------------------------------------------------------------------ */
+
+/** Bandeau d'appel en tête du pied de page. */
+export const FOOTER_CTA = {
+  title: "Prêt à simplifier votre cabinet ?",
+  text: "Une démonstration de 30 minutes sur vos cas concrets, gratuite et sans engagement.",
+  primary: { label: "Demander une démo", href: "/contact" },
+  secondary: { label: "Voir les tarifs", href: "/tarifs" },
+};
+
+/** Texte de référencement du pied de page : ce que fait le logiciel, pour
+ *  qui, où, avec des liens internes aux intitulés recherchés. Tout ce qui
+ *  est écrit ici doit rester vrai (voir src/data/features.ts). */
+export const FOOTER_SEO = {
+  title: "MediCare Pro, le logiciel des pédicures-podologues",
+  paragraphs: [
+    "MediCare Pro est un logiciel de gestion de cabinet conçu pour les pédicures-podologues libéraux. Il réunit le dossier patient, 13 bilans podologiques normés (pied diabétique, risque de chute, posturologie, pédiatrie, sport…), le suivi des orthèses plantaires, l'agenda en ligne avec rappels SMS et e-mail, la facturation avec lecture de la carte Vitale et de l'ApCV, la comptabilité avec export FEC et la signature électronique eIDAS.",
+    "Accessible depuis un navigateur, sur ordinateur, tablette et smartphone (PWA), il accompagne le podologue au cabinet comme en soins à domicile, partout en France métropolitaine et en outre-mer. Les données de santé sont hébergées en France chez OVHcloud, hébergeur certifié HDS, dans le respect du RGPD.",
+  ],
+  searchesTitle: "Recherches fréquentes",
+  searches: [
+    { label: "Logiciel podologue", href: "/fonctionnalites" },
+    { label: "Logiciel de bilan podologique", href: "/bilans" },
+    { label: "Bilan du pied diabétique", href: "/bilans" },
+    { label: "Bilan de risque de chute", href: "/bilans" },
+    { label: "Agenda en ligne pour podologue", href: "/fonctionnalites#agenda" },
+    { label: "Facturation podologue et carte Vitale", href: "/fonctionnalites#facturation" },
+    { label: "Comptabilité podologue, export FEC", href: "/fonctionnalites#comptabilite" },
+    { label: "Logiciel podologue hébergé HDS", href: "/securite" },
+    { label: "Prix d'un logiciel de podologie", href: "/tarifs" },
+    { label: "Logiciel podologue près de chez vous", href: "/logiciel-podologue" },
+  ],
+};
+
+/** Crédit de réalisation du site. */
+export const FOOTER_CREDIT = {
+  label: "Site créé par",
+  name: "agencehds.fr",
+  href: "https://agencehds.fr",
+};

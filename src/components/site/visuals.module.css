@@ -2,8 +2,9 @@
    Visuels de la vitrine : formes aplaties aux couleurs du logo
    (demi-cercles, quarts de cercle, carrés arrondis, forme en D,
    anneaux, croix, points), cadres photo et appareils.
-   Rien ne flotte ni ne bouge : les formes sont posées, comme
-   sur la référence.
+   Rien ne flotte : les formes sont posées, comme sur la référence.
+   Elles éclosent une seule fois à l'arrivée du visuel (voir
+   « Mouvement » en bas de fichier).
    ============================================================ */
 
 .shp {
@@ -198,5 +199,174 @@
      suffisent. */
   .edge {
     display: none;
+  }
+}
+
+/* ============================================================
+   Mouvement : le visuel se construit une fois, dès le premier
+   affichage dans le haut de page ([data-hero]), sinon à son entrée à
+   l'écran (.in, posé par ScrollEffects ; en attente il est masqué).
+   Formes qui éclosent, photo qui se pose, ordinateur puis téléphone
+   qui montent, carte et flèche en dernier. Aucune boucle.
+   Les formes portent parfois une rotation en ligne : on anime la
+   propriété scale, qui se compose avec elle sans l'écraser.
+   ============================================================ */
+@keyframes shapeIn {
+  from {
+    opacity: 0;
+    scale: 0.35;
+  }
+}
+@keyframes edgeIn {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+/* L'opacité est pleine dès le premier tiers : un appareil ou une photo
+   à demi transparent laisserait voir la forme posée derrière. */
+@keyframes lift {
+  from {
+    opacity: 0;
+    transform: translateY(44px);
+  }
+  30% {
+    opacity: 1;
+  }
+}
+@keyframes photoIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+  30% {
+    opacity: 1;
+  }
+}
+@keyframes settle {
+  from {
+    transform: scale(1.15);
+  }
+}
+@keyframes phoneIn {
+  from {
+    opacity: 0;
+    transform: translateY(80px);
+  }
+  30% {
+    opacity: 1;
+  }
+}
+@keyframes cardIn {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.86);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+@keyframes okPop {
+  0% {
+    scale: 0;
+  }
+  70% {
+    scale: 1.2;
+  }
+  100% {
+    scale: 1;
+  }
+}
+@keyframes draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :global([data-hero]) :is(.frame, .devs) > :is(.shp, .dot, .cross),
+  :is(.frame, .devs):global(.in) > :is(.shp, .dot, .cross) {
+    animation: shapeIn 0.9s var(--ease) both;
+  }
+  :global([data-hero]) :is(.frame, .devs) > :is(.shp, .dot, .cross):nth-child(2),
+  :is(.frame, .devs):global(.in) > :is(.shp, .dot, .cross):nth-child(2) {
+    animation-delay: 0.12s;
+  }
+  :global([data-hero]) :is(.frame, .devs) > :is(.shp, .dot, .cross):nth-child(3),
+  :is(.frame, .devs):global(.in) > :is(.shp, .dot, .cross):nth-child(3) {
+    animation-delay: 0.24s;
+  }
+
+  :global([data-hero]) :is(.photo, .cardIn),
+  .frame:global(.in) :is(.photo, .cardIn) {
+    animation: photoIn 1s var(--ease) 0.08s both;
+  }
+  :global([data-hero]) .photo img,
+  .frame:global(.in) .photo img {
+    animation: settle 1.8s var(--ease) 0.08s both;
+  }
+
+  :global([data-hero]) .laptop,
+  .devs:global(.in) .laptop {
+    animation: lift 1s var(--ease) 0.1s both;
+  }
+  :global([data-hero]) .phoneSlot,
+  .devs:global(.in) .phoneSlot {
+    animation: phoneIn 1s var(--ease) 0.5s both;
+  }
+  :global([data-hero]) .hl,
+  .devs:global(.in) .hl {
+    animation: cardIn 0.75s var(--ease) 1s both;
+  }
+  :global([data-hero]) .hlOk,
+  .devs:global(.in) .hlOk {
+    animation: okPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.45s both;
+  }
+  :global([data-hero]) .arrow path,
+  .devs:global(.in) .arrow path {
+    stroke-dasharray: 1;
+    animation: draw 0.5s ease-out 1.25s both;
+  }
+  :global([data-hero]) .arrow path + path,
+  .devs:global(.in) .arrow path + path {
+    animation-delay: 1.65s;
+    animation-duration: 0.3s;
+  }
+
+  :global([data-hero]) .edge > *,
+  .edge:global(.in) > * {
+    animation: edgeIn 1.2s var(--ease) both;
+  }
+  .edge > :nth-child(2) {
+    animation-delay: 0.18s;
+  }
+}
+
+/* Survol : la photo s'approche à peine, les formes se décalent d'un
+   cran. Réponse au pointeur, jamais un mouvement autonome. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .photo img {
+    transition: scale 0.9s var(--ease);
+  }
+  .frame:hover .photo img {
+    scale: 1.045;
+  }
+  .frame > :is(.shp, .dot, .cross) {
+    transition: translate 0.8s var(--ease);
+  }
+  .frame:hover > .shp,
+  .frame:hover > .cross {
+    translate: -8px 8px;
+  }
+  .frame:hover > .dot {
+    translate: 6px -6px;
   }
 }
