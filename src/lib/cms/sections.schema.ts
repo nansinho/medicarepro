@@ -94,6 +94,7 @@ export const MockupKindSchema = z.enum([
   "ai",
   "portal",
   "stats",
+  "consultation",
 ]);
 export type MockupKindKey = z.infer<typeof MockupKindSchema>;
 
@@ -180,6 +181,8 @@ export const PageHeroSchema = z.object({
       title: z.string(),
       text: z.string(),
       cta: z.string(),
+      /** Pictogramme de la carte (clé d'icône du site). Défaut : agenda. */
+      icon: z.string().optional(),
     })
     .optional(),
 });

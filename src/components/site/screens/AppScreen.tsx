@@ -8,6 +8,7 @@ import {
   InvoiceScreen,
   OrthoScreen,
 } from "./ScreensCabinet";
+import { ConsultationScreen } from "./ScreenConsultation";
 import {
   ChuteScreen,
   PortalScreen,
@@ -36,6 +37,7 @@ const SCREENS: Record<ScreenKind, () => JSX.Element> = {
   portal: PortalScreen,
   stats: StatsScreen,
   pwa: PwaScreen,
+  consultation: ConsultationScreen,
 };
 
 /**

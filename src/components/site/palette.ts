@@ -31,6 +31,7 @@ export const ACCENT_BY_MOCKUP: Record<MockupKindKey, Accent> = {
   ai: "violet",
   portal: "sky",
   pwa: "sky",
+  consultation: "blue",
 };
 
 /** Ancre de section (menus « Le logiciel ») par écran. */

@@ -160,9 +160,13 @@
   width: 17px;
   height: 17px;
 }
+.hlBody {
+  display: block;
+}
 .hlPill {
-  display: inline-flex;
-  margin-top: 10px;
+  display: flex;
+  width: fit-content;
+  margin: 10px auto 0;
   height: 28px;
   align-items: center;
   padding: 0 14px;
@@ -368,5 +372,50 @@
   }
   .frame:hover > .dot {
     translate: 6px -6px;
+  }
+}
+
+/* Écran « Nouvelle consultation » : la carte annonce le bloc de
+   traçabilité, au milieu de l'écran. Elle devient une notification
+   compacte posée en bas à gauche (elle ne le couvre à aucune largeur),
+   et la flèche monte vers le bouton « Scanner un QR code ». Sous 700px,
+   carte et flèche restent masquées comme partout. */
+@media (min-width: 701px) {
+  .devs[data-screen="consultation"] .hl {
+    left: -4%;
+    top: auto;
+    bottom: 1%;
+    width: min(340px, 64%);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px 12px 12px;
+    text-align: left;
+  }
+  .devs[data-screen="consultation"] .hlIco {
+    margin: 0;
+  }
+  .devs[data-screen="consultation"] .hlBody {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .devs[data-screen="consultation"] .hl b {
+    margin: 0;
+    font-size: 14px;
+  }
+  .devs[data-screen="consultation"] .hlPill {
+    order: -1;
+    height: 20px;
+    margin: 0 0 5px;
+    padding: 0 9px;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .devs[data-screen="consultation"] .arrow {
+    left: 12%;
+    top: 46%;
   }
 }

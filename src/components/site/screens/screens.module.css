@@ -1073,3 +1073,475 @@
     animation:vcard .9s var(--ease) .7s both;
   }
 }
+
+/* ============================================================
+   Écran « Nouvelle consultation » (app réelle) : menu bleu à
+   gauche, page bleu très clair, cartes blanches. Classes cs-*.
+   ============================================================ */
+.root :global(.cs-app) {
+  display:grid;
+  grid-template-columns:calc(62 * var(--u)) minmax(0,1fr);
+  height:calc(100% - calc(38 * var(--u)));
+  font-size:calc(10.15 * var(--u));
+  line-height:1.35;
+  color:#2A3E55;
+}
+.root :global(.cs-nav) {
+  display:flex;
+  flex-direction:column;
+  gap:calc(4.35 * var(--u));
+  padding:calc(11.6 * var(--u)) calc(5.8 * var(--u));
+  background:linear-gradient(180deg,#23487F,#1E3E70);
+}
+.root :global(.cs-logo) {
+  display:grid;
+  place-items:center;
+  width:calc(34.8 * var(--u));
+  height:calc(34.8 * var(--u));
+  margin:0 auto calc(10.15 * var(--u));
+  border-radius:calc(10.15 * var(--u));
+  background:#fff;
+}
+.root :global(.cs-logo img) {
+  width:calc(23.2 * var(--u));
+  height:calc(23.2 * var(--u));
+}
+.root :global(.cs-nav a) {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:calc(3.62 * var(--u));
+  padding:calc(7.25 * var(--u)) calc(2.9 * var(--u));
+  border-radius:calc(10.15 * var(--u));
+  font:500 calc(7.68 * var(--u))/1.15 var(--f-body);
+  color:rgba(255,255,255,.82);
+  text-align:center;
+}
+.root :global(.cs-nav a .i) {
+  width:calc(14.5 * var(--u));
+  height:calc(14.5 * var(--u));
+}
+.root :global(.cs-nav a.on) {
+  background:rgba(255,255,255,.15);
+  color:#fff;
+}
+.root :global(.cs-sp) {
+  flex:1;
+}
+.root :global(.cs-round) {
+  display:grid;
+  place-items:center;
+  width:calc(26.1 * var(--u));
+  height:calc(26.1 * var(--u));
+  margin:calc(2.9 * var(--u)) auto 0;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.35);
+  color:#fff;
+}
+.root :global(.cs-round .i) {
+  width:calc(13.05 * var(--u));
+  height:calc(13.05 * var(--u));
+}
+.root :global(.cs-page) {
+  display:grid;
+  grid-template-rows:calc(36.25 * var(--u)) minmax(0,1fr);
+  min-width:0;
+  overflow:hidden;
+  background:linear-gradient(180deg,#EAF3FC,#E5F0FB);
+}
+.root :global(.cs-top) {
+  display:flex;
+  align-items:center;
+  padding:0 calc(15.95 * var(--u));
+  background:rgba(255,255,255,.85);
+  border-bottom:1px solid #E1EAF4;
+  font:500 calc(10.88 * var(--u))/1 var(--f-body);
+  color:#2A3E55;
+}
+.root :global(.cs-top-r) {
+  display:flex;
+  align-items:center;
+  gap:calc(7.25 * var(--u));
+  margin-left:auto;
+}
+.root :global(.cs-ico) {
+  position:relative;
+  display:grid;
+  place-items:center;
+  width:calc(21.75 * var(--u));
+  height:calc(21.75 * var(--u));
+  border-radius:50%;
+  background:#fff;
+  border:1px solid #E1EAF4;
+  color:#5D6B7B;
+  font-style:normal;
+}
+.root :global(.cs-ico .i) {
+  width:calc(11.6 * var(--u));
+  height:calc(11.6 * var(--u));
+}
+.root :global(.cs-bell em) {
+  position:absolute;
+  top:calc(-4.35 * var(--u));
+  right:calc(-2.9 * var(--u));
+  min-width:calc(10.15 * var(--u));
+  height:calc(10.15 * var(--u));
+  border-radius:calc(5.8 * var(--u));
+  background:#FBE7E5;
+  color:#D93A3A;
+  font:600 calc(6.67 * var(--u))/calc(10.15 * var(--u)) var(--f-body);
+  font-style:normal;
+  text-align:center;
+}
+.root :global(.cs-av) {
+  display:inline-block;
+  width:calc(23.2 * var(--u));
+  height:calc(23.2 * var(--u));
+  border-radius:50%;
+  background:#E4EDF8;
+  border:1px solid #D5E2F2;
+  color:#23394E;
+  font:700 calc(7.97 * var(--u))/calc(21.75 * var(--u)) var(--f-body);
+  font-style:normal;
+  text-align:center;
+}
+.root :global(.cs-av-s) {
+  width:calc(17.4 * var(--u));
+  height:calc(17.4 * var(--u));
+  background:#EEF3FA;
+  font-size:calc(6.67 * var(--u));
+  line-height:calc(15.95 * var(--u));
+}
+.root :global(.cs-body) {
+  display:flex;
+  flex-direction:column;
+  gap:calc(10.15 * var(--u));
+  min-height:0;
+  padding:calc(13.05 * var(--u)) calc(15.95 * var(--u)) 0;
+}
+.root :global(.cs-head) {
+  display:flex;
+  align-items:flex-start;
+  gap:calc(11.6 * var(--u));
+}
+.root :global(.cs-head > .i) {
+  width:calc(13.05 * var(--u));
+  height:calc(13.05 * var(--u));
+  margin-top:calc(4.35 * var(--u));
+  color:#5D6B7B;
+}
+.root :global(.cs-head h4) {
+  margin:0;
+  font:700 calc(17.4 * var(--u))/1.15 var(--f-display);
+  letter-spacing:-.01em;
+  color:#1E3350;
+}
+.root :global(.cs-head p) {
+  display:flex;
+  align-items:center;
+  gap:calc(5.8 * var(--u));
+  margin:calc(5.8 * var(--u)) 0 0;
+  font-size:calc(9.42 * var(--u));
+  color:#4A5C72;
+}
+.root :global(.cs-head p b) {
+  font-weight:600;
+  color:#23394E;
+}
+.root :global(.cs-consent) {
+  display:inline-flex;
+  align-items:center;
+  gap:calc(3.62 * var(--u));
+  height:calc(15.95 * var(--u));
+  padding:0 calc(7.25 * var(--u));
+  border-radius:calc(8.7 * var(--u));
+  background:#E6F8EE;
+  border:1px solid #BDEBD0;
+  color:#1F8F52;
+  font-size:calc(8.41 * var(--u));
+  font-weight:500;
+}
+.root :global(.cs-consent .i) {
+  width:calc(9.42 * var(--u));
+  height:calc(9.42 * var(--u));
+}
+.root :global(.cs-btn-w) {
+  display:inline-flex;
+  align-items:center;
+  gap:calc(5.8 * var(--u));
+  height:calc(24.65 * var(--u));
+  margin-left:auto;
+  padding:0 calc(11.6 * var(--u));
+  border-radius:calc(10.15 * var(--u));
+  background:#fff;
+  border:1px solid #DCE6F2;
+  font:500 calc(9.42 * var(--u))/1 var(--f-body);
+  color:#23394E;
+  white-space:nowrap;
+}
+.root :global(.cs-btn-w .i) {
+  width:calc(11.6 * var(--u));
+  height:calc(11.6 * var(--u));
+}
+.root :global(.cs-types) {
+  display:flex;
+  gap:calc(5.8 * var(--u));
+  padding:calc(6.52 * var(--u));
+  border-radius:calc(11.6 * var(--u));
+  background:#fff;
+  overflow:hidden;
+}
+.root :global(.cs-types span),
+.root :global(.cs-quick span) {
+  display:inline-flex;
+  align-items:center;
+  gap:calc(4.35 * var(--u));
+  height:calc(20.3 * var(--u));
+  padding:0 calc(8.7 * var(--u));
+  border:1px solid #E6EDF6;
+  border-radius:calc(10.15 * var(--u));
+  font:500 calc(9.13 * var(--u))/1 var(--f-body);
+  color:#23394E;
+  white-space:nowrap;
+}
+.root :global(.cs-types span::before),
+.root :global(.cs-quick span::before) {
+  content:"";
+  width:calc(5.8 * var(--u));
+  height:calc(5.8 * var(--u));
+  border-radius:50%;
+  background:var(--d);
+}
+.root :global(.cs-grid) {
+  display:grid;
+  grid-template-columns:calc(150.8 * var(--u)) minmax(0,1fr);
+  gap:calc(11.6 * var(--u));
+  align-items:start;
+  min-height:0;
+}
+.root :global(.cs-col) {
+  display:flex;
+  flex-direction:column;
+  gap:calc(8.7 * var(--u));
+  min-width:0;
+}
+.root :global(.cs-card) {
+  padding:calc(10.15 * var(--u));
+  border-radius:calc(11.6 * var(--u));
+  background:#fff;
+  box-shadow:0 1px 2px rgba(10,31,68,.05);
+}
+.root :global(.cs-list h6) {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:0 0 calc(5.8 * var(--u));
+  font:600 calc(7.11 * var(--u))/1 var(--f-body);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#4A5C72;
+}
+.root :global(.cs-list h6 .i) {
+  width:calc(9.42 * var(--u));
+  height:calc(9.42 * var(--u));
+}
+.root :global(.cs-fold h6) {
+  margin:0;
+}
+.root :global(.cs-list a) {
+  display:flex;
+  align-items:center;
+  gap:calc(5.8 * var(--u));
+  height:calc(19.57 * var(--u));
+  margin-top:calc(3.62 * var(--u));
+  padding:0 calc(7.25 * var(--u));
+  border:1px solid #EDF2F8;
+  border-radius:calc(8.7 * var(--u));
+  font:500 calc(8.7 * var(--u))/1 var(--f-body);
+  color:#23394E;
+}
+.root :global(.cs-list a .i) {
+  width:calc(10.15 * var(--u));
+  height:calc(10.15 * var(--u));
+  color:#4A5C72;
+}
+.root :global(.cs-list a.on) {
+  border-color:transparent;
+  background:linear-gradient(180deg,#4677CC,#3D6AC0);
+  color:#fff;
+}
+.root :global(.cs-list a.on .i) {
+  color:#fff;
+}
+.root :global(.cs-form) {
+  display:flex;
+  flex-direction:column;
+  gap:calc(8.7 * var(--u));
+  padding:calc(13.05 * var(--u)) calc(14.5 * var(--u));
+}
+.root :global(.cs-form h5) {
+  display:flex;
+  align-items:center;
+  gap:calc(5.8 * var(--u));
+  margin:0;
+  font:600 calc(11.31 * var(--u))/1.2 var(--f-body);
+  color:#23394E;
+}
+.root :global(.cs-form h5 .i) {
+  width:calc(13.05 * var(--u));
+  height:calc(13.05 * var(--u));
+}
+.root :global(.cs-trace) {
+  padding:calc(10.15 * var(--u)) calc(11.6 * var(--u));
+  border:1px solid #E3ECF5;
+  border-radius:calc(11.6 * var(--u));
+  background:#F5F9FC;
+}
+.root :global(.cs-trace b) {
+  display:flex;
+  align-items:center;
+  gap:calc(5.08 * var(--u));
+  font:600 calc(10.15 * var(--u))/1.2 var(--f-body);
+  color:#23394E;
+}
+.root :global(.cs-trace b .i) {
+  width:calc(11.6 * var(--u));
+  height:calc(11.6 * var(--u));
+  color:#365A8C;
+}
+.root :global(.cs-trace p) {
+  margin:calc(3.62 * var(--u)) 0 0;
+  font-size:calc(8.41 * var(--u));
+  color:#5D6B7B;
+}
+.root :global(.cs-trace .cs-or) {
+  margin-top:calc(7.25 * var(--u));
+}
+.root :global(.cs-qr) {
+  display:inline-flex;
+  align-items:center;
+  gap:calc(7.25 * var(--u));
+  height:calc(27.55 * var(--u));
+  margin-top:calc(8.7 * var(--u));
+  padding:0 calc(14.5 * var(--u));
+  border-radius:calc(10.15 * var(--u));
+  background:linear-gradient(180deg,#3B6197,#2F5285);
+  box-shadow:0 calc(7.25 * var(--u)) calc(14.5 * var(--u)) calc(-7.25 * var(--u)) rgba(34,68,122,.7);
+  font:600 calc(9.86 * var(--u))/1 var(--f-body);
+  color:#fff;
+}
+.root :global(.cs-qr .i) {
+  width:calc(11.6 * var(--u));
+  height:calc(11.6 * var(--u));
+}
+.root :global(.cs-fields) {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr)) auto;
+  align-items:end;
+  gap:calc(5.8 * var(--u));
+  margin-top:calc(5.8 * var(--u));
+}
+.root :global(.cs-field small) {
+  display:block;
+  margin-bottom:calc(3.62 * var(--u));
+  font:600 calc(8.12 * var(--u))/1.2 var(--f-body);
+  color:#23394E;
+}
+.root :global(.cs-input),
+.root :global(.cs-link) {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:calc(4.35 * var(--u));
+  height:calc(21.75 * var(--u));
+  padding:0 calc(7.25 * var(--u));
+  border-radius:calc(8.7 * var(--u));
+  background:#E9F1FC;
+  font-size:calc(8.41 * var(--u));
+  color:#7A8AA0;
+  white-space:nowrap;
+}
+.root :global(.cs-input .i),
+.root :global(.cs-link .i) {
+  width:calc(9.42 * var(--u));
+  height:calc(9.42 * var(--u));
+}
+.root :global(.cs-strong) {
+  color:#23394E;
+  font-weight:500;
+}
+.root :global(.cs-link) {
+  background:#EEF3F9;
+  color:#9AA8BA;
+}
+.root :global(.cs-row2) {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:end;
+  gap:calc(8.7 * var(--u));
+}
+.root :global(.cs-first) {
+  display:flex;
+  align-items:center;
+  gap:calc(5.8 * var(--u));
+  height:calc(24.65 * var(--u));
+  padding:0 calc(10.15 * var(--u));
+  border-radius:calc(10.15 * var(--u));
+  background:#EEF4FC;
+  border:1px solid #D6E3F3;
+  font:500 calc(9.42 * var(--u))/1 var(--f-body);
+  color:#23394E;
+}
+.root :global(.cs-first i) {
+  width:calc(10.15 * var(--u));
+  height:calc(10.15 * var(--u));
+  border-radius:50%;
+  border:1px solid #7F90A8;
+  background:#fff;
+}
+.root :global(.cs-area) {
+  display:flex;
+  justify-content:flex-end;
+  align-items:flex-start;
+  gap:calc(4.35 * var(--u));
+  height:calc(40.6 * var(--u));
+  padding:calc(5.8 * var(--u));
+  border:1px solid #DCE6F2;
+  border-radius:calc(10.15 * var(--u));
+  background:#fff;
+}
+.root :global(.cs-area .cs-ico) {
+  width:calc(18.85 * var(--u));
+  height:calc(18.85 * var(--u));
+  background:#F3F7FC;
+}
+.root :global(.cs-area .cs-ico .i) {
+  width:calc(10.15 * var(--u));
+  height:calc(10.15 * var(--u));
+}
+.root :global(.cs-quick) {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:calc(5.8 * var(--u));
+  font-size:calc(8.41 * var(--u));
+  color:#4A5C72;
+}
+.root :global(.cs-quick span) {
+  height:calc(16.68 * var(--u));
+  padding:0 calc(7.25 * var(--u));
+  font-size:calc(8.12 * var(--u));
+}
+.root :global(.cs-pain) {
+  display:flex;
+  align-items:center;
+  padding-top:calc(8.7 * var(--u));
+  border-top:1px solid #EDF2F8;
+  font:600 calc(9.86 * var(--u))/1 var(--f-body);
+  color:#23394E;
+}
+.root :global(.cs-pain .cs-btn-w) {
+  height:calc(21.75 * var(--u));
+  background:#EEF4FC;
+  font-size:calc(8.7 * var(--u));
+}

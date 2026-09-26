@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import { Calendar, Check } from "@/components/icons";
 import { CrossMark, DrawnArrow } from "./Symbols";
+import { Icon } from "./icon";
 import AppScreen, { type ScreenKind } from "./screens/AppScreen";
 import PhoneMock from "./screens/PhoneMock";
 import v from "./visuals.module.css";
@@ -198,6 +199,8 @@ export type Highlight = {
   title: string;
   text: string;
   cta: string;
+  /** Clé d'icône du site ; défaut : agenda. */
+  icon?: string;
 };
 
 export function Devices({
@@ -213,7 +216,7 @@ export function Devices({
   highlight?: Highlight | null;
 }) {
   return (
-    <div className={v.devs} data-anim="vis">
+    <div className={v.devs} data-anim="vis" data-screen={screen}>
       {DEVICE_DECO[variant % DEVICE_DECO.length]}
       {highlight && <DrawnArrow className={v.arrow} />}
       <div className={v.laptop} aria-hidden="true">
@@ -233,12 +236,13 @@ export function Devices({
             <Check />
           </span>
           <span className={v.hlIco}>
-            <Calendar />
+            {highlight.icon ? <Icon name={highlight.icon} /> : <Calendar />}
           </span>
-          <b>{highlight.title}</b>
-          {highlight.text}
-          <br />
-          <span className={v.hlPill}>{highlight.cta}</span>
+          <span className={v.hlBody}>
+            <b>{highlight.title}</b>
+            {highlight.text}
+            <span className={v.hlPill}>{highlight.cta}</span>
+          </span>
         </div>
       )}
     </div>
