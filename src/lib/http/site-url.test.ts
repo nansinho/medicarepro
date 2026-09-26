@@ -73,6 +73,43 @@ describe("siteOrigin", () => {
     }
   });
 
+  it("les liens envoyés par email ne mènent jamais à une adresse locale", async () => {
+    /* Constaté le 26/09/2026 : une invitation envoyée depuis le poste de
+       développement portait « http://localhost:3004 », lien mort pour la
+       personne invitée. */
+    const previous = process.env.NEXT_PUBLIC_SITE_URL;
+    const forced = process.env.EMAIL_LINKS_ORIGIN;
+    delete process.env.EMAIL_LINKS_ORIGIN;
+    try {
+      const { emailLinkUrl, isLocalOrigin } = await import("./site-url");
+      for (const local of [
+        "http://localhost:3004",
+        "http://127.0.0.1:3000",
+        "https://0.0.0.0:3000",
+        "http://app.localhost:3004",
+      ]) {
+        expect(isLocalOrigin(local)).toBe(true);
+        process.env.NEXT_PUBLIC_SITE_URL = local;
+        expect(emailLinkUrl("/admin/auth/confirm")).toBe(
+          "https://medicarepro.fr/admin/auth/confirm",
+        );
+      }
+      // Une origine publique est reprise telle quelle.
+      process.env.NEXT_PUBLIC_SITE_URL = "https://recette.medicarepro.fr/";
+      expect(emailLinkUrl("inscription")).toBe(
+        "https://recette.medicarepro.fr/inscription",
+      );
+      // Forçage explicite, y compris vers une adresse locale.
+      process.env.EMAIL_LINKS_ORIGIN = "http://localhost:3004/";
+      expect(emailLinkUrl("/inscription")).toBe("http://localhost:3004/inscription");
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = previous;
+      if (forced === undefined) delete process.env.EMAIL_LINKS_ORIGIN;
+      else process.env.EMAIL_LINKS_ORIGIN = forced;
+    }
+  });
+
   it("se rabat sur le domaine public quand la variable est absente", async () => {
     /* Cas RÉEL de la production : le stage runner du Dockerfile ne pose pas
        NEXT_PUBLIC_SITE_URL. Le repli doit donner le bon domaine, jamais

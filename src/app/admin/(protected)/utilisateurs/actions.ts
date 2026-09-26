@@ -1,32 +1,89 @@
 "use server";
 
 import crypto from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { requireAdminService, ActionError, type GuardedContext } from "@/lib/admin/guards";
+import type { StaffUser } from "@/lib/admin/auth";
 import { logAudit } from "@/lib/audit";
 import { sendMail } from "@/lib/email";
-import { env } from "@/lib/env";
+import {
+  STAFF_LINK_HOURS,
+  staffConfirmRedirect,
+  staffConfirmUrl,
+} from "@/lib/admin/staff-links";
+import {
+  staffInviteEmail,
+  staffRecoveryEmail,
+  type StaffRole,
+} from "@/lib/emails/staff-templates";
 
 /* ============================================================
    Gestion des comptes du back office (admin uniquement).
-   Le rôle AUTORITAIRE vit dans auth.users.app_metadata (JWT) —
+
+   Le rôle AUTORITAIRE vit dans auth.users.app_metadata (JWT) :
    profiles.role n'est qu'un miroir UI. Toute modification passe
    par l'API admin GoTrue (service-role) PUIS aligne le miroir.
    Un changement de rôle n'est effectif qu'à la reconnexion de
    l'utilisateur (réémission du JWT).
+
+   LES ACTIONS RENDENT LEUR RÉSULTAT AU LIEU DE JETER. Un email qui ne
+   part pas n'est pas une erreur fatale : le compte existe, le lien aussi,
+   on le montre à l'administrateur pour qu'il le transmette autrement.
+   Avant, un échec SMTP faisait planter l'action APRÈS la création du
+   compte, sans lien ni moyen de renvoyer.
    ============================================================ */
 
-export type StaffRole = "admin" | "editor";
+export type NewMemberState =
+  | {
+      ok: true;
+      kind: "invite";
+      email: string;
+      link: string;
+      emailSent: boolean;
+      /** L'adresse avait déjà une invitation en attente : elle est remplacée. */
+      replaced: boolean;
+    }
+  | { ok: true; kind: "direct"; email: string; password: string }
+  | { ok: false; field?: "email" | "name"; error: string }
+  | null;
 
-export type UserActionResult =
-  | { ok: true; message?: string; password?: string }
-  | { ok: false; message: string };
+export type MemberRowState =
+  | { ok: true; message: string; link?: string }
+  | { ok: false; error: string };
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function parseRole(value: unknown): StaffRole {
   return value === "admin" ? "admin" : "editor";
 }
 
-function siteUrl(): string {
-  return (env().NEXT_PUBLIC_SITE_URL ?? "https://medicarepro.fr").replace(/\/$/, "");
+function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ActionError) return err.message;
+  console.error("[utilisateurs]", err instanceof Error ? err.message : String(err));
+  return fallback;
+}
+
+/** Nom de l'invitant, seulement s'il a été saisi (pas le préfixe de l'email). */
+function inviterName(staff: StaffUser): string | null {
+  return staff.displayName && staff.displayName !== staff.email.split("@")[0]
+    ? staff.displayName
+    : null;
+}
+
+async function trySend(
+  mail: Parameters<typeof sendMail>[0],
+  context: string,
+): Promise<boolean> {
+  try {
+    await sendMail(mail);
+    return true;
+  } catch (err) {
+    console.error(
+      `[utilisateurs] ${context} : email non parti :`,
+      err instanceof Error ? err.message : String(err),
+    );
+    return false;
+  }
 }
 
 /** Garde « dernier admin » : refuse de rétrograder/désactiver le seul admin. */
@@ -52,96 +109,130 @@ async function assertNotLastAdmin(
   }
 }
 
-function inviteEmail(confirmUrl: string, role: StaffRole): { text: string; html: string } {
-  const roleLabel = role === "admin" ? "administrateur" : "éditeur";
-  const text = [
-    "Bonjour,",
-    "",
-    `Vous êtes invité(e) à rejoindre le back office de MediCare Pro en tant que ${roleLabel}.`,
-    "Cliquez sur ce lien pour choisir votre mot de passe et activer votre compte :",
-    confirmUrl,
-    "",
-    "Ce lien est valable 24 heures. Si vous n'êtes pas à l'origine de cette invitation, ignorez cet email.",
-  ].join("\n");
-  const html = `
-    <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#274760">
-      <h2 style="color:#1e457f">Invitation au back office MediCare Pro</h2>
-      <p>Vous êtes invité(e) à rejoindre le back office de MediCare&nbsp;Pro en tant que <b>${roleLabel}</b>.</p>
-      <p style="margin:26px 0">
-        <a href="${confirmUrl}" style="background:#2b6fd6;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">
-          Activer mon compte
-        </a>
-      </p>
-      <p style="font-size:13px;color:#5d6b7b">Ce lien est valable 24&nbsp;heures. Si le bouton ne fonctionne pas, copiez cette adresse dans votre navigateur&nbsp;:<br>${confirmUrl}</p>
-    </div>`;
-  return { text, html };
+/** Le compte auth d'un membre, ou une erreur lisible. */
+async function authUser(service: GuardedContext["service"], userId: string) {
+  if (!userId) throw new ActionError("Membre manquant.");
+  const { data, error } = await service.auth.admin.getUserById(userId);
+  if (error || !data.user) throw new ActionError("Ce compte n'existe plus. Rechargez la page.");
+  return data.user;
 }
 
-/** Invite un nouveau membre par email (lien d'activation). */
-export async function inviteUser(formData: FormData): Promise<UserActionResult> {
-  try {
-    const { staff, service } = await requireAdminService();
-
-    const email = String(formData.get("email") ?? "").trim().toLowerCase();
-    const role = parseRole(formData.get("role"));
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      throw new ActionError("Adresse email invalide.");
-    }
-
-    const redirectTo = `${siteUrl()}/admin/auth/confirm`;
-    const { data, error } = await service.auth.admin.generateLink({
-      type: "invite",
-      email,
-      options: { redirectTo },
-    });
-    if (error) {
-      throw new ActionError(
-        error.code === "email_exists" || /already/i.test(error.message)
-          ? "Un compte existe déjà avec cet email."
-          : `Invitation impossible : ${error.message}`,
-      );
-    }
-
-    /* Rôle dans le JWT + miroir profiles (le trigger a créé le profil
-       avec le rôle par défaut 'editor'). */
-    await service.auth.admin.updateUserById(data.user.id, {
-      app_metadata: { role },
-    });
-    await service.from("profiles").update({ role }).eq("id", data.user.id);
-
-    const confirmUrl = `${siteUrl()}/admin/auth/confirm?token_hash=${data.properties.hashed_token}&type=invite`;
-    const mail = inviteEmail(confirmUrl, role);
-    await sendMail({
-      to: email,
-      subject: "Votre accès au back office MediCare Pro",
-      ...mail,
-    });
-
-    await logAudit({
-      action: "user.invite",
-      entityType: "profiles",
-      entityId: data.user.id,
-      diff: { email, role },
-      actorId: staff.id,
-      actorEmail: staff.email,
-    });
-
-    return { ok: true, message: `Invitation envoyée à ${email}.` };
-  } catch (err) {
-    if (err instanceof ActionError) return { ok: false, message: err.message };
-    throw err;
+/**
+ * Émet (ou réémet) le lien d'invitation et l'envoie.
+ *
+ * GoTrue accepte de réinviter une adresse tant qu'elle n'est pas confirmée :
+ * il remplace le jeton, l'ancien lien cesse de fonctionner. Une adresse déjà
+ * active est refusée (email_exists).
+ */
+async function issueInvite(
+  { staff, service }: GuardedContext,
+  input: { email: string; role: StaffRole; name?: string },
+): Promise<{ userId: string; link: string; emailSent: boolean }> {
+  const { data, error } = await service.auth.admin.generateLink({
+    type: "invite",
+    email: input.email,
+    options: {
+      redirectTo: staffConfirmRedirect(),
+      /* Lu par le trigger handle_new_user à la création du profil. */
+      ...(input.name ? { data: { display_name: input.name } } : {}),
+    },
+  });
+  if (error || !data.user) {
+    throw new ActionError(
+      error?.code === "email_exists" || /already/i.test(error?.message ?? "")
+        ? "Cette adresse a déjà un compte actif. Pour lui redonner accès, envoyez-lui un lien de mot de passe depuis la liste."
+        : `Invitation impossible : ${error?.message ?? "réponse vide de GoTrue"}.`,
+    );
   }
+
+  /* Rôle dans le JWT + miroir profiles (le trigger a posé 'editor' par
+     défaut : il ne voit pas l'app_metadata, appliqué après l'insertion). */
+  const { error: roleError } = await service.auth.admin.updateUserById(data.user.id, {
+    app_metadata: { role: input.role },
+  });
+  if (roleError) {
+    throw new ActionError(
+      `Le compte est créé mais le rôle n'a pas pu être attribué (${roleError.message}). Renvoyez l'invitation pour réessayer.`,
+    );
+  }
+  await service
+    .from("profiles")
+    .update({ role: input.role, ...(input.name ? { display_name: input.name } : {}) })
+    .eq("id", data.user.id);
+
+  const link = staffConfirmUrl(data.properties.hashed_token, "invite", input.email);
+  const emailSent = await trySend(
+    {
+      to: input.email,
+      ...staffInviteEmail({
+        link,
+        role: input.role,
+        email: input.email,
+        inviterName: inviterName(staff),
+        validHours: STAFF_LINK_HOURS,
+      }),
+    },
+    "invitation",
+  );
+
+  return { userId: data.user.id, link, emailSent };
 }
 
-/** Crée un compte directement, avec mot de passe provisoire (affiché UNE fois). */
-export async function createUserDirect(formData: FormData): Promise<UserActionResult> {
+/* ------------------------------------------------------------
+   Nouveau membre : invitation par email, ou création directe.
+   Le bouton pressé porte l'intention (intent=invite|direct).
+   ------------------------------------------------------------ */
+
+export async function addMember(
+  _prev: NewMemberState,
+  formData: FormData,
+): Promise<NewMemberState> {
   try {
-    const { staff, service } = await requireAdminService();
+    const ctx = await requireAdminService();
+    const { staff, service } = ctx;
 
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const name = String(formData.get("name") ?? "").trim();
     const role = parseRole(formData.get("role"));
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      throw new ActionError("Adresse email invalide.");
+    const intent = formData.get("intent") === "direct" ? "direct" : "invite";
+
+    if (!EMAIL_RE.test(email) || email.length > 180) {
+      return { ok: false, field: "email", error: "Adresse email invalide." };
+    }
+    if (name.length > 80) {
+      return { ok: false, field: "name", error: "80 caractères au plus." };
+    }
+
+    const { data: existing } = await service
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (intent === "invite") {
+      const { userId, link, emailSent } = await issueInvite(ctx, {
+        email,
+        role,
+        name: name || undefined,
+      });
+      await logAudit({
+        action: existing ? "user.invite_resent" : "user.invite",
+        entityType: "profiles",
+        entityId: userId,
+        diff: { email, role, emailSent },
+        actorId: staff.id,
+        actorEmail: staff.email,
+      });
+      revalidatePath("/admin/utilisateurs");
+      return { ok: true, kind: "invite", email, link, emailSent, replaced: Boolean(existing) };
+    }
+
+    if (existing) {
+      return {
+        ok: false,
+        field: "email",
+        error: "Cette adresse a déjà un compte. Renvoyez l'invitation ou un lien de mot de passe depuis la liste.",
+      };
     }
 
     const password = crypto.randomBytes(12).toString("base64url");
@@ -150,13 +241,13 @@ export async function createUserDirect(formData: FormData): Promise<UserActionRe
       password,
       email_confirm: true,
       app_metadata: { role },
-      user_metadata: { display_name: email.split("@")[0] },
+      user_metadata: { display_name: name || email.split("@")[0] },
     });
-    if (error) {
+    if (error || !data.user) {
       throw new ActionError(
-        error.code === "email_exists" || /already/i.test(error.message)
+        error?.code === "email_exists" || /already/i.test(error?.message ?? "")
           ? "Un compte existe déjà avec cet email."
-          : `Création impossible : ${error.message}`,
+          : `Création impossible : ${error?.message ?? "réponse vide de GoTrue"}.`,
       );
     }
 
@@ -172,25 +263,124 @@ export async function createUserDirect(formData: FormData): Promise<UserActionRe
       actorEmail: staff.email,
     });
 
-    return {
-      ok: true,
-      message: `Compte créé pour ${email}. Transmettez le mot de passe provisoire ci-dessous — il ne sera plus affiché.`,
-      password,
-    };
+    revalidatePath("/admin/utilisateurs");
+    return { ok: true, kind: "direct", email, password };
   } catch (err) {
-    if (err instanceof ActionError) return { ok: false, message: err.message };
-    throw err;
+    return { ok: false, error: errorMessage(err, "L'opération a échoué. Réessayez.") };
   }
 }
 
-/** Change le rôle d'un compte (JWT + miroir). Effectif à la reconnexion. */
-export async function changeRole(formData: FormData): Promise<UserActionResult> {
+/* ------------------------------------------------------------
+   Invitation en attente : renvoi (nouveau lien) ou annulation.
+   ------------------------------------------------------------ */
+
+export async function resendInvite(userId: string): Promise<MemberRowState> {
+  try {
+    const ctx = await requireAdminService();
+    const user = await authUser(ctx.service, userId);
+    if (user.email_confirmed_at) {
+      return { ok: false, error: "Ce compte est déjà activé : envoyez plutôt un lien de mot de passe." };
+    }
+    const email = user.email ?? "";
+    const role = parseRole(user.app_metadata?.role);
+    const { link, emailSent } = await issueInvite(ctx, { email, role });
+
+    await logAudit({
+      action: "user.invite_resent",
+      entityType: "profiles",
+      entityId: userId,
+      diff: { email, emailSent },
+      actorId: ctx.staff.id,
+      actorEmail: ctx.staff.email,
+    });
+    revalidatePath("/admin/utilisateurs");
+    return {
+      ok: true,
+      message: emailSent
+        ? `Nouveau lien envoyé à ${email}. L'ancien ne fonctionne plus.`
+        : `Nouveau lien créé, mais l'email n'est pas parti : transmettez le lien à ${email}.`,
+      link,
+    };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err, "Le renvoi a échoué. Réessayez.") };
+  }
+}
+
+export async function cancelInvite(userId: string): Promise<MemberRowState> {
   try {
     const { staff, service } = await requireAdminService();
+    const user = await authUser(service, userId);
+    /* Seul un compte jamais activé se supprime : un compte qui a servi se
+       désactive, pour garder la trace de ce qu'il a fait. */
+    if (user.email_confirmed_at || user.last_sign_in_at) {
+      return { ok: false, error: "Ce compte a déjà été activé : désactivez-le plutôt." };
+    }
+    const { error } = await service.auth.admin.deleteUser(userId);
+    if (error) throw new ActionError(`Annulation impossible : ${error.message}`);
 
-    const userId = String(formData.get("userId") ?? "");
-    const role = parseRole(formData.get("role"));
-    if (!userId) throw new ActionError("Utilisateur manquant.");
+    await logAudit({
+      action: "user.invite_revoke",
+      entityType: "profiles",
+      entityId: userId,
+      diff: { email: user.email },
+      actorId: staff.id,
+      actorEmail: staff.email,
+    });
+    revalidatePath("/admin/utilisateurs");
+    return { ok: true, message: `Invitation de ${user.email} annulée : le lien ne fonctionne plus.` };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err, "L'annulation a échoué. Réessayez.") };
+  }
+}
+
+/* ------------------------------------------------------------
+   Suppression définitive d'un compte (actif ou désactivé).
+
+   Ce qui reste : le journal d'audit (actor_id sans clé étrangère,
+   actor_email recopié), et les contenus créés par la personne, dont
+   la référence passe à NULL (on delete set null partout, vérifié sur
+   toutes les migrations). Le profil part avec le compte (cascade).
+   ------------------------------------------------------------ */
+
+export async function deleteMember(userId: string): Promise<MemberRowState> {
+  try {
+    const { staff, service } = await requireAdminService();
+    if (userId === staff.id) {
+      throw new ActionError("Vous ne pouvez pas supprimer votre propre compte.");
+    }
+    const user = await authUser(service, userId);
+    await assertNotLastAdmin(service, userId);
+
+    const { error } = await service.auth.admin.deleteUser(userId);
+    if (error) throw new ActionError(`Suppression impossible : ${error.message}`);
+
+    await logAudit({
+      action: "user.delete",
+      entityType: "profiles",
+      entityId: userId,
+      diff: { email: user.email, role: parseRole(user.app_metadata?.role) },
+      actorId: staff.id,
+      actorEmail: staff.email,
+    });
+    revalidatePath("/admin/utilisateurs");
+    return {
+      ok: true,
+      message: `Compte de ${user.email} supprimé. Son historique reste consultable dans le journal d'audit.`,
+    };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err, "La suppression a échoué. Réessayez.") };
+  }
+}
+
+/* ------------------------------------------------------------
+   Compte actif : rôle, lien de mot de passe, désactivation.
+   ------------------------------------------------------------ */
+
+export async function changeRole(userId: string, nextRole: string): Promise<MemberRowState> {
+  try {
+    const { staff, service } = await requireAdminService();
+    const role = parseRole(nextRole);
+    if (!userId) throw new ActionError("Membre manquant.");
     if (userId === staff.id) {
       throw new ActionError("Vous ne pouvez pas changer votre propre rôle.");
     }
@@ -211,25 +401,62 @@ export async function changeRole(formData: FormData): Promise<UserActionResult> 
       actorEmail: staff.email,
     });
 
+    revalidatePath("/admin/utilisateurs");
     return {
       ok: true,
-      message:
-        "Rôle mis à jour. Il sera effectif à la prochaine connexion de l'utilisateur.",
+      message: `Rôle ${role === "admin" ? "administrateur" : "éditeur"} attribué. Il prend effet à la prochaine connexion de la personne.`,
     };
   } catch (err) {
-    if (err instanceof ActionError) return { ok: false, message: err.message };
-    throw err;
+    return { ok: false, error: errorMessage(err, "Le changement a échoué. Réessayez.") };
   }
 }
 
-/** Désactive (ban) ou réactive un compte. */
-export async function toggleBan(formData: FormData): Promise<UserActionResult> {
+export async function sendRecovery(userId: string): Promise<MemberRowState> {
   try {
     const { staff, service } = await requireAdminService();
+    const user = await authUser(service, userId);
+    const email = user.email ?? "";
 
-    const userId = String(formData.get("userId") ?? "");
-    const ban = formData.get("ban") === "true";
-    if (!userId) throw new ActionError("Utilisateur manquant.");
+    const { data, error } = await service.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo: staffConfirmRedirect() },
+    });
+    if (error || !data) {
+      throw new ActionError(`Lien impossible à créer : ${error?.message ?? "réponse vide"}.`);
+    }
+
+    const link = staffConfirmUrl(data.properties.hashed_token, "recovery", email);
+    const emailSent = await trySend(
+      { to: email, ...staffRecoveryEmail({ link, email, validHours: STAFF_LINK_HOURS }) },
+      "réinitialisation",
+    );
+
+    await logAudit({
+      action: "user.recovery_sent",
+      entityType: "profiles",
+      entityId: userId,
+      diff: { email, emailSent },
+      actorId: staff.id,
+      actorEmail: staff.email,
+    });
+
+    return {
+      ok: true,
+      message: emailSent
+        ? `Lien de mot de passe envoyé à ${email} (valable ${STAFF_LINK_HOURS} h).`
+        : `Lien créé, mais l'email n'est pas parti : transmettez le lien à ${email}.`,
+      link,
+    };
+  } catch (err) {
+    return { ok: false, error: errorMessage(err, "L'envoi a échoué. Réessayez.") };
+  }
+}
+
+export async function setBanned(userId: string, ban: boolean): Promise<MemberRowState> {
+  try {
+    const { staff, service } = await requireAdminService();
+    if (!userId) throw new ActionError("Membre manquant.");
     if (userId === staff.id) {
       throw new ActionError("Vous ne pouvez pas désactiver votre propre compte.");
     }
@@ -249,53 +476,14 @@ export async function toggleBan(formData: FormData): Promise<UserActionResult> {
       actorEmail: staff.email,
     });
 
-    return { ok: true, message: ban ? "Compte désactivé." : "Compte réactivé." };
+    revalidatePath("/admin/utilisateurs");
+    return {
+      ok: true,
+      message: ban
+        ? "Compte désactivé : la personne ne peut plus se connecter."
+        : "Compte réactivé.",
+    };
   } catch (err) {
-    if (err instanceof ActionError) return { ok: false, message: err.message };
-    throw err;
-  }
-}
-
-/** Envoie un lien de réinitialisation de mot de passe. */
-export async function sendRecovery(formData: FormData): Promise<UserActionResult> {
-  try {
-    const { staff, service } = await requireAdminService();
-
-    const email = String(formData.get("email") ?? "").trim().toLowerCase();
-    if (!email) throw new ActionError("Email manquant.");
-
-    const redirectTo = `${siteUrl()}/admin/auth/confirm`;
-    const { data, error } = await service.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: { redirectTo },
-    });
-    if (error) throw new ActionError(`Envoi impossible : ${error.message}`);
-
-    const confirmUrl = `${siteUrl()}/admin/auth/confirm?token_hash=${data.properties.hashed_token}&type=recovery`;
-    await sendMail({
-      to: email,
-      subject: "Réinitialisation de votre mot de passe — Back office MediCare Pro",
-      text: `Bonjour,\n\nPour définir un nouveau mot de passe, cliquez sur ce lien (valable 24 h) :\n${confirmUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
-      html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#274760">
-        <h2 style="color:#1e457f">Réinitialisation du mot de passe</h2>
-        <p>Pour définir un nouveau mot de passe du back office MediCare&nbsp;Pro, cliquez ci-dessous (lien valable 24&nbsp;h)&nbsp;:</p>
-        <p style="margin:26px 0"><a href="${confirmUrl}" style="background:#2b6fd6;color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold">Choisir un nouveau mot de passe</a></p>
-        <p style="font-size:13px;color:#5d6b7b">Si le bouton ne fonctionne pas&nbsp;: ${confirmUrl}</p>
-      </div>`,
-    });
-
-    await logAudit({
-      action: "user.recovery_sent",
-      entityType: "profiles",
-      diff: { email },
-      actorId: staff.id,
-      actorEmail: staff.email,
-    });
-
-    return { ok: true, message: `Lien de réinitialisation envoyé à ${email}.` };
-  } catch (err) {
-    if (err instanceof ActionError) return { ok: false, message: err.message };
-    throw err;
+    return { ok: false, error: errorMessage(err, "L'opération a échoué. Réessayez.") };
   }
 }

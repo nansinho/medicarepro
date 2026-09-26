@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ActionError, requireAdminService } from "@/lib/admin/guards";
 import { logAudit } from "@/lib/audit";
 import { sendMail } from "@/lib/email";
-import { siteUrl } from "@/lib/http/site-url";
+import { emailLinkUrl } from "@/lib/http/site-url";
 import { checkAvailability } from "@/lib/provisioning";
 import {
   giftLinkExpiry,
@@ -36,8 +36,10 @@ export type GiftRowState =
   | { ok: false; error: string }
   | null;
 
+/* Domaine public même quand l'invitation part d'un poste de développement :
+   le bénéficiaire ouvre le lien chez lui (voir lib/http/site-url). */
 function inscriptionLink(token: string): string {
-  return siteUrl(`/inscription?invitation=${encodeURIComponent(token)}`);
+  return emailLinkUrl(`/inscription?invitation=${encodeURIComponent(token)}`);
 }
 
 function frDate(date: Date): string {

@@ -23,7 +23,7 @@ export type GuardedContext = {
 export async function requireStaffService(): Promise<GuardedContext> {
   const staff = await getStaffUser();
   if (!staff) {
-    throw new ActionError("Session expirée — reconnectez-vous.");
+    throw new ActionError("Session expirée : reconnectez-vous.");
   }
   const service = serviceClient();
   if (!service) {
