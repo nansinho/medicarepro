@@ -18,7 +18,12 @@ export const PAGE_FONCTIONNALITES = {
         type: "page_hero",
         kicker: "Fonctionnalités",
         title: "Tout votre cabinet,\n**automatisé.**",
-        lead: "Facturation, signature, comptabilité, agenda, bilans et application mobile.\nSix outils premium réunis, à partir de 24,84 €/mois.",
+        lead: "Facturation, signature, comptabilité, agenda, bilans et accès sur mobile (PWA).\nSix outils premium réunis, à partir de 24,84 €/mois.",
+        ctas: [
+          { label: "Demander une démo", href: "/contact" },
+          { label: "Voir les tarifs", href: "/tarifs" },
+        ],
+        mockup: "stats",
       },
     },
     {
@@ -27,35 +32,19 @@ export const PAGE_FONCTIONNALITES = {
       content: {
         type: "feature_showcase",
         collection: "features",
+        /* Alternance blanc / fond coloré : la couleur suit le module de
+           chaque fonctionnalité (agenda bleu, facturation ambre…). */
         tones: [
           "white", // Facturation
           "soft", // Signature
-          "medium", // Comptabilité
-          "dark", // Agenda (vedette foncée)
+          "white", // Comptabilité
+          "soft", // Agenda
           "white", // Bilans
           "soft", // PWA
-          "medium", // Vitale
-          "dark", // IA (vedette foncée)
+          "white", // Vitale
+          "soft", // IA
           "white", // Portail
           "soft", // Stats
-        ],
-        backgrounds: [
-          {
-            index: 3,
-            image: {
-              mediaId: null,
-              path: "/images/fonctionnalites/podologue-medicarepro-section-1.jpg",
-              alt: "",
-            },
-          },
-          {
-            index: 7,
-            image: {
-              mediaId: null,
-              path: "/images/fonctionnalites/podologue-medicarepro-section-4.jpg",
-              alt: "",
-            },
-          },
         ],
       },
     },

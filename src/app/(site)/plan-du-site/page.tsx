@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHero } from "@/components/Sections";
 import { ArrowRight } from "@/components/icons";
-import { MENUS } from "@/data/content/site";
-import s from "./plan.module.css";
+import { Crumb, CrumbJsonLd, Section, Sub, Title } from "@/components/site/Kit";
+import { getPublishedCities } from "@/lib/cms/cities";
+import p from "@/components/site/prose.module.css";
 
 const BASE = "https://medicarepro.fr";
 
@@ -14,8 +14,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/plan-du-site" },
 };
 
-/* Groupes construits à partir des menus du site (source de vérité unique).
-   Ajouter une page à un menu la fait apparaître ici automatiquement. */
 type Item = { href: string; label: string; note?: string };
 type Group = { title: string; items: Item[] };
 
@@ -23,18 +21,18 @@ const GROUPS: Group[] = [
   {
     title: "Découvrir",
     items: [
-      { href: "/", label: "Accueil", note: "La podologie a trouvé son logiciel" },
-      { href: "/a-propos", label: "À propos", note: "Né dans un cabinet, pas dans un open space" },
+      { href: "/", label: "Accueil", note: "Le logiciel des podologues" },
+      { href: "/a-propos", label: "Qui sommes-nous ?", note: "Né dans un cabinet" },
       { href: "/tarifs", label: "Tarifs", note: "Une offre unique, tout inclus" },
       { href: "/contact", label: "Contact", note: "Parler à l'équipe" },
     ],
   },
   {
-    title: "Fonctionnalités",
+    title: "Le logiciel",
     items: [
       { href: "/fonctionnalites", label: "Toutes les fonctionnalités" },
       { href: "/bilans", label: "Bilans podologiques", note: "13 bilans normés" },
-      { href: "/securite", label: "Sécurité & conformité", note: "Hébergement HDS, RGPD" },
+      { href: "/securite", label: "Sécurité et HDS", note: "Hébergement en France, RGPD" },
       { href: "/avantages", label: "Avantages", note: "Pourquoi choisir MediCare Pro" },
     ],
   },
@@ -42,44 +40,64 @@ const GROUPS: Group[] = [
     title: "Ressources",
     items: [
       { href: "/blog", label: "Blog", note: "Conseils pour votre cabinet" },
-      { href: "/logiciel-podologue", label: "Logiciel podologue par ville" },
+      { href: "/tarifs#faq", label: "Questions fréquentes" },
+      { href: "/logiciel-podologue", label: "Partout en France", note: "Les pages de votre région" },
+      { href: "/charte-graphique", label: "Charte graphique", note: "Logo et kit à télécharger" },
     ],
   },
   {
     title: "Informations légales",
-    items: MENUS.footer_resources
-      .filter((l) =>
-        ["/confidentialite", "/cgu", "/cgv", "/dpa", "/cookies", "/mentions-legales"].includes(
-          l.href,
-        ),
-      )
-      .map((l) => ({ href: l.href, label: l.label })),
+    items: [
+      { href: "/mentions-legales", label: "Mentions légales" },
+      { href: "/confidentialite", label: "Confidentialité" },
+      { href: "/cgu", label: "CGU" },
+      { href: "/cgv", label: "CGV" },
+      { href: "/dpa", label: "DPA" },
+      { href: "/cookies", label: "Cookies" },
+    ],
   },
 ];
 
-export default function PlanDuSitePage() {
+export default async function PlanDuSitePage() {
+  const cities = await getPublishedCities();
+  const groups: Group[] =
+    cities.length > 0
+      ? [
+          ...GROUPS,
+          {
+            title: "Villes",
+            items: cities.map((c) => ({ href: `/logiciel-podologue/${c.slug}`, label: c.name, note: c.region })),
+          },
+        ]
+      : GROUPS;
+  const crumbs = [
+    { label: "Accueil", href: "/" },
+    { label: "Plan du site", href: "/plan-du-site" },
+  ];
+
   return (
     <>
-      <PageHero
-        kicker="Navigation"
-        title="Plan du site"
-        lead="Toutes les pages de MediCare Pro, réunies en un seul endroit pour retrouver rapidement ce que vous cherchez."
-      />
+      <Section hero center>
+        <Crumb items={crumbs} />
+        <CrumbJsonLd items={crumbs} />
+        <Title as="h1">Plan du site</Title>
+        <Sub>Toutes les pages de MediCare Pro, réunies au même endroit.</Sub>
+      </Section>
 
-      <div className="wrap">
-        <div className={s.grid}>
-          {GROUPS.map((group) => (
-            <section className={s.group} key={group.title}>
-              <h2 className={s.groupTitle}>{group.title}</h2>
-              <ul className={s.list}>
+      <Section tint="blue" edge={1}>
+        <div className={p.plan}>
+          {groups.map((group) => (
+            <section className={p.planGroup} key={group.title}>
+              <h2>{group.title}</h2>
+              <ul>
                 {group.items.map((it) => (
                   <li key={it.href}>
-                    <Link href={it.href} className={s.item}>
-                      <span className={s.itemMain}>
-                        <span className={s.itemLabel}>{it.label}</span>
-                        {it.note && <span className={s.itemNote}>{it.note}</span>}
+                    <Link href={it.href}>
+                      <span>
+                        {it.label}
+                        {it.note && <small>{it.note}</small>}
                       </span>
-                      <ArrowRight width={16} height={16} className={s.itemArrow} />
+                      <ArrowRight aria-hidden="true" />
                     </Link>
                   </li>
                 ))}
@@ -87,15 +105,13 @@ export default function PlanDuSitePage() {
             </section>
           ))}
         </div>
-
-        {/* Renvoi vers le sitemap machine (SEO) */}
-        <p className={s.xmlNote}>
-          Vous cherchez le plan de site destiné aux moteurs de recherche ?{" "}
-          <a href={`${BASE}/sitemap.xml`} target="_blank" rel="noopener noreferrer">
+        <p style={{ marginTop: 32, textAlign: "center" }}>
+          Plan destiné aux moteurs de recherche :{" "}
+          <a href={`${BASE}/sitemap.xml`} style={{ color: "var(--brand-blue)" }}>
             sitemap.xml
           </a>
         </p>
-      </div>
+      </Section>
     </>
   );
 }

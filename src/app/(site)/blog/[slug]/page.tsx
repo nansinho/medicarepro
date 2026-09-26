@@ -5,21 +5,19 @@ import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { after } from "next/server";
 import { isPermanent, resolveRedirect } from "@/lib/cms/redirects";
 import { recordRedirectHit } from "@/lib/cms/seo-log";
-import { CtaBand } from "@/components/Sections2";
-import { ChevronLeft, ArrowRight } from "@/components/icons";
-import RichTextRenderer, {
-  type RichTextBody,
-} from "@/components/cms/RichTextRenderer";
+import { ChevronLeft } from "@/components/icons";
+import RichTextRenderer, { type RichTextBody } from "@/components/cms/RichTextRenderer";
+import { Crumb, CrumbJsonLd, Head, Section, Title, fr } from "@/components/site/Kit";
+import { CtaBlock, PostCards } from "@/components/site/Blocks";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { getPostBySlug, getPosts } from "@/lib/cms/posts";
-import a from "@/components/article.module.css";
-import s2 from "@/components/sections2.module.css";
+import p from "@/components/site/prose.module.css";
 
 type Params = { slug: string };
 
 export async function generateStaticParams(): Promise<Params[]> {
   const posts = await getPosts();
-  return posts.map((p) => ({ slug: p.slug }));
+  return posts.map((post) => ({ slug: post.slug }));
 }
 
 export async function generateMetadata({
@@ -53,7 +51,7 @@ export default async function BlogPostPage({
   const [post, posts, aProposSections] = await Promise.all([
     getPostBySlug(slug),
     getPosts(),
-    /* Bande CTA transversale : contenu géré sur la page À propos. */
+    /* Bande d'appel transversale : contenu géré sur la page À propos. */
     getPageSections("/a-propos"),
   ]);
   if (!post) {
@@ -68,8 +66,13 @@ export default async function BlogPostPage({
     notFound();
   }
 
-  const related = posts.filter((p) => p.slug !== post.slug).slice(0, 2);
+  const related = posts.filter((other) => other.slug !== post.slug).slice(0, 3);
   const ctaBand = pick(aProposSections, "cta_band", "cta_band");
+  const crumbs = [
+    { label: "Accueil", href: "/" },
+    { label: "Blog", href: "/blog" },
+    { label: post.title, href: `/blog/${post.slug}` },
+  ];
 
   /* Schema.org Article : aide Google à comprendre et présenter l'article. */
   const jsonLd = {
@@ -87,103 +90,69 @@ export default async function BlogPostPage({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      {/* En-tête : kicker + titre + méta */}
-      <header className={a.head}>
-        <div className="wrap">
-          <div className={a.headInner}>
-            <div className="kicker">Blog</div>
-            <h1 className={a.title}>{post.title}</h1>
-            <div className={a.meta}>
-              <time dateTime={post.date}>{post.dateDisplay}</time>
-              <span className={a.metaDot} />
-              <span>{post.readingTime} de lecture</span>
-            </div>
-          </div>
+      <Section hero center>
+        <Crumb items={crumbs} />
+        <CrumbJsonLd items={crumbs} />
+        <div style={{ maxWidth: 940, marginInline: "auto" }}>
+          <Title as="h1">{post.title}</Title>
         </div>
-      </header>
-
-      {/* Image de couverture */}
-      <div className={`wrap ${a.coverWrap}`}>
-        <div className={a.cover}>
-          <Image
-            src={post.image}
-            alt={post.imageAlt}
-            fill
-            preload
-            sizes="(max-width: 980px) 100vw, 980px"
-          />
+        <div className={p.meta}>
+          <time dateTime={post.date}>{post.dateDisplay}</time>
+          <span className={p.metaDot} aria-hidden="true" />
+          <span>{post.readingTime} de lecture</span>
         </div>
-      </div>
+      </Section>
 
-      {/* Corps de l'article */}
-      <article className="wrap">
-        <div className={a.body}>
+      <Section tight>
+        <div className={p.cover}>
+          <Image src={post.image} alt={post.imageAlt} fill priority sizes="(max-width: 1100px) 92vw, 1040px" />
+        </div>
+        <article className={p.prose} style={{ marginTop: 48 }}>
           {post.body ? (
             /* Corps riche (articles du back office) — allowlist blog. */
             <RichTextRenderer body={post.body as RichTextBody} variant="blog" />
           ) : (
             post.sections.map((section, i) => (
               <section key={section.heading ?? `intro-${i}`}>
-                {section.heading && <h2>{section.heading}</h2>}
-                {section.paragraphs.map((p) => (
-                  <p key={p.slice(0, 40)}>{p}</p>
+                {section.heading && <h2>{fr(section.heading)}</h2>}
+                {section.paragraphs.map((para) => (
+                  <p key={para.slice(0, 40)}>{fr(para)}</p>
                 ))}
                 {section.list && (
                   <ul>
                     {section.list.map((item) => (
-                      <li key={item.slice(0, 40)}>{item}</li>
+                      <li key={item.slice(0, 40)}>{fr(item)}</li>
                     ))}
                   </ul>
                 )}
               </section>
             ))
           )}
-        </div>
-        <nav className={a.footNav} aria-label="Navigation article">
-          <Link href="/blog" className={a.backLink}>
-            <ChevronLeft width={16} height={16} /> Tous les articles
+        </article>
+        <nav className={p.back} aria-label="Navigation de l'article">
+          <Link href="/blog">
+            <ChevronLeft aria-hidden="true" /> Tous les articles
           </Link>
         </nav>
-      </article>
+      </Section>
 
-      {/* Autres articles */}
-      <section className={`${a.relatedSec} tone-soft`}>
-        <div className="wrap">
-          <div className="sec-head">
-            <div className="kicker">À lire aussi</div>
-            <h2 className="sec-title">Poursuivre la lecture</h2>
-          </div>
-          <div className={s2.blogGrid}>
-            {related.map((p) => (
-              <article className={s2.post} key={p.slug}>
-                <div className={`${s2.photo} ${s2.pimg}`}>
-                  <Image
-                    src={p.image}
-                    alt={p.imageAlt}
-                    fill
-                    sizes="(max-width: 760px) 100vw, 33vw"
-                    style={{ objectFit: "cover" }}
-                  />
-                </div>
-                <div className={s2.pbody}>
-                  <span className={s2.date}>{p.dateDisplay}</span>
-                  <h3>{p.title}</h3>
-                  <Link className={s2.more} href={`/blog/${p.slug}`}>
-                    Lire <ArrowRight width={16} height={16} />
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      {related.length > 0 && (
+        <Section tint="teal" edge={2}>
+          <Head eyebrow="À lire aussi" title="Poursuivre la lecture" centered />
+          <PostCards posts={related} />
+        </Section>
+      )}
 
-      <CtaBand tone="white" content={ctaBand} />
+      <Section tight>
+        <CtaBlock
+          title={ctaBand.title}
+          lead={ctaBand.text}
+          primary={ctaBand.cta}
+          secondary={{ label: "Demander une démo", href: "/contact" }}
+        />
+      </Section>
     </>
   );
 }

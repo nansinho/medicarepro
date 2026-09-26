@@ -1,0 +1,202 @@
+/* ============================================================
+   Visuels de la vitrine : formes aplaties aux couleurs du logo
+   (demi-cercles, quarts de cercle, carrés arrondis, forme en D,
+   anneaux, croix, points), cadres photo et appareils.
+   Rien ne flotte ni ne bouge : les formes sont posées, comme
+   sur la référence.
+   ============================================================ */
+
+.shp {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+.circle {
+  border-radius: 50%;
+}
+.sq {
+  border-radius: 34px;
+}
+.ring {
+  border-radius: 50%;
+  background: transparent !important;
+  border-style: solid;
+}
+.dot {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+}
+.cross {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  display: block;
+}
+
+/* ---------- Cadre photo posé sur une forme ---------- */
+.frame {
+  position: relative;
+  padding: 34px 44px 48px 34px;
+  isolation: isolate;
+}
+.photo {
+  position: relative;
+  z-index: 1;
+  border-radius: 24px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  box-shadow: 0 22px 44px -26px rgba(29, 62, 94, 0.45);
+  background: var(--tint-blue);
+}
+.photo img {
+  object-fit: cover;
+}
+@media (max-width: 560px) {
+  .frame {
+    padding: 22px 26px 32px 20px;
+  }
+}
+
+.cardIn {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  gap: 18px;
+  aspect-ratio: 4 / 3;
+  padding: 40px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 22px 44px -26px rgba(29, 62, 94, 0.45);
+  text-align: center;
+}
+
+/* ---------- Ordinateur + téléphone ---------- */
+.devs {
+  position: relative;
+  padding: 40px 10px 22px 0;
+  isolation: isolate;
+}
+.laptop {
+  position: relative;
+  z-index: 1;
+  width: 86%;
+  margin-left: 3%;
+}
+.lpScr {
+  background: #1b2233;
+  border-radius: 14px 14px 4px 4px;
+  padding: 10px 10px 12px;
+  box-shadow: 0 30px 60px -30px rgba(20, 27, 52, 0.55);
+}
+.lpBase {
+  height: 14px;
+  margin: 0 -6%;
+  border-radius: 0 0 14px 14px;
+  background: linear-gradient(#e6ebf2, #bcc6d5);
+}
+.phoneSlot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 26%;
+  min-width: 128px;
+}
+
+/* ---------- Carte mise en avant + flèche (hero) ---------- */
+.hl {
+  position: absolute;
+  z-index: 3;
+  left: 10%;
+  top: 34%;
+  width: min(270px, 44%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 24px 48px -18px rgba(29, 62, 94, 0.45);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--site-text);
+}
+.hlIco {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: var(--brand-teal);
+  color: #fff;
+}
+.hlIco svg {
+  width: 20px;
+  height: 20px;
+}
+.hl b {
+  display: block;
+  font-size: 15px;
+  color: var(--site-ink);
+  margin-bottom: 2px;
+}
+.hlOk {
+  position: absolute;
+  right: -12px;
+  top: -12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--brand-violet);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 4px #fff;
+}
+.hlOk svg {
+  width: 17px;
+  height: 17px;
+}
+.hlPill {
+  display: inline-flex;
+  margin-top: 10px;
+  height: 28px;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: 50px;
+  background: var(--brand-blue);
+  color: #fff;
+  font: 600 11.5px/1 var(--font-body);
+}
+.arrow {
+  position: absolute;
+  z-index: 2;
+  left: 6%;
+  top: -2%;
+  width: 17%;
+  color: var(--brand-violet);
+}
+@media (max-width: 700px) {
+  .hl,
+  .arrow {
+    display: none;
+  }
+}
+
+/* ---------- Formes coupées au bord des sections ---------- */
+.edge {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+@media (max-width: 760px) {
+  /* Sur mobile, le texte occupe toute la largeur : une forme de bord
+     passerait derrière les lignes. Les formes des photos et des écrans
+     suffisent. */
+  .edge {
+    display: none;
+  }
+}

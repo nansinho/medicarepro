@@ -19,20 +19,37 @@ export type MenuItem = {
 
 export const MENUS = {
   header: [
-    { label: "Accueil", href: "/" },
     {
-      label: "Fonctionnalités",
+      label: "Le logiciel",
       href: "/fonctionnalites",
       children: [
-        { label: "Bilans", href: "/bilans" },
-        { label: "Sécurité", href: "/securite" },
+        { label: "Toutes les fonctionnalités", href: "/fonctionnalites" },
+        { label: "Agenda et rappels", href: "/fonctionnalites#agenda" },
+        { label: "Bilans podologiques", href: "/bilans" },
+        { label: "Facturation et carte Vitale", href: "/fonctionnalites#facturation" },
+        { label: "Comptabilité", href: "/fonctionnalites#comptabilite" },
         { label: "Avantages", href: "/avantages" },
       ],
     },
-    { label: "Tarifs", href: "/tarifs" },
-    { label: "Blog", href: "/blog" },
-    { label: "À propos", href: "/a-propos" },
-    { label: "Contact", href: "/contact" },
+    {
+      label: "Nos services",
+      href: "/tarifs",
+      children: [
+        { label: "Tarifs", href: "/tarifs" },
+        { label: "Sécurité et hébergement HDS", href: "/securite" },
+        { label: "Démonstration personnalisée", href: "/contact" },
+      ],
+    },
+    { label: "Partout en France", href: "/logiciel-podologue" },
+    {
+      label: "Ressources",
+      href: "/blog",
+      children: [
+        { label: "Blog", href: "/blog" },
+        { label: "Questions fréquentes", href: "/tarifs#faq" },
+        { label: "Qui sommes-nous ?", href: "/a-propos" },
+      ],
+    },
   ],
   footer_product: [
     { label: "Fonctionnalités", href: "/fonctionnalites" },
@@ -71,12 +88,11 @@ export const SETTINGS = {
     address: "340 Chem. du Plan Marseillais, 13320 Bouc-Bel-Air",
   },
 
-  /** Réseaux sociaux du footer (liens placeholder "#" à brancher). */
+  /** Réseaux sociaux (pied de page et rail du bord gauche). */
   socials: [
-    { label: "Facebook", icon: "Facebook", href: "#" },
-    { label: "LinkedIn", icon: "LinkedIn", href: "#" },
-    { label: "X", icon: "XSocial", href: "#" },
+    { label: "Facebook", icon: "Facebook", href: "https://www.facebook.com/people/MedicarePro/61594602694325/" },
     { label: "Instagram", icon: "Instagram", href: "https://www.instagram.com/medicarepro.fr/" },
+    { label: "YouTube", icon: "YouTube", href: "https://www.youtube.com/@medicarepro-fr" },
   ] satisfies SocialLink[],
 
   /** Header + panneau latéral (drawer). */
@@ -87,7 +103,9 @@ export const SETTINGS = {
       title: "Votre partenaire pour la\nsanté du cabinet",
       followLabel: "Suivez-nous",
       socials: [
+        { label: "Facebook", icon: "Facebook", href: "https://www.facebook.com/people/MedicarePro/61594602694325/" },
         { label: "Instagram", icon: "Instagram", href: "https://www.instagram.com/medicarepro.fr/" },
+        { label: "YouTube", icon: "YouTube", href: "https://www.youtube.com/@medicarepro-fr" },
       ] satisfies SocialLink[],
     },
   },
@@ -129,13 +147,13 @@ export const SETTINGS = {
     label: "note moyenne · podologues abonnés",
   },
 
-  /** Bandeau promotionnel fixé au-dessus du header (géré depuis le
-   *  back office — désactivé par défaut). */
+  /** Bandeau promotionnel au-dessus de l'en-tête (géré depuis le back
+   *  office). `**…**` = gras, `~~…~~` = prix barré. */
   promoBanner: {
-    enabled: false,
-    text: "",
-    href: "",
-    linkLabel: "",
+    enabled: true,
+    text: "**Offre 12 mois :** MediCare Pro à **24,84 €/mois** au lieu de ~~29,88 €/mois~~",
+    href: "/tarifs",
+    linkLabel: "J'en profite",
   },
 };
 
@@ -166,7 +184,7 @@ export const SEO_DEFAULTS = {
   "/fonctionnalites": {
     title: "Fonctionnalités du logiciel podologue",
     description:
-      "Toutes les fonctionnalités de MediCare Pro : facturation automatique, signature électronique eIDAS, comptabilité, agenda intégré, 13 bilans podologiques et application mobile (PWA).",
+      "Toutes les fonctionnalités de MediCare Pro : facturation automatique, signature électronique eIDAS, comptabilité, agenda intégré, 13 bilans podologiques et accès sur mobile (PWA).",
     canonical: "/fonctionnalites",
     sitemapPriority: 0.8,
     sitemapChangefreq: "monthly",

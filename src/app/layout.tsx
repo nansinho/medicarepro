@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Figtree, JetBrains_Mono, Poppins } from "next/font/google";
+import { Figtree, Inter, JetBrains_Mono, Poppins } from "next/font/google";
 import { JSONLD_ORG, JSONLD_SOFTWARE } from "@/data/content/site";
 import "./globals.css";
 
@@ -14,6 +14,15 @@ const poppins = Poppins({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+/* Police des écrans du logiciel montrés sur la vitrine (ordinateur,
+   téléphone) : celle d'une interface d'app, distincte des titres du site. */
+const inter = Inter({
+  variable: "--font-app",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -81,7 +90,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${figtree.variable} ${poppins.variable} ${jetbrainsMono.variable}`}
+      className={`${figtree.variable} ${poppins.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         <script

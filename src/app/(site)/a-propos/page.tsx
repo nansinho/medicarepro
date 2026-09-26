@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { PageHero, Values, CrossLinks } from "@/components/Sections";
-import { CtaBand } from "@/components/Sections2";
-import Reviews from "@/components/Reviews";
-import BilansTimeline from "@/components/BilansTimeline";
-import StatsBand from "@/components/cms/StatsBand";
-import Reveal from "@/components/motion/Reveal";
-import { emphasize } from "@/components/cms/inline";
+import { Btn, Eyebrow, Head, Paras, Section, Title } from "@/components/site/Kit";
+import PageHead from "@/components/site/PageHead";
+import {
+  CtaBlock,
+  IconCards,
+  LinksRow,
+  ReviewsBlock,
+  Signature,
+  StatsBlock,
+  TimelineList,
+} from "@/components/site/Blocks";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { getTestimonials } from "@/lib/cms/collections";
 import { pageMetadata } from "@/lib/cms/seo";
-import ab from "@/components/about.module.css";
+import k from "@/components/site/kit.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/a-propos");
@@ -31,50 +35,64 @@ export default async function AProposPage() {
 
   return (
     <>
-      <PageHero
-        kicker={hero.kicker ?? ""}
-        title={hero.title}
-        lead={hero.lead}
-        image={hero.image?.path}
-        imagePos={hero.imagePos}
+      <PageHead
+        content={hero}
+        crumbs={[
+          { label: "Accueil", href: "/" },
+          { label: "Qui sommes-nous ?", href: "/a-propos" },
+        ]}
+        variant={5}
+        imagePosition={hero.imagePos ?? "center 45%"}
       />
 
-      {/* Notre histoire — récit + timeline des jalons */}
-      <section className={`${ab.story} tone-white`}>
-        <div className="wrap">
-          <div className={ab.storyGrid}>
-            <Reveal variant="left" className={ab.storyText}>
-              <div className="kicker">{story.kicker}</div>
-              <h2 className={ab.storyTitle}>{story.title}</h2>
-              {story.paragraphs.map((paragraph) => (
-                <p key={paragraph.slice(0, 40)}>
-                  {emphasize(paragraph, (segment, key) => (
-                    <strong key={key}>{segment}</strong>
-                  ))}
-                </p>
-              ))}
-              {story.signature && (
-                <div className={ab.storySign}>{story.signature}</div>
-              )}
-            </Reveal>
-            <div>
-              <BilansTimeline steps={timeline.steps} />
+      {/* Notre histoire : le récit à gauche, la frise à droite */}
+      <Section tint="teal" edge={0}>
+        <div className={`${k.two}`} style={{ alignItems: "start" }}>
+          <div data-rv-kit="">
+            <Eyebrow>{story.kicker}</Eyebrow>
+            <Title>{story.title}</Title>
+            <div className={k.text} style={{ marginTop: 18 }}>
+              <Paras text={story.paragraphs.join("\n\n")} />
             </div>
+            {story.signature && <Signature>{story.signature}</Signature>}
           </div>
+          <TimelineList steps={timeline.steps} ring="var(--tint-teal)" />
         </div>
-      </section>
+      </Section>
 
-      {/* Chiffres clés — bandeau foncé immersif */}
-      <StatsBand content={stats} />
+      <Section center>
+        <Head eyebrow={stats.kicker} title={stats.title} centered />
+        <StatsBlock stats={stats.stats} onWhite />
+      </Section>
 
-      {/* Nos engagements — le cœur du « pourquoi » de MediCare Pro */}
-      <Values tone="soft" content={values} />
+      <Section tint="violet" edge={2} center>
+        <Head eyebrow={values.kicker} title={values.title} centered />
+        <IconCards items={values.items} cols={3} />
+        {values.teaserHref && (
+          <div className={k.row} style={{ justifyContent: "center" }}>
+            <Btn href={values.teaserHref} variant="outline" size="lg">
+              Tous les avantages
+            </Btn>
+          </div>
+        )}
+      </Section>
 
-      {/* Preuve sociale : ceux qui nous font confiance */}
-      <Reviews content={reviews} people={testimonials} />
+      <Section center>
+        <Head eyebrow={reviews.kicker} title={reviews.title} centered />
+        <ReviewsBlock people={testimonials} />
+      </Section>
 
-      <CrossLinks links={crossLinks.links} />
-      <CtaBand tone={ctaBand.tone} content={ctaBand} />
+      <Section tight>
+        <CtaBlock
+          title={ctaBand.title}
+          lead={ctaBand.text}
+          primary={ctaBand.cta}
+          secondary={{ label: "Demander une démo", href: "/contact" }}
+        />
+        <div style={{ marginTop: 40 }}>
+          <LinksRow links={crossLinks.links} />
+        </div>
+      </Section>
     </>
   );
 }

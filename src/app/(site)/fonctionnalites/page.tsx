@@ -1,15 +1,31 @@
 import type { Metadata } from "next";
-import FeaturesHero from "@/components/FeaturesHero";
-import FeatureShowcase from "@/components/FeatureShowcase";
-import StatsBand from "@/components/cms/StatsBand";
-import PortalCards from "@/components/cms/PortalCards";
-import CtaPanel from "@/components/cms/CtaPanel";
+import { Head, Section, type Tint } from "@/components/site/Kit";
+import PageHead from "@/components/site/PageHead";
+import { CtaBlock, IconCards, ShowcaseSplit, StatsBlock } from "@/components/site/Blocks";
+import { ACCENT_BY_MOCKUP, ANCHOR_BY_MOCKUP } from "@/components/site/palette";
+import type { Accent, ToneWithDark } from "@/lib/cms/sections.schema";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { getFeatureItems } from "@/lib/cms/collections";
 import { pageMetadata } from "@/lib/cms/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/fonctionnalites");
+}
+
+/* Fond d'une section de fonctionnalité : blanc, ou la teinte douce de son
+   module (la tonalité du CMS dit « coloré ou non », le module dit la couleur). */
+const TINT_BY_ACCENT: Record<Accent, Tint> = {
+  blue: "blue",
+  teal: "teal",
+  violet: "violet",
+  amber: "amber",
+  green: "teal",
+  sky: "sky",
+  indigo: "blue",
+};
+
+function tintFor(tone: ToneWithDark | undefined, accent: Accent): Tint {
+  return !tone || tone === "white" ? "white" : TINT_BY_ACCENT[accent];
 }
 
 export default async function FonctionnalitesPage() {
@@ -23,35 +39,77 @@ export default async function FonctionnalitesPage() {
   const portal = pick(sections, "portal", "portal_cards");
   const cta = pick(sections, "cta", "cta_panel");
 
-  /* Alternance de fonds + photos des sections vedettes : portées par la
-     section `feature_showcase` (tones/backgrounds adressés par index). */
   const items = showcase.limit ? features.slice(0, showcase.limit) : features;
 
   return (
     <>
-      <FeaturesHero content={hero} />
+      <PageHead
+        content={hero}
+        crumbs={[
+          { label: "Accueil", href: "/" },
+          { label: "Fonctionnalités", href: "/fonctionnalites" },
+        ]}
+        variant={2}
+      />
 
-      {/* 10 sections détaillées, alternance de fonds + 2 sections vedettes foncées */}
-      {items.map((feature, i) => (
-        <FeatureShowcase
-          key={feature.title}
-          feature={feature}
-          reverse={i % 2 === 1}
-          tone={showcase.tones?.[i] ?? "white"}
-          bgImage={
-            showcase.backgrounds?.find((bg) => bg.index === i)?.image.path
-          }
+      {items.map((feature, i) => {
+        const accent = ACCENT_BY_MOCKUP[feature.mockup];
+        return (
+          <Section
+            key={feature.title}
+            id={ANCHOR_BY_MOCKUP[feature.mockup]}
+            tint={tintFor(showcase.tones?.[i], accent)}
+            edge={i % 3 === 1 ? i : undefined}
+          >
+            <ShowcaseSplit
+              content={{
+                kicker: feature.kicker,
+                title: feature.title,
+                text: feature.text,
+                points: feature.points,
+                mockup: feature.mockup,
+                cta: feature.href
+                  ? { label: feature.hrefLabel ?? "En savoir plus", href: feature.href }
+                  : undefined,
+              }}
+              reverse={i % 2 === 1}
+              variant={i}
+              phone={feature.mockup === "portal" || feature.mockup === "pwa"}
+            />
+          </Section>
+        );
+      })}
+
+      <Section tint="amber" edge={5} center>
+        <Head eyebrow={stats.kicker} title={stats.title} centered />
+        <StatsBlock stats={stats.stats} />
+      </Section>
+
+      <Section center>
+        <Head eyebrow={portal.kicker} title={portal.title} centered />
+        <IconCards
+          onWhite
+          items={portal.cards.map((c) => ({
+            icon: c.icon,
+            title: c.title,
+            text: c.text,
+            href: c.href,
+            linkLabel: portal.linkLabel,
+            stat: c.stat,
+          }))}
         />
-      ))}
+      </Section>
 
-      {/* Bande de statistiques — bandeau foncé immersif */}
-      <StatsBand content={stats} />
-
-      {/* Grandes cartes immersives vers les pages connexes */}
-      <PortalCards content={portal} tone="soft" />
-
-      {/* CTA final spectaculaire */}
-      <CtaPanel content={cta} />
+      <Section tight>
+        <CtaBlock
+          kicker={cta.kicker}
+          title={cta.title}
+          lead={cta.lead}
+          primary={cta.primary}
+          secondary={cta.secondary}
+          trust={cta.trust}
+        />
+      </Section>
     </>
   );
 }

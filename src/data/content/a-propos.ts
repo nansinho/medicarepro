@@ -18,10 +18,14 @@ export const PAGE_A_PROPOS = {
         kicker: "À propos",
         title: "Conçu par des podologues, pour des podologues",
         lead: "Notre mission : réunir tout ce dont un cabinet de podologie a besoin dans une seule application, simple et conforme.",
+        ctas: [
+          { label: "Nous contacter", href: "/contact" },
+          { label: "Découvrir le logiciel", href: "/fonctionnalites" },
+        ],
         image: {
           mediaId: null,
           path: "/images/bilans-cabinet.jpg",
-          alt: "",
+          alt: "Un pédicure-podologue examine le pied d'un patient",
         },
         imagePos: "center 45%",
       },

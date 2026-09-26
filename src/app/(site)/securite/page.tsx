@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
-import SecurityHero from "@/components/SecurityHero";
-import SecurityShowcase from "@/components/SecurityShowcase";
-import StatsBand from "@/components/cms/StatsBand";
-import PortalCards from "@/components/cms/PortalCards";
-import CtaPanel from "@/components/cms/CtaPanel";
-import Reveal from "@/components/motion/Reveal";
-import { OvhLogo, Check } from "@/components/icons";
+import { OvhLogo } from "@/components/icons";
+import { Head, Section, Split } from "@/components/site/Kit";
+import PageHead from "@/components/site/PageHead";
+import { CtaBlock, IconCards, ShowcaseSplit, StatsBlock } from "@/components/site/Blocks";
+import { CardFrame } from "@/components/site/Visuals";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { pageMetadata } from "@/lib/cms/seo";
-import sec from "@/components/security.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/securite");
@@ -30,59 +27,80 @@ export default async function SecuritePage() {
 
   return (
     <>
-      <SecurityHero content={hero} />
+      <PageHead
+        content={hero}
+        crumbs={[
+          { label: "Accueil", href: "/" },
+          { label: "Sécurité et HDS", href: "/securite" },
+        ]}
+        variant={4}
+      />
 
-      {/* 4 sections immersives (photos serveurs), alternées + 2 vedettes foncées */}
-      {showcases.map((section) => (
-        <SecurityShowcase
+      {showcases.map((section, i) => (
+        <Section
           key={section.title}
-          icon={section.icon}
-          kicker={section.kicker}
-          title={section.title}
-          text={section.text}
-          points={section.points}
-          image={section.image?.path ?? ""}
-          alt={section.image?.alt ?? ""}
-          tone={section.tone}
-          reverse={section.reverse}
-        />
+          tint={section.tone === "white" ? "white" : "blue"}
+          edge={i === 0 ? 1 : i === 2 ? 3 : undefined}
+        >
+          <ShowcaseSplit
+            content={{ ...section, mockup: undefined }}
+            variant={i + 2}
+            color="var(--brand-indigo)"
+          />
+        </Section>
       ))}
 
-      {/* Bande de garanties — bandeau foncé immersif avec compteurs animés */}
-      <StatsBand content={guarantees} />
+      <Section tint="violet" edge={2} center>
+        <Head eyebrow={guarantees.kicker} title={guarantees.title} centered />
+        <StatsBlock stats={guarantees.stats} />
+      </Section>
 
-      {/* Bande hébergeur — mise en avant du logo OVHcloud */}
-      <section className={`${sec.host} tone-soft`}>
-        <div className="wrap">
-          <div className={sec.hostInner}>
-            <Reveal variant="left" className={sec.hostLogoCard}>
-              <OvhLogo className={sec.hostLogo} />
-              <span className={sec.hostLogoCaption}>{host.logoCaption}</span>
-            </Reveal>
-            <Reveal variant="right" className={sec.hostBody}>
-              <div className={sec.hostKicker}>{host.kicker}</div>
-              <h2 className={sec.hostTitle}>{host.title}</h2>
-              <p className={sec.hostText}>{host.text}</p>
-              <ul className={sec.hostPoints}>
-                {host.points.map((point) => (
-                  <li key={point}>
-                    <span className={sec.hostTick}>
-                      <Check width={13} height={13} />
-                    </span>
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </Reveal>
-          </div>
-        </div>
-      </section>
+      {/* Hébergeur : le logo OVHcloud posé sur une forme */}
+      <Section>
+        <Split
+          reverse
+          visual={
+            <CardFrame variant={5}>
+              <span style={{ display: "grid", justifyItems: "center", gap: 10 }}>
+                <OvhLogo style={{ width: 112, height: 112, color: "#000e9c" }} />
+                <b style={{ font: "700 30px/1 var(--font-body)", color: "#000e9c" }}>OVHcloud</b>
+              </span>
+              <span style={{ fontWeight: 600, color: "var(--site-ink)" }}>{host.logoCaption}</span>
+            </CardFrame>
+          }
+          eyebrow={host.kicker}
+          title={host.title}
+          text={host.text}
+          items={host.points}
+          starColor="var(--brand-indigo)"
+          cta={{ label: "Poser une question", href: "/contact" }}
+        />
+      </Section>
 
-      {/* Grandes cartes immersives vers les pages connexes */}
-      <PortalCards content={portal} tone="white" />
+      <Section tint="teal" edge={0} center>
+        <Head eyebrow={portal.kicker} title={portal.title} centered />
+        <IconCards
+          items={portal.cards.map((c) => ({
+            icon: c.icon,
+            title: c.title,
+            text: c.text,
+            href: c.href,
+            linkLabel: portal.linkLabel,
+            stat: c.stat,
+          }))}
+        />
+      </Section>
 
-      {/* CTA final spectaculaire */}
-      <CtaPanel content={cta} />
+      <Section tight>
+        <CtaBlock
+          kicker={cta.kicker}
+          title={cta.title}
+          lead={cta.lead}
+          primary={cta.primary}
+          secondary={cta.secondary}
+          trust={cta.trust}
+        />
+      </Section>
     </>
   );
 }

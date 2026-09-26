@@ -1,39 +1,39 @@
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import PromoBanner from "@/components/PromoBanner";
-import SideTabs from "@/components/SideTabs";
+import SiteHeader from "@/components/site/SiteHeader";
+import SiteFooter from "@/components/site/SiteFooter";
+import SitePromo from "@/components/site/SitePromo";
+import SocialRail from "@/components/site/SocialRail";
 import ScrollEffects from "@/components/ScrollEffects";
-import SmoothScroll from "@/components/motion/SmoothScroll";
 import { getMenu } from "@/lib/cms/collections";
 import { getSettings } from "@/lib/cms/settings";
+import { getPublishedCities } from "@/lib/cms/cities";
+import c from "@/components/site/chrome.module.css";
 
-/** Layout de l'espace public (vitrine) : header + footer partagés,
- *  alimentés par les menus et réglages du CMS. */
+/** Layout de l'espace public (vitrine) : bandeau promo, en-tête et pied de
+ *  page partagés, alimentés par les menus et réglages du CMS. */
 export default async function SiteLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [nav, footerProduct, footerResources, settings] = await Promise.all([
+  const [nav, settings, cities] = await Promise.all([
     getMenu("header"),
-    getMenu("footer_product"),
-    getMenu("footer_resources"),
     getSettings(),
+    getPublishedCities(),
   ]);
+  /* Un réseau sans adresse réelle ("#") n'est pas affiché. */
+  const socials = settings.socials.filter((s) => /^https?:\/\//.test(s.href));
 
   return (
-    <>
-      <PromoBanner promo={settings.promoBanner} />
-      <Header nav={nav} header={settings.header} contact={settings.contact} />
-      <SideTabs tabs={settings.sideTabs} loginLabel={settings.header.loginLabel} />
+    <div className={c.site}>
+      <SitePromo promo={settings.promoBanner} />
+      <SiteHeader nav={nav} header={settings.header} contact={settings.contact} />
       <main>{children}</main>
-      <Footer
-        product={footerProduct}
-        resources={footerResources}
+      <SiteFooter
         footer={settings.footer}
         contact={settings.contact}
-        socials={settings.socials}
+        socials={socials}
+        cities={cities}
       />
+      <SocialRail socials={socials} />
       <ScrollEffects />
-      <SmoothScroll />
-    </>
+    </div>
   );
 }

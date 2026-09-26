@@ -1,0 +1,74 @@
+/* Téléphone de la vitrine, dessiné à 180px de large (--p = 1/180e de la
+   largeur mesurée par .box, le conteneur). */
+.box {
+  container-type: inline-size;
+}
+.phone {
+  --p: calc(100cqw / 180);
+  border-radius: calc(26 * var(--p));
+  background: #1b2233;
+  padding: calc(6 * var(--p));
+  box-shadow: 0 24px 40px -20px rgba(20, 27, 52, 0.5);
+}
+.screen {
+  border-radius: calc(21 * var(--p));
+  background: #f6f8fc;
+  overflow: hidden;
+  font-family: var(--font-app), var(--font-body), sans-serif;
+  font-size: calc(10.5 * var(--p));
+  line-height: 1.35;
+  color: #2a4263;
+}
+.notch {
+  height: calc(18 * var(--p));
+  display: grid;
+  place-items: center;
+}
+.notch i {
+  width: calc(40 * var(--p));
+  height: calc(10 * var(--p));
+  border-radius: calc(6 * var(--p));
+  background: #1b2233;
+}
+.body {
+  padding: calc(4 * var(--p)) calc(9 * var(--p)) calc(12 * var(--p));
+  display: grid;
+  gap: calc(6 * var(--p));
+}
+.body h6 {
+  margin: 0;
+  font: 700 calc(12 * var(--p)) / 1.2 var(--font-body);
+  color: var(--site-ink);
+}
+.card {
+  background: #fff;
+  border-radius: calc(9 * var(--p));
+  padding: calc(6 * var(--p)) calc(8 * var(--p));
+  border: 1px solid #e8eef6;
+}
+.card small {
+  display: block;
+  font: 600 calc(8 * var(--p)) / 1 var(--font-body);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--brand-blue);
+  margin-bottom: calc(3 * var(--p));
+}
+.card b {
+  display: block;
+  font-size: calc(10.5 * var(--p));
+  color: var(--site-ink);
+}
+.card span {
+  font-size: calc(9.5 * var(--p));
+  color: var(--site-muted);
+}
+.cta {
+  height: calc(24 * var(--p));
+  border-radius: calc(7 * var(--p));
+  background: var(--brand-blue);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font: 600 calc(9.5 * var(--p)) / 1 var(--font-body);
+}

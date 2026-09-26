@@ -1,71 +1,118 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin } from "@/components/icons";
-import { getPublishedCities } from "@/lib/cms/cities";
-import v from "@/components/city.module.css";
+import { Crumb, CrumbJsonLd, HeroGrid, Head, Section, Split, Sub, Text, Title } from "@/components/site/Kit";
+import { OfferBlock } from "@/components/site/Blocks";
+import { PhotoFrame } from "@/components/site/Visuals";
+import CitySearch from "@/components/site/CitySearch";
+import { getPublishedCities, type CityListItem } from "@/lib/cms/cities";
+import { getPageSections, pick } from "@/lib/cms/pages";
+import s from "@/components/site/city.module.css";
 
 export const metadata: Metadata = {
-  title: "Logiciel podologue par ville",
+  title: "Logiciel podologue partout en France",
   description:
-    "MediCare Pro, le logiciel de gestion de cabinet pour pédicures-podologues, partout en France. Trouvez la page de votre ville.",
+    "MediCare Pro, le logiciel de gestion de cabinet des pédicures-podologues, partout en France et en outre-mer. Trouvez la page de votre ville.",
   alternates: { canonical: "/logiciel-podologue" },
 };
 
-/* Hub des pages villes : liste les villes publiées, groupées par région. */
+/* Hub des pages locales : recherche, puis les villes publiées par région. */
 export default async function LogicielPodologueHub() {
-  const cities = await getPublishedCities();
+  const [cities, home] = await Promise.all([getPublishedCities(), getPageSections("/")]);
+  const offer = pick(home, "offer", "offer_band");
 
-  const byRegion = new Map<string, typeof cities>();
+  const byRegion = new Map<string, CityListItem[]>();
   for (const city of cities) {
     const list = byRegion.get(city.region) ?? [];
     list.push(city);
     byRegion.set(city.region, list);
   }
-  const regions = [...byRegion.keys()].sort();
+  const regions = [...byRegion.keys()].sort((a, b) => a.localeCompare(b, "fr"));
+  const crumbs = [
+    { label: "Accueil", href: "/" },
+    { label: "Partout en France", href: "/logiciel-podologue" },
+  ];
 
   return (
     <>
-      <section className={v.hero}>
-        <div className="wrap">
-          <span className={v.kicker}>
-            <MapPin width={14} height={14} /> Partout en France
-          </span>
-          <h1 className={v.title}>Le logiciel des podologues, près de chez vous</h1>
-          <p className={v.intro}>
-            MediCare Pro équipe les cabinets de pédicurie-podologie dans toute la
-            France. Retrouvez la page dédiée à votre ville.
-          </p>
-        </div>
-      </section>
-
-      <div className="wrap">
-        {cities.length === 0 ? (
-          <p className={v.body}>
-            Les pages locales arrivent bientôt. En attendant, découvrez{" "}
-            <Link href="/fonctionnalites">les fonctionnalités</Link> de MediCare
-            Pro.
-          </p>
-        ) : (
-          <div className={v.hubRegions}>
-            {regions.map((region) => (
-              <section key={region}>
-                <h2>{region}</h2>
-                <div className={v.nearbyGrid}>
-                  {byRegion.get(region)!.map((city) => (
-                    <Link
-                      key={city.slug}
-                      href={`/logiciel-podologue/${city.slug}`}
-                      className={v.nearbyLink}
-                    >
-                      <MapPin width={14} height={14} /> {city.name}
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ))}
+      <Section hero>
+        <HeroGrid
+          visual={
+            <PhotoFrame
+              src="/images/bilans-hero-pieds.jpg"
+              alt="Une praticienne tient les pieds d'un patient"
+              variant={2}
+              position="50% 35%"
+              priority
+            />
+          }
+        >
+          <Crumb items={crumbs} />
+          <CrumbJsonLd items={crumbs} />
+          <Title as="h1">MediCare Pro, partout en France</Title>
+          <Sub>De Lille à Marseille, et en outre-mer.</Sub>
+          <div style={{ marginTop: 18 }}>
+            <Text>
+              Le logiciel des pédicures-podologues fonctionne entièrement en ligne : où que soit votre cabinet,
+              la mise en route se fait à distance, avec vos données hébergées en France.
+            </Text>
           </div>
-        )}
-      </div>
+          <CitySearch cities={cities} />
+        </HeroGrid>
+      </Section>
+
+      {regions.length > 0 ? (
+        <Section tint="teal" edge={0} center>
+          <Head eyebrow="Par région" title="Choisissez votre région" centered />
+          <div className={s.regions}>
+            {regions.map((region) => {
+              const list = byRegion.get(region) ?? [];
+              return (
+                <section key={region} className={s.region}>
+                  <h3>
+                    {region}
+                    <small>
+                      {list.length} {list.length > 1 ? "villes" : "ville"}
+                    </small>
+                  </h3>
+                  <div className={s.chips}>
+                    {list.map((city) => (
+                      <Link key={city.slug} href={`/logiciel-podologue/${city.slug}`}>
+                        {city.name}
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </Section>
+      ) : null}
+
+      <Section tint={regions.length > 0 ? "white" : "teal"} edge={regions.length > 0 ? undefined : 0}>
+        <Split
+          reverse
+          visual={
+            <PhotoFrame
+              src="/images/fonctionnalites/podologue-medicarepro-section-3.jpg"
+              alt="Soin du pied en cabinet de podologie"
+              variant={4}
+            />
+          }
+          title="Un logiciel 100 % en ligne, où que soit votre cabinet"
+          text="Métropole ou outre-mer, en ville ou à la campagne, au cabinet comme à domicile : MediCare Pro vous accompagne de la même façon."
+          items={[
+            "**Mise en route à distance**, avec la reprise de vos données.",
+            "**Hébergement certifié HDS** en France, chez OVHcloud.",
+            "**Support 7j/7** par chat pour les abonnés.",
+            "**Sur ordinateur, tablette et smartphone**, même en tournée à domicile.",
+          ]}
+          cta={{ label: "Demander une démo", href: "/contact" }}
+        />
+      </Section>
+
+      <Section tight>
+        <OfferBlock content={offer} />
+      </Section>
     </>
   );
 }

@@ -54,6 +54,7 @@ export const IconKeySchema = z.enum([
   "LinkedIn",
   "Instagram",
   "XSocial",
+  "YouTube",
   "Eye",
   "Users",
   "Info",
@@ -78,7 +79,8 @@ export type Tone = z.infer<typeof ToneSchema>;
 export const ToneWithDarkSchema = z.enum(["white", "soft", "medium", "dark"]);
 export type ToneWithDark = z.infer<typeof ToneWithDarkSchema>;
 
-/** Écrans d'app factices animés (src/components/motion/AppMockup.tsx). */
+/** Écrans du logiciel montrés dans l'ordinateur de la vitrine
+ *  (src/components/site/screens/AppScreen.tsx). */
 export const MockupKindSchema = z.enum([
   "invoice",
   "signature",
@@ -166,6 +168,20 @@ export const PageHeroSchema = z.object({
   imagePos: z.string().optional(),
   /** Rangée de mini-badges de confiance sous le lead. */
   trust: z.array(TrustChipSchema).optional(),
+  /** Sous-titre léger sous le h1 (refonte 2026). `**…**` = gras. */
+  sub: z.string().optional(),
+  /** Boutons du hero : le premier plein, les suivants en contour. */
+  ctas: z.array(LinkRefSchema).optional(),
+  /** Écran du logiciel dans l'ordinateur (à la place de la photo). */
+  mockup: MockupKindSchema.optional(),
+  /** Carte mise en avant sur l'écran, désignée par une flèche. */
+  highlight: z
+    .object({
+      title: z.string(),
+      text: z.string(),
+      cta: z.string(),
+    })
+    .optional(),
 });
 
 /** Hero de la page d'accueil (src/components/Hero.tsx). */
@@ -330,6 +346,8 @@ export const ShowcaseSchema = z.object({
   image: ImageRefSchema.optional(),
   tone: ToneWithDarkSchema,
   reverse: z.boolean(),
+  /** Bouton sous la liste (refonte 2026). */
+  cta: LinkRefSchema.optional(),
 });
 
 /** Témoignages (composant Reviews) — personnes = collection testimonials. */
@@ -574,6 +592,57 @@ export const BlogTeaserSchema = z.object({
   limit: z.number().optional(),
 });
 
+/** Couleur de module (reprise du logo) : agenda bleu, bilans turquoise,
+ *  orthèses violet, facturation ambre, comptabilité vert, portail bleu
+ *  ciel, sécurité indigo. */
+export const AccentSchema = z.enum([
+  "blue",
+  "teal",
+  "violet",
+  "amber",
+  "green",
+  "sky",
+  "indigo",
+]);
+export type Accent = z.infer<typeof AccentSchema>;
+
+/** « Les essentiels » de l'accueil : un bloc mis en avant + des cartes
+ *  à sur-titre coloré et titre en deux temps (« Soignez.
+C'est facturé. »). */
+export const EssentialsSchema = z.object({
+  type: z.literal("essentials"),
+  ...versioned,
+  kicker: z.string(),
+  title: z.string(),
+  highlight: z.object({
+    label: z.string(),
+    title: z.string(),
+    text: z.string(),
+    note: z.string().optional(),
+    cta: LinkRefSchema,
+  }),
+  cards: z.array(
+    z.object({
+      label: z.string(),
+      accent: AccentSchema,
+      title: z.string(),
+      text: z.string(),
+      cta: LinkRefSchema,
+    }),
+  ),
+});
+
+/** Bloc d'offre (fond ambre doux, angle de croix) : prix d'appel. */
+export const OfferBandSchema = z.object({
+  type: z.literal("offer_band"),
+  ...versioned,
+  title: z.string(),
+  headline: z.string(),
+  compare: z.string().optional(),
+  cta: LinkRefSchema,
+  fine: z.string().optional(),
+});
+
 /* ---- Pages villes (/logiciel-podologue/[ville], phase ultérieure) ---- */
 
 export const CityHeroSchema = z.object({
@@ -637,6 +706,8 @@ export const SECTION_SCHEMAS = {
   city_hero: CityHeroSchema,
   city_intro: CityIntroSchema,
   city_faq: CityFaqSchema,
+  essentials: EssentialsSchema,
+  offer_band: OfferBandSchema,
 } as const;
 
 export const SectionContentSchema = z.discriminatedUnion("type", [
@@ -669,6 +740,8 @@ export const SectionContentSchema = z.discriminatedUnion("type", [
   CityHeroSchema,
   CityIntroSchema,
   CityFaqSchema,
+  EssentialsSchema,
+  OfferBandSchema,
 ]);
 
 /** Payload de section VALIDÉ (post-parse : `_v` présent). */

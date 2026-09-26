@@ -34,4 +34,6 @@ export const SECTION_TYPE_LABELS: Record<
   city_hero: { label: "Héro ville", description: "En-tête des pages villes" },
   city_intro: { label: "Intro ville", description: "Paragraphes localisés" },
   city_faq: { label: "FAQ ville", description: "Questions localisées" },
+  essentials: { label: "Les essentiels", description: "Bloc mis en avant + cartes par module" },
+  offer_band: { label: "Bloc offre", description: "Prix d'appel et bouton" },
 };

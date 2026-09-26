@@ -8,7 +8,7 @@ import Link from "next/link";
  *   bulletList/listItem ; marques bold et link.
  * - "blog" (articles) : + h3, orderedList, blockquote, image ;
  *   + marque italic.
- * Balises nues stylées par article.module.css. Pas de
+ * Balises nues stylées par le parent (components/site/prose.module.css). Pas de
  * dangerouslySetInnerHTML : React échappe tout le texte.
  * L'éditeur (RichTextEditor) est le miroir exact de ces allowlists.
  */

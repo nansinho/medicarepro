@@ -34,7 +34,7 @@ export default function AuthCard({
       <main className="relative z-[1] flex min-h-dvh items-center justify-center p-4">
         <Card className="w-full max-w-sm p-6 shadow-lg">
           <div className="mb-5 flex items-center justify-between">
-            <BrandLogo size={34} />
+            <BrandLogo size={34} variant="auto" />
             <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
               <Lock className="size-3" />
               Back office

@@ -106,7 +106,7 @@ export default function AdminSidebar({
           /* eslint-disable-next-line @next/next/no-img-element -- SVG statique */
           <img src="/logo-icon.svg?v=7" alt="MediCare Pro" width={24} height={24} />
         ) : (
-          <BrandLogo size={24} />
+          <BrandLogo size={24} variant="auto" />
         )}
       </Link>
 

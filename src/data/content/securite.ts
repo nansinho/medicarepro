@@ -17,6 +17,15 @@ export const PAGE_SECURITE = {
         kicker: "Sécurité & conformité",
         title: "Vos dossiers patients et vos bilans, **protégés au plus haut niveau.**",
         lead: "Bilans podologiques, ordonnances, documents signés : tout ce que contient un dossier patient est hébergé en HDS chez OVHcloud en France, chiffré de bout en bout et conforme RGPD.",
+        ctas: [
+          { label: "Poser une question", href: "/contact" },
+          { label: "Voir les tarifs", href: "/tarifs" },
+        ],
+        image: {
+          mediaId: null,
+          path: "/images/securite/podologue-medicarepro-servers-hero.jpg",
+          alt: "Connexion sécurisée au logiciel depuis un smartphone",
+        },
         trust: [
           { icon: "BadgeCheck", label: "Certifié HDS" },
           { icon: "Shield", label: "Conforme RGPD" },
@@ -45,7 +54,7 @@ export const PAGE_SECURITE = {
           path: "/images/securite/podologue-medicarepro-servers-section1.jpg",
           alt: "Baies de serveurs hébergeant les données de santé MediCare Pro",
         },
-        tone: "white",
+        tone: "soft",
         reverse: false,
       },
     },
@@ -69,7 +78,7 @@ export const PAGE_SECURITE = {
           path: "/images/securite/podologue-medicarepro-servers-section2.jpg",
           alt: "Couloir de datacenter OVHcloud hébergeant MediCare Pro",
         },
-        tone: "dark",
+        tone: "white",
         reverse: true,
       },
     },
@@ -117,7 +126,7 @@ export const PAGE_SECURITE = {
           path: "/images/securite/podologue-medicarepro-servers-section4.jpg",
           alt: "Conformité RGPD et souveraineté des données européennes",
         },
-        tone: "dark",
+        tone: "white",
         reverse: true,
       },
     },
@@ -185,7 +194,7 @@ export const PAGE_SECURITE = {
           {
             icon: "FileText",
             title: "Toutes les fonctionnalités",
-            text: "Facturation, signature, comptabilité, agenda, bilans et application mobile : tout votre cabinet réuni.",
+            text: "Facturation, signature, comptabilité, agenda, bilans et accès sur mobile (PWA) : tout votre cabinet réuni.",
             href: "/fonctionnalites",
           },
           {

@@ -73,6 +73,11 @@ const NAME_LABELS: Record<string, string> = {
   rows: "Lignes",
   tableHead: "En-têtes du tableau",
   navLinks: "Liens de navigation",
+  ctas: "Boutons",
+  highlight: "Mise en avant",
+  accent: "Couleur de module",
+  compare: "Prix comparé",
+  fine: "Mentions",
 };
 
 /** Champs multilignes (textarea) par nom. */
@@ -87,6 +92,7 @@ const TEXTAREA_NAMES = new Set([
   "paragraphs",
   "description",
   "tagline",
+  "fine",
 ]);
 
 export function labelFor(path: string): string {
@@ -107,6 +113,15 @@ export const FIELD_HELP: Partial<Record<SectionType, Record<string, string>>> = 
   },
   page_hero: {
     title: "Un retour à la ligne = passage à la ligne. **mot** = accent coloré.",
+    sub: "Phrase courte sous le titre. **mot** = gras.",
+    mockup: "Écran du logiciel affiché dans l'ordinateur, à la place de la photo.",
+    "highlight.title": "Carte posée sur l'écran, désignée par une flèche (accueil).",
+  },
+  essentials: {
+    "cards.title": "Titre en deux temps : un retour à la ligne entre les deux phrases.",
+  },
+  showcase: {
+    points: "Chaque point commence idéalement par **quelques mots en gras**.",
   },
   manifesto: {
     title: "**mot** = accent coloré du design.",

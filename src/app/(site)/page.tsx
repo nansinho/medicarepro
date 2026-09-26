@@ -1,66 +1,89 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import Hero from "@/components/Hero";
-import HomeBento from "@/components/HomeBento";
-import HomeFeatureScroll from "@/components/HomeFeatureScroll";
-import Reviews from "@/components/Reviews";
-import CtaPanel from "@/components/cms/CtaPanel";
-import Reveal from "@/components/motion/Reveal";
-import { ArrowRight } from "@/components/icons";
-import { lines } from "@/components/cms/inline";
+import { Badges, Section } from "@/components/site/Kit";
+import PageHead from "@/components/site/PageHead";
+import {
+  BlogTeaserBlock,
+  EssentialsBlock,
+  FaqBlock,
+  OfferBlock,
+  ShowcaseSplit,
+} from "@/components/site/Blocks";
+import { Calculator, FileSignature, Invoice, Lock, ShieldCheck } from "@/components/icons";
 import { getPageSections, pick } from "@/lib/cms/pages";
-import { getFeatureItems, getTestimonials } from "@/lib/cms/collections";
+import { getFaqItems } from "@/lib/cms/collections";
+import { getPosts } from "@/lib/cms/posts";
 import { pageMetadata } from "@/lib/cms/seo";
-import h from "@/components/home.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/");
 }
 
+/* Pastilles de conformité sous la photo « complet et conforme ». */
+const COMPLIANCE = [
+  { label: "HDS", color: "var(--brand-indigo)", icon: <ShieldCheck aria-hidden="true" /> },
+  { label: "RGPD", color: "var(--brand-green-ink)", icon: <Lock aria-hidden="true" /> },
+  { label: "eIDAS", color: "var(--brand-violet)", icon: <FileSignature aria-hidden="true" /> },
+  { label: "Carte Vitale · ApCV", color: "var(--brand-teal-ink)", icon: <Invoice aria-hidden="true" /> },
+  { label: "Export FEC", color: "var(--brand-amber-ink)", icon: <Calculator aria-hidden="true" /> },
+];
+
 export default async function Home() {
-  const [sections, features, testimonials] = await Promise.all([
+  const [sections, faqItems, posts] = await Promise.all([
     getPageSections("/"),
-    getFeatureItems("features"),
-    getTestimonials(),
+    getFaqItems(),
+    getPosts(),
   ]);
-  const hero = pick(sections, "hero", "home_hero");
-  const bento = pick(sections, "bento", "bento");
-  const featureScroll = pick(sections, "feature_scroll", "feature_scroll");
-  const manifesto = pick(sections, "manifesto", "manifesto");
-  const reviews = pick(sections, "reviews", "reviews");
-  const cta = pick(sections, "cta", "cta_panel");
+  const hero = pick(sections, "hero_split", "page_hero");
+  const essentials = pick(sections, "essentials", "essentials");
+  const complete = pick(sections, "complete", "showcase");
+  const offer = pick(sections, "offer", "offer_band");
+  const included = pick(sections, "included", "showcase");
+  const charge = pick(sections, "charge", "showcase");
+  const why = pick(sections, "why", "showcase");
+  const faq = pick(sections, "faq", "faq");
+  const blog = pick(sections, "blog", "blog_teaser");
 
   return (
     <>
-      <Hero content={hero} />
+      <PageHead content={hero} variant={0} />
 
-      {/* L'essentiel du produit en une grille bento animée */}
-      <HomeBento content={bento} />
+      <Section tint="teal" edge={0} center>
+        <EssentialsBlock content={essentials} />
+      </Section>
 
-      {/* Défilement cinématique « sticky » des fonctionnalités clés */}
-      <HomeFeatureScroll content={featureScroll} items={features} />
+      <Section>
+        <ShowcaseSplit
+          content={complete}
+          variant={0}
+          visualAfter={<Badges items={COMPLIANCE} />}
+        />
+      </Section>
 
-      {/* Manifesto immersif — le « pourquoi » en une phrase */}
-      <section className={h.manifesto}>
-        <div className="wrap">
-          <Reveal variant="scale" className={h.manifestoInner}>
-            <div className={h.manifestoKicker}>{manifesto.kicker}</div>
-            <h2 className={h.manifestoTitle}>{lines(manifesto.title)}</h2>
-            <p className={h.manifestoText}>{manifesto.text}</p>
-            {manifesto.link && (
-              <Link href={manifesto.link.href} className={h.manifestoLink}>
-                {manifesto.link.label} <ArrowRight width={16} height={16} />
-              </Link>
-            )}
-          </Reveal>
-        </div>
-      </section>
+      <Section tint="white" tight>
+        <OfferBlock content={offer} />
+      </Section>
 
-      {/* Preuve sociale */}
-      <Reviews content={reviews} people={testimonials} />
+      <Section tint="blue" edge={1}>
+        <ShowcaseSplit content={included} variant={1} phone />
+      </Section>
 
-      {/* CTA final spectaculaire */}
-      <CtaPanel content={cta} />
+      <Section tint="violet" edge={2}>
+        <ShowcaseSplit content={charge} variant={1} />
+      </Section>
+
+      <Section>
+        <ShowcaseSplit content={why} variant={3} />
+      </Section>
+
+      <Section tint="teal" edge={4} center>
+        <FaqBlock kicker={faq.kicker} title={faq.title} items={faqItems} id="faq" />
+      </Section>
+
+      {posts.length > 0 && (
+        <Section>
+          <BlogTeaserBlock content={blog} posts={posts} />
+        </Section>
+      )}
     </>
   );
 }

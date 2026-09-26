@@ -2,17 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { after } from "next/server";
-import { CtaBand } from "@/components/Sections2";
-import { ArrowRight, MapPin, CheckCircle } from "@/components/icons";
+import { ChevronRight } from "@/components/icons";
 import {
-  getPublishedCity,
-  getPublishedCities,
-  getNearbyCities,
-} from "@/lib/cms/cities";
+  BtnRow,
+  Crumb,
+  CrumbJsonLd,
+  HeroGrid,
+  Section,
+  Split,
+  Sub,
+  Text,
+  Title,
+} from "@/components/site/Kit";
+import { CtaBlock, FaqBlock } from "@/components/site/Blocks";
+import { PhotoFrame } from "@/components/site/Visuals";
+import { getPublishedCity, getPublishedCities, getNearbyCities } from "@/lib/cms/cities";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { isPermanent, resolveRedirect } from "@/lib/cms/redirects";
 import { recordRedirectHit } from "@/lib/cms/seo-log";
-import v from "@/components/city.module.css";
+import s from "@/components/site/city.module.css";
 
 type Params = { ville: string };
 
@@ -58,11 +66,19 @@ export default async function VillePage({
     notFound();
   }
 
-  const [nearby, aProposSections] = await Promise.all([
+  const [nearby, all, aProposSections] = await Promise.all([
     getNearbyCities(ville),
+    getPublishedCities(),
     getPageSections("/a-propos"),
   ]);
   const cta = pick(aProposSections, "cta_band", "cta_band");
+  const sameRegion = all.filter((c) => c.region === city.region && c.slug !== city.slug).slice(0, 6);
+
+  const crumbs = [
+    { label: "Accueil", href: "/" },
+    { label: "Partout en France", href: "/logiciel-podologue" },
+    { label: city.name, href: `/logiciel-podologue/${city.slug}` },
+  ];
 
   /* JSON-LD : Service (areaServed = la ville) + FAQPage. Pas de
      LocalBusiness (MediCare Pro n'a pas d'établissement dans la ville). */
@@ -92,81 +108,135 @@ export default async function VillePage({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <section className={v.hero}>
-        <div className="wrap">
-          <span className={v.kicker}>
-            <MapPin width={14} height={14} /> {city.deptName} · {city.region}
-          </span>
-          <h1 className={v.title}>{city.h1}</h1>
-          <p className={v.intro}>{city.content.intro}</p>
-          <Link href="/tarifs" className={v.cta}>
-            Découvrir l&apos;offre <ArrowRight width={16} height={16} />
-          </Link>
-        </div>
-      </section>
+      <Section hero>
+        <HeroGrid
+          visual={
+            <PhotoFrame
+              src="/images/fonctionnalites/podologue-medicarepro-section-hero.jpg"
+              alt="Une pédicure-podologue examine le pied d'un patient"
+              variant={1}
+              position="20% 50%"
+              priority
+            />
+          }
+        >
+          <Crumb items={crumbs} />
+          <CrumbJsonLd items={crumbs} />
+          <Title as="h1">{city.h1}</Title>
+          <Sub>{`${city.deptName} · ${city.region}`}</Sub>
+          <div style={{ marginTop: 18 }}>
+            <Text>{city.content.intro}</Text>
+          </div>
+          <BtnRow
+            links={[
+              { label: "Demander une démo", href: "/contact" },
+              { label: "Voir les tarifs", href: "/tarifs" },
+            ]}
+          />
+        </HeroGrid>
+      </Section>
 
-      <article className="wrap">
-        <div className={v.body}>
-          <section>
-            <h2>Un logiciel pensé pour les podologues {city.nameLocative}</h2>
-            <p>{city.content.contexte_local}</p>
-          </section>
-          <section>
-            <h2>Ce que MediCare Pro change au quotidien</h2>
-            <p>{city.content.benefices}</p>
-            <ul className={v.benefits}>
-              <li>
-                <CheckCircle width={17} height={17} /> Dossiers patients et 13
-                bilans podologiques normés
-              </li>
-              <li>
-                <CheckCircle width={17} height={17} /> Facturation et
-                comptabilité automatisées
-              </li>
-              <li>
-                <CheckCircle width={17} height={17} /> Hébergement HDS en France,
-                conforme RGPD
-              </li>
-            </ul>
-          </section>
+      <Section tint="teal" edge={1}>
+        <Split
+          reverse
+          visual={
+            <PhotoFrame
+              src="/images/fonctionnalites/podologue-medicarepro-section-3.jpg"
+              alt="Soin du pied en cabinet de podologie"
+              variant={0}
+            />
+          }
+          title={`Un logiciel pensé pour les podologues ${city.nameLocative}`}
+          text={city.content.contexte_local}
+        />
+      </Section>
 
-          {city.faq.length > 0 && (
-            <section className={v.faq}>
-              <h2>Questions fréquentes</h2>
-              {city.faq.map((item, i) => (
-                <details key={i}>
-                  <summary>{item.q}</summary>
-                  <p>{item.a}</p>
-                </details>
-              ))}
-            </section>
+      <Section>
+        <Split
+          visual={
+            <PhotoFrame
+              src="/images/fonctionnalites/podologue-medicarepro-section-2.jpg"
+              alt="Une praticienne soigne le pied d'une patiente"
+              variant={3}
+            />
+          }
+          title="Ce que MediCare Pro change au quotidien"
+          text={city.content.benefices}
+          items={[
+            "**Dossiers patients et 13 bilans podologiques normés**, scores calculés automatiquement.",
+            "**Facturation et comptabilité automatisées**, carte Vitale intégrée.",
+            "**Hébergement HDS en France**, conforme RGPD.",
+          ]}
+          cta={{ label: "Découvrir les bilans", href: "/bilans" }}
+        />
+      </Section>
+
+      {city.faq.length > 0 && (
+        <Section tint="blue" edge={4} center>
+          <FaqBlock title={`Cabinets ${city.nameLocative} : vos questions`} items={city.faq} />
+        </Section>
+      )}
+
+      <Section tight>
+        <div className={s.near}>
+          {nearby.length > 0 && (
+            <nav aria-label="Villes proches">
+              <h2>Villes proches</h2>
+              <ul>
+                {nearby.map((n) => (
+                  <li key={n.slug}>
+                    <Link href={`/logiciel-podologue/${n.slug}`}>
+                      {n.name} <ChevronRight aria-hidden="true" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           )}
-        </div>
-
-        {nearby.length > 0 && (
-          <nav className={v.nearby} aria-label="Villes proches">
-            <h2>MediCare Pro dans les villes proches</h2>
-            <div className={v.nearbyGrid}>
-              {nearby.map((n) => (
-                <Link
-                  key={n.slug}
-                  href={`/logiciel-podologue/${n.slug}`}
-                  className={v.nearbyLink}
-                >
-                  <MapPin width={14} height={14} /> {n.name}
-                </Link>
+          {sameRegion.length > 0 && (
+            <nav aria-label={`Autres villes, ${city.region}`}>
+              <h2>{city.region}</h2>
+              <ul>
+                {sameRegion.map((n) => (
+                  <li key={n.slug}>
+                    <Link href={`/logiciel-podologue/${n.slug}`}>
+                      {n.name} <ChevronRight aria-hidden="true" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+          <nav aria-label="Pour aller plus loin">
+            <h2>Pour aller plus loin</h2>
+            <ul>
+              {[
+                { label: "Partout en France", href: "/logiciel-podologue" },
+                { label: "Bilans podologiques", href: "/bilans" },
+                { label: "Tarifs", href: "/tarifs" },
+                { label: "Sécurité et HDS", href: "/securite" },
+              ].map((l) => (
+                <li key={l.href}>
+                  <Link href={l.href}>
+                    {l.label} <ChevronRight aria-hidden="true" />
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
           </nav>
-        )}
-      </article>
+        </div>
+      </Section>
 
-      <CtaBand content={cta} />
+      <Section tight>
+        <CtaBlock
+          title={cta.title}
+          lead={cta.text}
+          primary={cta.cta}
+          secondary={{ label: "Demander une démo", href: "/contact" }}
+        />
+      </Section>
     </>
   );
 }

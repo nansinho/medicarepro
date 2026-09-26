@@ -182,7 +182,7 @@ export const SETTINGS_SECTIONS: SettingSection[] = [
   {
     key: "socials",
     title: "Réseaux sociaux",
-    description: "Liens affichés dans le pied de page.",
+    description: "Liens affichés dans le pied de page et sur le bord gauche du site.",
     fields: [
       {
         kind: "array",

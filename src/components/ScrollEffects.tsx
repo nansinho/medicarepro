@@ -4,52 +4,19 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 /**
- * Effets globaux pilotés côté client, après hydratation :
- *  - barre de progression de scroll
- *  - apparitions au scroll (IntersectionObserver), échelonnées
- *  - boutons magnétiques
- * Respecte prefers-reduced-motion.
- * Se ré-exécute à chaque changement de page (pathname) pour ré-observer
- * les nouveaux éléments rendus en navigation client.
+ * Apparitions douces au défilement (IntersectionObserver), après
+ * hydratation : les blocs marqués montent légèrement en fondu la première
+ * fois qu'ils entrent à l'écran. Rien ne bouge ensuite.
+ * Respecte prefers-reduced-motion ; sans observateur, tout reste visible.
+ * Se ré-exécute à chaque changement de page pour observer les nouveaux
+ * éléments rendus en navigation client.
  */
 export default function ScrollEffects() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const reduce = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-    if (reduce) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const cleanups: Array<() => void> = [];
-
-    // --- Barre de progression de scroll ---
-    const prog = document.createElement("div");
-    prog.id = "progress";
-    document.body.appendChild(prog);
-    let ticking = false;
-    const frame = () => {
-      const h = document.documentElement;
-      prog.style.width =
-        (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100 + "%";
-      ticking = false;
-    };
-    const onScroll = () => {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(frame);
-      }
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    cleanups.push(() => {
-      window.removeEventListener("scroll", onScroll);
-      prog.remove();
-    });
-
-    // --- Apparitions au scroll ---
-    // Filet de sécurité : c'est CE code qui pose data-rv (l'état masqué).
-    // Si IntersectionObserver est absent ou jette, on ne pose rien — le
-    // contenu reste visible, simplement sans animation d'apparition.
     let io: IntersectionObserver | null = null;
     try {
       io = new IntersectionObserver(
@@ -61,63 +28,27 @@ export default function ScrollEffects() {
             }
           });
         },
-        { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+        { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
       );
     } catch {
-      io = null;
+      return;
     }
 
     const reveal = (sel: string, type = "", stagger = 0) => {
-      if (!io) return;
       document.querySelectorAll<HTMLElement>(sel).forEach((el, i) => {
+        /* Déjà à l'écran au chargement : on ne le cache pas. */
+        const r = el.getBoundingClientRect();
+        if (r.top < window.innerHeight * 0.92) return;
         el.setAttribute("data-rv", type);
-        el.style.transitionDelay = (i % 6) * stagger + "ms";
+        el.style.transitionDelay = (i % 4) * stagger + "ms";
         io?.observe(el);
       });
     };
 
-    reveal(".sec-head", "", 0);
-    reveal("[data-rv-value]", "scale", 110);
-    reveal("[data-rv-price]", "scale", 0);
-    reveal("[data-rv-savecompare]", "scale", 0);
-    reveal("[data-rv-saveresult]", "", 0);
-    reveal("[data-rv-savestat]", "scale", 90);
-    reveal("[data-rv-cta]", "scale", 0);
-    reveal("[data-rv-post]", "", 120);
-    // La FAQ gère son apparition au scroll dans son propre composant (Faq.tsx),
-    // sinon les re-renders au clic écraseraient la classe de révélation.
-    reveal("[data-rv-footcol]", "", 85);
-    cleanups.push(() => io?.disconnect());
+    reveal("[data-rv-kit]", "", 70);
+    reveal("[data-rv-post]", "", 90);
 
-    // --- Boutons magnétiques ---
-    const buttons = document.querySelectorAll<HTMLElement>(".btn");
-    const handlers: Array<{
-      el: HTMLElement;
-      move: (e: MouseEvent) => void;
-      leave: () => void;
-    }> = [];
-    buttons.forEach((b) => {
-      const move = (e: MouseEvent) => {
-        const r = b.getBoundingClientRect();
-        const x = e.clientX - r.left - r.width / 2;
-        const y = e.clientY - r.top - r.height / 2;
-        b.style.transform = `translate(${x * 0.22}px, ${y * 0.34}px)`;
-      };
-      const leave = () => {
-        b.style.transform = "";
-      };
-      b.addEventListener("mousemove", move);
-      b.addEventListener("mouseleave", leave);
-      handlers.push({ el: b, move, leave });
-    });
-    cleanups.push(() => {
-      handlers.forEach(({ el, move, leave }) => {
-        el.removeEventListener("mousemove", move);
-        el.removeEventListener("mouseleave", leave);
-      });
-    });
-
-    return () => cleanups.forEach((fn) => fn());
+    return () => io?.disconnect();
   }, [pathname]);
 
   return null;

@@ -93,6 +93,43 @@
   --title-section: clamp(2rem, 3.6vw, 3rem); /* h2 — titre de section */
   --title-cta: clamp(1.7rem, 3vw, 2.4rem); /* accroche bandeau CTA */
   --title-block: clamp(1.4rem, 2.4vw, 1.9rem); /* titre de bloc/groupe */
+
+  /* ---- Refonte 2026 : les couleurs du logo deviennent la palette ----
+     Pictogramme officiel (public/logo-icon.svg) : turquoise, bleu, violet,
+     ambre, bleu ciel, vert, contour indigo. Les teintes « shape » sont celles
+     des formes pleines (demi-cercles, carrés, croix) ; les « tint » sont les
+     fonds de section doux, à l'intensité du vert d'eau de la référence. */
+  --brand-teal: #1fb6a8;
+  --brand-teal-ink: #0e8c81;
+  --brand-blue: #2e6fd0;
+  --brand-blue-d: #2358b4;
+  --brand-violet: #8a2be2;
+  --brand-amber: #eea700;
+  --brand-amber-ink: #a87400;
+  --brand-sky: #6ac6de;
+  --brand-green: #4cc96b;
+  --brand-green-ink: #27904a;
+  --brand-indigo: #1c1c82;
+  --shape-teal: #2fbdb0;
+  --shape-amber: #f3b230;
+  --shape-violet: #9657e3;
+  --shape-blue: #4f86dd;
+  --shape-sky: #7ccfe4;
+  --shape-green: #5ccd7b;
+  --tint-teal: #e6f6f3;
+  --tint-blue: #e9f1fc;
+  --tint-violet: #f1eafb;
+  --tint-amber: #fff4dd;
+  --tint-sky: #e4f4fa;
+  --site-ink: #141b34;
+  --site-text: #434c60;
+  --site-muted: #6b7385;
+  --site-line: #e3e7ee;
+  --site-navy: #1d3e5e;
+  /* Conteneur de la vitrine : large, comme la référence (1540px sur grand
+     écran), gouttière qui suit l'écran. */
+  --site-max: 1540px;
+  --site-gut: max(clamp(16px, 4vw, 40px), 5vw);
 }
 
 /* ============================================================
@@ -439,8 +476,8 @@ h1.sec-title {
 @media (prefers-reduced-motion: no-preference) {
   [data-rv] {
     opacity: 0;
-    transform: translateY(46px);
-    transition: opacity 1s var(--ease), transform 1.05s var(--ease);
+    transform: translateY(26px);
+    transition: opacity 0.8s var(--ease), transform 0.85s var(--ease);
     will-change: opacity, transform;
   }
   [data-rv].in {

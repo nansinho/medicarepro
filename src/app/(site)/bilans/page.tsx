@@ -1,88 +1,20 @@
 import type { Metadata } from "next";
-import { CrossLinks } from "@/components/Sections";
-import BilansHero from "@/components/BilansHero";
-import AvantagesShowcase from "@/components/AvantagesShowcase";
-import BilansTimeline from "@/components/BilansTimeline";
-import StatsBand from "@/components/cms/StatsBand";
-import CtaPanel from "@/components/cms/CtaPanel";
-import Reveal from "@/components/motion/Reveal";
-import StaggerGroup from "@/components/motion/StaggerGroup";
-import StaggerItem from "@/components/motion/StaggerItem";
-import TiltCard from "@/components/motion/TiltCard";
+import { Head, Section, Title } from "@/components/site/Kit";
+import PageHead from "@/components/site/PageHead";
 import {
-  Eye,
-  Shield,
-  User,
-  FileText,
-  Grid,
-  Refresh,
-  BadgeCheck,
-  Info,
-  Clock,
-  CheckCircle,
-  Calculator,
-  TrendingUp,
-  Foot,
-  Insole,
-} from "@/components/icons";
+  CtaBlock,
+  IconCards,
+  LinksRow,
+  ShowcaseSplit,
+  StatsBlock,
+  StepsBlock,
+} from "@/components/site/Blocks";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { getFeatureItems } from "@/lib/cms/collections";
 import { pageMetadata } from "@/lib/cms/seo";
-import type { SectionContentOf } from "@/lib/cms/sections.schema";
-import p from "@/components/pages.module.css";
-import f from "@/components/featureShowcase.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/bilans");
-}
-
-/* Icônes des cartes de bilans et des atouts cliniques (clés string du CMS). */
-const ICONS = {
-  Eye,
-  Shield,
-  User,
-  FileText,
-  Grid,
-  Refresh,
-  BadgeCheck,
-  Info,
-  Clock,
-  CheckCircle,
-  Calculator,
-  TrendingUp,
-  Foot,
-  Insole,
-} as const;
-
-/** Une grille de bilans : cartes claires animées (icône + titre + texte). */
-function BilanGrid({
-  group,
-}: {
-  group: SectionContentOf<"bilan_groups">["groups"][number];
-}) {
-  return (
-    <div className={p.bilanGroup}>
-      <Reveal>
-        <h2 className={p.bilanGroupTitle}>{group.title}</h2>
-      </Reveal>
-      <StaggerGroup className={p.bilanGrid}>
-        {group.items.map(({ icon, title, text }) => {
-          const Icon = ICONS[icon as keyof typeof ICONS];
-          return (
-            <StaggerItem key={title} variant="scale">
-              <TiltCard className={p.bilanCard}>
-                <div className={p.bilanIco}>
-                  <Icon width={22} height={22} />
-                </div>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </TiltCard>
-            </StaggerItem>
-          );
-        })}
-      </StaggerGroup>
-    </div>
-  );
 }
 
 export default async function BilansPage() {
@@ -103,83 +35,77 @@ export default async function BilansPage() {
 
   return (
     <>
-      <BilansHero content={hero} />
+      <PageHead
+        content={hero}
+        crumbs={[
+          { label: "Accueil", href: "/" },
+          { label: "Bilans podologiques", href: "/bilans" },
+        ]}
+        variant={3}
+      />
 
-      {/* 3 bilans phares en sections immersives (mockup animé), dont 1 vedette foncée */}
-      {items.map((item, i) => {
-        const background = showcase.backgrounds?.find((bg) => bg.index === i);
-        return (
-          <AvantagesShowcase
-            key={item.title}
-            icon={item.icon}
-            kicker={item.kicker}
-            title={item.title}
-            text={item.text}
-            points={item.points}
-            mockup={item.mockup}
-            image={background?.image.path}
-            alt={background?.image.alt}
-            tone={showcase.tones?.[i] ?? "white"}
+      {/* Les bilans phares, chacun avec son écran dans le logiciel */}
+      {items.map((item, i) => (
+        <Section
+          key={item.title}
+          tint={showcase.tones?.[i] && showcase.tones[i] !== "white" ? "teal" : "white"}
+          edge={i === 0 ? 3 : i === 2 ? 1 : undefined}
+        >
+          <ShowcaseSplit
+            content={{
+              kicker: item.kicker,
+              title: item.title,
+              text: item.text,
+              points: item.points,
+              mockup: item.mockup,
+            }}
             reverse={i % 2 === 1}
+            variant={i + 1}
           />
-        );
-      })}
+        </Section>
+      ))}
 
-      {/* Bande « Avantages cliniques » — vedette foncée immersive */}
-      <section className={`${f.statBand} ${f.statDark}`}>
-        <div className={`wrap ${f.statInner}`}>
-          <Reveal className={f.statHead}>
-            <div className={f.statKicker}>{benefits.kicker}</div>
-            <h2 className={f.statTitle}>{benefits.title}</h2>
-          </Reveal>
-          <StaggerGroup className={p.benefitGrid}>
-            {benefits.items.map(({ icon, title, text }) => {
-              const Icon = ICONS[icon as keyof typeof ICONS];
-              return (
-                <StaggerItem className={p.benefitCard} key={title} variant="up">
-                  <div className={p.benefitIco}>
-                    <Icon width={24} height={24} />
-                  </div>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </StaggerItem>
-              );
-            })}
-          </StaggerGroup>
+      <Section center>
+        <Head eyebrow={benefits.kicker} title={benefits.title} centered />
+        <IconCards items={benefits.items} cols={4} onWhite />
+      </Section>
+
+      {/* Les 13 bilans, par famille */}
+      <Section tint="violet" edge={4}>
+        <Head eyebrow={groups.kicker} title={groups.title} centered />
+        {groups.groups.map((group, gi) => (
+          <div key={group.title} style={{ marginTop: gi === 0 ? 0 : 56 }}>
+            <div style={{ marginBottom: 24 }}>
+              <Title as="h3">{group.title}</Title>
+            </div>
+            <IconCards items={group.items} cols={4} />
+          </div>
+        ))}
+      </Section>
+
+      <Section center>
+        <Head eyebrow={steps.kicker} title={steps.title ?? "Comment ça marche"} centered />
+        <StepsBlock steps={steps.steps} onWhite />
+      </Section>
+
+      <Section tint="amber" edge={5} center>
+        <Head eyebrow={stats.kicker} title={stats.title} centered />
+        <StatsBlock stats={stats.stats} />
+      </Section>
+
+      <Section tight>
+        <CtaBlock
+          kicker={cta.kicker}
+          title={cta.title}
+          lead={cta.lead}
+          primary={cta.primary}
+          secondary={cta.secondary}
+          trust={cta.trust}
+        />
+        <div style={{ marginTop: 40 }}>
+          <LinksRow links={crossLinks.links} />
         </div>
-      </section>
-
-      {/* Les 13 bilans, en 2 groupes — cartes claires sur fond blanc */}
-      <section className={`${p.bilansList} tone-white`}>
-        <div className="wrap">
-          <Reveal className="sec-head">
-            <div className="kicker">{groups.kicker}</div>
-            <h2 className="sec-title">{groups.title}</h2>
-          </Reveal>
-          {groups.groups.map((group) => (
-            <BilanGrid key={group.title} group={group} />
-          ))}
-        </div>
-      </section>
-
-      {/* Comment ça marche — timeline animée */}
-      <section className={`${p.bilansSteps} tone-soft`}>
-        <div className="wrap">
-          <Reveal className="sec-head">
-            <div className="kicker">{steps.kicker}</div>
-            <h2 className="sec-title">{steps.title}</h2>
-          </Reveal>
-          <BilansTimeline steps={steps.steps} />
-        </div>
-      </section>
-
-      {/* Bande de statistiques — bandeau foncé immersif */}
-      <StatsBand content={stats} />
-
-      {/* CTA final spectaculaire */}
-      <CtaPanel content={cta} />
-
-      <CrossLinks links={crossLinks.links} />
+      </Section>
     </>
   );
 }

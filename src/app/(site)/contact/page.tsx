@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Fragment } from "react";
-import { PageHero, CrossLinks } from "@/components/Sections";
-import ContactSection from "@/components/ContactSection";
-import Reveal from "@/components/motion/Reveal";
-import StaggerGroup from "@/components/motion/StaggerGroup";
-import StaggerItem from "@/components/motion/StaggerItem";
+import type { CSSProperties } from "react";
+import { Head, Section, fr } from "@/components/site/Kit";
+import PageHead from "@/components/site/PageHead";
+import ContactForm from "@/components/site/ContactForm";
+import { LinksRow, StepsBlock } from "@/components/site/Blocks";
+import { Icon } from "@/components/site/icon";
+import { ACCENTS, CYCLE } from "@/components/site/palette";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { pageMetadata } from "@/lib/cms/seo";
-import c from "@/components/contact.module.css";
+import f from "@/components/site/form.module.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/contact");
@@ -22,38 +23,62 @@ export default async function ContactPage() {
 
   return (
     <>
-      <PageHero
-        kicker={hero.kicker ?? ""}
-        title={hero.title}
-        lead={hero.lead}
-        image={hero.image?.path}
+      <PageHead
+        content={hero}
+        crumbs={[
+          { label: "Accueil", href: "/" },
+          { label: "Contact", href: "/contact" },
+        ]}
+        textOnly
       />
 
-      {/* Canaux de contact + formulaire premium */}
-      <ContactSection content={channels} />
-
-      {/* Ce qui se passe après l'envoi du message */}
-      <section className={`${c.stepsSec} tone-soft`}>
-        <div className="wrap">
-          <Reveal className="sec-head">
-            <div className="kicker">{steps.kicker}</div>
-            <h2 className="sec-title">{steps.title}</h2>
-          </Reveal>
-          <StaggerGroup className={c.steps}>
-            {steps.steps.map((step, i) => (
-              <Fragment key={step.title}>
-                {i > 0 && <span className={c.stepLink} aria-hidden="true" />}
-                <StaggerItem className={c.step} variant="up">
-                  <div className={c.stepNum}>{i + 1}</div>
-                  <h3>{step.title}</h3>
-                  <p>{step.text}</p>
-                </StaggerItem>
-              </Fragment>
-            ))}
-          </StaggerGroup>
-          <CrossLinks links={crossLinks.links} />
+      <Section tint="blue" edge={3}>
+        <div className={f.grid}>
+          <ContactForm texts={channels.form} />
+          <div className={f.side}>
+            <h2>{fr(channels.title)}</h2>
+            <p>{fr(channels.text)}</p>
+            <div className={f.chans}>
+              {channels.channels.map((ch, i) => {
+                const a = ACCENTS[CYCLE[i % CYCLE.length]];
+                const body = (
+                  <>
+                    <span className={f.chanIco} style={{ "--c": a.c, "--t": a.t } as CSSProperties}>
+                      <Icon name={ch.icon} />
+                    </span>
+                    <span>
+                      <b>{ch.title}</b>
+                      <span>{ch.value}</span>
+                      <small>{ch.note}</small>
+                    </span>
+                  </>
+                );
+                return ch.href ? (
+                  <a key={ch.title} href={ch.href} className={f.chan}>
+                    {body}
+                  </a>
+                ) : (
+                  <div key={ch.title} className={f.chan}>
+                    {body}
+                  </div>
+                );
+              })}
+            </div>
+            <p className={f.hds}>
+              <i aria-hidden="true" />
+              {channels.hdsLine}
+            </p>
+          </div>
         </div>
-      </section>
+      </Section>
+
+      <Section center>
+        <Head eyebrow={steps.kicker} title={steps.title} centered />
+        <StepsBlock steps={steps.steps} onWhite />
+        <div style={{ marginTop: 48 }}>
+          <LinksRow links={crossLinks.links} />
+        </div>
+      </Section>
     </>
   );
 }

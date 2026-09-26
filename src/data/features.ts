@@ -1,4 +1,4 @@
-import type { MockupKind } from "@/components/motion/AppMockup";
+import type { MockupKindKey } from "@/lib/cms/sections.schema";
 
 export type FeatureIcon =
   | "Invoice"
@@ -21,7 +21,7 @@ export type FeatureDetail = {
   title: string;
   text: string;
   points: string[];
-  mockup: MockupKind;
+  mockup: MockupKindKey;
   /** Lien optionnel « En savoir plus ». */
   href?: string;
   hrefLabel?: string;
@@ -102,7 +102,7 @@ export const FEATURES_DETAIL: FeatureDetail[] = [
   {
     icon: "Smartphone",
     kicker: "Mobilité",
-    title: "App mobile (PWA) + scan de documents",
+    title: "Sur mobile et tablette (PWA) + scan de documents",
     text: "Installez MediCare Pro sur mobile et tablette (PWA) et travaillez partout, au cabinet comme en soins à domicile. Auto-sauvegarde en temps réel, scan des ordonnances et documents à la caméra.",
     points: [
       "Installable (PWA)",

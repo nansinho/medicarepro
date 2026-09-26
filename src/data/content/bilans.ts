@@ -19,6 +19,16 @@ export const PAGE_BILANS = {
         badge: "Exclusivité MediCare Pro",
         title: "13 bilans podologiques normés, **scores calculés pour vous.**",
         lead: "Bilans cliniques complets, grilles validées et recommandations.\nAucun autre logiciel ne propose autant d'évaluations spécialisées.",
+        ctas: [
+          { label: "Demander une démo", href: "/contact" },
+          { label: "Voir les tarifs", href: "/tarifs" },
+        ],
+        image: {
+          mediaId: null,
+          path: "/images/fonctionnalites/podologue-medicarepro-section-hero.jpg",
+          alt: "Une pédicure-podologue examine le pied d'un patient",
+        },
+        imagePos: "30% 50%",
       },
     },
     {
@@ -27,20 +37,11 @@ export const PAGE_BILANS = {
       content: {
         type: "feature_showcase",
         collection: "bilans",
+        /* Alternance fond turquoise (couleur des bilans) / blanc. */
         tones: [
-          "white", // Pied diabétique
-          "dark", // Risque de chute (vedette foncée)
+          "soft", // Pied diabétique
+          "white", // Risque de chute
           "soft", // Grille posturale
-        ],
-        backgrounds: [
-          {
-            index: 1,
-            image: {
-              mediaId: null,
-              path: "/images/fonctionnalites/podologue-medicarepro-section-4.jpg",
-              alt: "Podologue évaluant un risque de chute",
-            },
-          },
         ],
       },
     },

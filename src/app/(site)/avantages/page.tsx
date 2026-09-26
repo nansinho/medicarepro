@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
-import AvantagesHero from "@/components/AvantagesHero";
-import AvantagesShowcase from "@/components/AvantagesShowcase";
-import SavingsCompare from "@/components/SavingsCompare";
-import Reviews from "@/components/Reviews";
-import StatsBand from "@/components/cms/StatsBand";
-import PortalCards from "@/components/cms/PortalCards";
-import CtaPanel from "@/components/cms/CtaPanel";
+import { Head, Section, type Tint } from "@/components/site/Kit";
+import PageHead from "@/components/site/PageHead";
+import {
+  CtaBlock,
+  IconCards,
+  ReviewsBlock,
+  ShowcaseSplit,
+  StatsBlock,
+} from "@/components/site/Blocks";
+import { SavingsBlock } from "@/components/site/PricingBlocks";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { getTestimonials } from "@/lib/cms/collections";
 import { pageMetadata } from "@/lib/cms/seo";
@@ -13,6 +16,9 @@ import { pageMetadata } from "@/lib/cms/seo";
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/avantages");
 }
+
+/* Couleurs des sections colorées, dans l'ordre de la page. */
+const TINTS: Tint[] = ["teal", "blue", "violet", "amber", "sky"];
 
 export default async function AvantagesPage() {
   const [sections, testimonials] = await Promise.all([
@@ -33,41 +39,69 @@ export default async function AvantagesPage() {
   const portal = pick(sections, "portal", "portal_cards");
   const cta = pick(sections, "cta", "cta_panel");
 
+  /* Une couleur par section colorée, dans l'ordre de la page. */
+  const tints = showcases.reduce<Tint[]>((acc, section) => {
+    const n = acc.filter((t) => t !== "white").length;
+    acc.push(section.tone === "white" ? "white" : TINTS[n % TINTS.length]);
+    return acc;
+  }, []);
+
   return (
     <>
-      <AvantagesHero content={hero} />
+      <PageHead
+        content={hero}
+        crumbs={[
+          { label: "Accueil", href: "/" },
+          { label: "Avantages", href: "/avantages" },
+        ]}
+        variant={1}
+      />
 
-      {/* 5 sections immersives, alternées + 2 vedettes foncées */}
-      {showcases.map((section) => (
-        <AvantagesShowcase
-          key={section.title}
-          icon={section.icon}
-          kicker={section.kicker}
-          title={section.title}
-          text={section.text}
-          points={section.points}
-          mockup={section.mockup}
-          image={section.image?.path}
-          alt={section.image?.alt}
-          tone={section.tone}
-          reverse={section.reverse}
-        />
+      {showcases.map((section, i) => (
+        <Section key={section.title} tint={tints[i]} edge={tints[i] === "white" ? undefined : i}>
+          <ShowcaseSplit content={section} variant={i + 3} phone={section.mockup === "pwa"} />
+        </Section>
       ))}
 
-      {/* Comparatif économies */}
-      <SavingsCompare content={savings} />
+      <Section center>
+        <Head eyebrow={savings.kicker} title={savings.title} lead={savings.lead} centered />
+        <SavingsBlock content={savings} />
+      </Section>
 
-      {/* Témoignages clients (composant réutilisé) */}
-      <Reviews content={reviews} people={testimonials} />
+      <Section tint="amber" edge={5} center>
+        <Head eyebrow={reviews.kicker} title={reviews.title} centered />
+        <ReviewsBlock people={testimonials} />
+      </Section>
 
-      {/* Bande de stats animées — vedette foncée immersive */}
-      <StatsBand content={stats} />
+      <Section center>
+        <Head eyebrow={stats.kicker} title={stats.title} centered />
+        <StatsBlock stats={stats.stats} onWhite />
+      </Section>
 
-      {/* Grandes cartes immersives vers les pages connexes */}
-      <PortalCards content={portal} tone="soft" />
+      <Section tint="teal" edge={0} center>
+        <Head eyebrow={portal.kicker} title={portal.title} centered />
+        <IconCards
+          items={portal.cards.map((c) => ({
+            icon: c.icon,
+            title: c.title,
+            text: c.text,
+            href: c.href,
+            linkLabel: portal.linkLabel,
+            stat: c.stat,
+          }))}
+        />
+      </Section>
 
-      {/* CTA final spectaculaire */}
-      <CtaPanel content={cta} />
+      <Section tight>
+        <CtaBlock
+          kicker={cta.kicker}
+          title={cta.title}
+          lead={cta.lead}
+          primary={cta.primary}
+          secondary={cta.secondary}
+          trust={cta.trust}
+        />
+      </Section>
     </>
   );
 }
