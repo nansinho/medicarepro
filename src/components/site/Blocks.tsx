@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { ArrowRight, ChevronRight, Quote } from "@/components/icons";
+import { ArrowRight, ChevronRight, Mail, Phone, Quote } from "@/components/icons";
+import { getSetting } from "@/lib/cms/settings";
 import type { BlogPost } from "@/data/blogPosts";
 import type {
   CountStat,
@@ -92,7 +93,10 @@ export function OfferBlock({ content }: { content: SectionContentOf<"offer_band"
 
 /* ---------- FAQ (accordéon natif, sans script) ---------- */
 
-export function FaqBlock({
+/** Questions fréquentes : titre et encart d'aide à gauche, questions en
+ *  cartes dépliables à droite. Sur mobile : titre, questions, puis encart.
+ *  Les coordonnées viennent des réglages du site (comme le pied de page). */
+export async function FaqBlock({
   kicker,
   title,
   items,
@@ -103,18 +107,44 @@ export function FaqBlock({
   items: FaqItem[];
   id?: string;
 }) {
+  const contact = await getSetting("contact");
   return (
-    <>
-      <Head eyebrow={kicker} title={title || "Questions fréquentes"} id={id} centered />
-      <div className={b.faq}>
+    <div className={b.faqGrid}>
+      <div className={b.faqHead}>
+        <Head eyebrow={kicker} title={title || "Questions fréquentes"} id={id} />
+      </div>
+      <div className={b.faq} data-rv-kit="">
         {items.map((item, i) => (
           <details key={item.q} open={i === 0}>
-            <summary>{fr(item.q)}</summary>
-            <p>{fr(item.a)}</p>
+            <summary>
+              <span>{fr(item.q)}</span>
+              <i aria-hidden="true" />
+            </summary>
+            <div className={b.faqA}>{rich(item.a)}</div>
           </details>
         ))}
       </div>
-    </>
+      <aside className={b.faqHelp} data-rv-kit="">
+        <span className={b.faqHelpIco}>
+          <Icon name="Headset" />
+        </span>
+        <h3>Vous ne trouvez pas votre réponse ?</h3>
+        <p>Notre équipe vous répond, par téléphone ou par e-mail.</p>
+        <ul>
+          <li>
+            <Phone aria-hidden="true" />
+            <a href={contact.phoneHref}>{contact.phone}</a>
+          </li>
+          <li>
+            <Mail aria-hidden="true" />
+            <a href={`mailto:${contact.email}`}>{contact.email}</a>
+          </li>
+        </ul>
+        <Btn href="/contact" className={b.faqHelpBtn}>
+          Nous contacter
+        </Btn>
+      </aside>
+    </div>
   );
 }
 

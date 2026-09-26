@@ -86,15 +86,15 @@
   height: 34px;
   padding: 0 13px;
   border-radius: 8px;
-  background: var(--tint-teal);
+  background: var(--tint-violet);
   font: 500 14px/1 var(--font-body);
-  color: var(--brand-teal-ink);
+  color: var(--brand-violet);
   transition:
     background-color 0.2s,
     color 0.2s;
 }
 .chips a:hover {
-  background: var(--brand-teal);
+  background: var(--brand-violet);
   color: #fff;
 }
 

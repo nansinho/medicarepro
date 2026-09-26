@@ -210,15 +210,43 @@ a.card:hover .cardLink svg,
   color: var(--site-muted);
 }
 
-/* ---------- FAQ ---------- */
-.faq {
-  position: relative;
-  max-width: 880px;
-  margin: 0 auto;
+/* ---------- FAQ ----------
+   Titre et encart d'aide à gauche, questions en cartes blanches à droite,
+   sur toute la largeur du conteneur. Mobile : titre, questions, encart. */
+.faqGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  grid-template-areas:
+    "head list"
+    "help list";
+  grid-template-rows: auto 1fr;
+  gap: 0 clamp(48px, 6vw, 112px);
+  align-items: start;
   text-align: left;
 }
+.faqHead {
+  grid-area: head;
+}
+.faqHead > div {
+  margin-bottom: 0;
+}
+
+.faq {
+  grid-area: list;
+  display: grid;
+  gap: 12px;
+}
 .faq details {
-  border-bottom: 1px solid rgba(20, 27, 52, 0.14);
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  transition:
+    border-color 0.25s,
+    box-shadow 0.25s;
+}
+.faq details[open] {
+  border-color: rgba(138, 43, 226, 0.22);
+  box-shadow: 0 24px 44px -34px rgba(20, 27, 52, 0.42);
 }
 .faq summary {
   list-style: none;
@@ -226,35 +254,174 @@ a.card:hover .cardLink svg,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 18px;
-  padding: 20px 0;
-  font: 400 17px/1.5 var(--font-body);
+  gap: 20px;
+  padding: 20px 22px 20px 28px;
+  border-radius: 16px;
+  font: 600 17px/1.45 var(--font-body);
   color: var(--site-ink);
+  transition: color 0.2s;
 }
 .faq summary::-webkit-details-marker {
   display: none;
 }
-.faq summary::after {
-  content: "";
-  flex: none;
-  width: 0;
-  height: 0;
-  border-left: 9px solid transparent;
-  border-right: 9px solid transparent;
-  border-top: 11px solid var(--brand-amber);
-  transition: transform 0.25s;
-}
-.faq details[open] summary::after {
-  transform: rotate(180deg);
-}
 .faq summary:hover {
-  color: var(--brand-blue);
+  color: var(--brand-violet);
 }
-.faq details p {
-  margin: 0;
-  padding: 0 0 20px;
+.faq summary:focus-visible {
+  outline: 2px solid var(--brand-violet);
+  outline-offset: 2px;
+}
+/* Bouton rond « + » qui devient « − » une fois la réponse ouverte */
+.faq summary i {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--tint-violet);
+  transition: background-color 0.25s;
+}
+.faq summary i::before,
+.faq summary i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 13px;
+  height: 2px;
+  margin: -1px 0 0 -6.5px;
+  border-radius: 2px;
+  background: var(--brand-violet);
+  transition:
+    transform 0.25s,
+    background-color 0.25s;
+}
+.faq summary i::after {
+  transform: rotate(90deg);
+}
+.faq summary:hover i {
+  background: #e6d9f8;
+}
+.faq details[open] summary i {
+  background: var(--brand-violet);
+}
+.faq details[open] summary i::before,
+.faq details[open] summary i::after {
+  background: #fff;
+}
+.faq details[open] summary i::after {
+  transform: rotate(0deg);
+}
+.faqA {
+  max-width: 72ch;
+  padding: 0 28px 24px;
   font-size: 16px;
   line-height: 1.7;
+  color: var(--site-text);
+}
+
+/* Encart d'aide : filet aux couleurs du logo, coordonnées, contact */
+.faqHelp {
+  grid-area: help;
+  position: relative;
+  overflow: hidden;
+  margin-top: 36px;
+  padding: 30px 30px 28px;
+  border-radius: 16px;
+  background: #fff;
+}
+.faqHelp::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--grad-logo);
+}
+.faqHelpIco {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  background: var(--tint-violet);
+  color: var(--brand-violet);
+}
+.faqHelpIco svg {
+  width: 23px;
+  height: 23px;
+}
+.faqHelp h3 {
+  margin: 0 0 8px;
+  font: 700 1.2rem/1.35 var(--font-body);
+  color: var(--site-ink);
+}
+.faqHelp p {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+.faqHelp ul {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--site-line);
+  list-style: none;
+}
+.faqHelp li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.faqHelp li svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--brand-violet);
+}
+.faqHelp li a {
+  overflow-wrap: anywhere;
+  font: 600 15.5px/1.4 var(--font-body);
+  color: var(--site-ink);
+  transition: color 0.2s;
+}
+.faqHelp li a:hover {
+  color: var(--brand-violet);
+}
+.faqHelpBtn {
+  margin-top: 22px;
+}
+
+@media (max-width: 920px) {
+  .faqGrid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "list"
+      "help";
+    grid-template-rows: auto;
+  }
+  .faqHead {
+    margin-bottom: 28px;
+  }
+  .faqHelp {
+    margin-top: 28px;
+  }
+}
+@media (max-width: 560px) {
+  .faq summary {
+    padding: 18px 16px 18px 20px;
+    font-size: 16px;
+  }
+  .faqA {
+    padding: 0 20px 20px;
+    font-size: 15.5px;
+  }
+  .faqHelp {
+    padding: 26px 22px 24px;
+  }
 }
 
 /* ---------- Articles ---------- */
@@ -983,7 +1150,7 @@ a.card:hover .cardLink svg,
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .faq details[open] p {
+  .faq details[open] .faqA {
     animation: faqIn 0.45s var(--ease);
   }
 }

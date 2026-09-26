@@ -91,7 +91,6 @@ const PALETTE: [string, string, string, string, string][] = [
 ];
 
 const TINTS: [string, string][] = [
-  ["Turquoise clair", "#E6F6F3"],
   ["Bleu clair", "#E9F1FC"],
   ["Violet clair", "#F1EAFB"],
   ["Ambre clair", "#FFF4DD"],
@@ -263,7 +262,7 @@ export default function ChartePage() {
         </div>
       </Section>
 
-      <Section tint="teal" edge={0}>
+      <Section tint="violet" edge={0}>
         <Head eyebrow="03 · Déclinaisons" title="Quatre formes, un seul logo" />
         <div className={c.variants}>
           {FORMS.map((v) => (

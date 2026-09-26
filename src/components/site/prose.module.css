@@ -72,9 +72,9 @@
 .prose blockquote {
   margin: 22px 0;
   padding: 16px 22px;
-  border-left: 4px solid var(--brand-teal);
+  border-left: 4px solid var(--brand-violet);
   border-radius: 0 14px 14px 0;
-  background: var(--tint-teal);
+  background: var(--tint-violet);
 }
 .prose blockquote p {
   margin: 0;

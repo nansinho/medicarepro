@@ -36,9 +36,6 @@
 .t_white {
   background: #fff;
 }
-.t_teal {
-  background: var(--tint-teal);
-}
 .t_blue {
   background: var(--tint-blue);
 }

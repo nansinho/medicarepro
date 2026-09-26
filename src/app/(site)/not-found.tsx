@@ -18,7 +18,7 @@ export default function NotFound() {
           ]}
         />
       </Section>
-      <Section tint="teal" tight>
+      <Section tint="violet" tight>
         <LinksRow
           links={[
             { label: "Fonctionnalités", href: "/fonctionnalites" },

@@ -47,7 +47,7 @@ export default async function Home() {
     <>
       <PageHead content={hero} variant={0} />
 
-      <Section tint="teal" edge={0} center>
+      <Section tint="violet" edge={0} center>
         <EssentialsBlock content={essentials} />
       </Section>
 
@@ -75,7 +75,7 @@ export default async function Home() {
         <ShowcaseSplit content={why} variant={3} />
       </Section>
 
-      <Section tint="teal" edge={4} center>
+      <Section tint="violet" edge={5}>
         <FaqBlock kicker={faq.kicker} title={faq.title} items={faqItems} id="faq" />
       </Section>
 

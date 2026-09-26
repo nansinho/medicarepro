@@ -48,7 +48,7 @@ export default async function BilansPage() {
       {items.map((item, i) => (
         <Section
           key={item.title}
-          tint={showcase.tones?.[i] && showcase.tones[i] !== "white" ? "teal" : "white"}
+          tint={showcase.tones?.[i] && showcase.tones[i] !== "white" ? "violet" : "white"}
           edge={i === 0 ? 3 : i === 2 ? 1 : undefined}
         >
           <ShowcaseSplit

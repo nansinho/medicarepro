@@ -29,7 +29,7 @@ export default async function BlogPage() {
         </div>
       </Section>
 
-      <Section tint="teal" edge={0}>
+      <Section tint="violet" edge={0}>
         {posts.length > 0 ? (
           <PostCards posts={posts} headingLevel="h2" />
         ) : (

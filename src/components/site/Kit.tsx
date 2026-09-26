@@ -14,7 +14,9 @@ import k from "./kit.module.css";
    sans état : la mise en page vient des pages, le contenu du CMS.
    ============================================================ */
 
-export type Tint = "white" | "teal" | "blue" | "violet" | "amber" | "sky";
+/* Pas de fond turquoise (vert d'eau) : trop proche de la référence Topaze,
+   le client veut les autres couleurs du logo en fond de section. */
+export type Tint = "white" | "blue" | "violet" | "amber" | "sky";
 
 const cx = (...c: (string | false | null | undefined)[]) =>
   c.filter(Boolean).join(" ");

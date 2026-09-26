@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /* Couleurs des sections colorées, dans l'ordre de la page. */
-const TINTS: Tint[] = ["teal", "blue", "violet", "amber", "sky"];
+const TINTS: Tint[] = ["violet", "blue", "sky", "amber"];
 
 export default async function AvantagesPage() {
   const [sections, testimonials] = await Promise.all([
@@ -78,7 +78,7 @@ export default async function AvantagesPage() {
         <StatsBlock stats={stats.stats} onWhite />
       </Section>
 
-      <Section tint="teal" edge={0} center>
+      <Section tint="violet" edge={0} center>
         <Head eyebrow={portal.kicker} title={portal.title} centered />
         <IconCards
           items={portal.cards.map((c) => ({

@@ -61,7 +61,7 @@ export default async function LogicielPodologueHub() {
       </Section>
 
       {regions.length > 0 ? (
-        <Section tint="teal" edge={0} center>
+        <Section tint="violet" edge={0} center>
           <Head eyebrow="Par région" title="Choisissez votre région" centered />
           <div className={s.regions}>
             {regions.map((region) => {
@@ -88,7 +88,7 @@ export default async function LogicielPodologueHub() {
         </Section>
       ) : null}
 
-      <Section tint={regions.length > 0 ? "white" : "teal"} edge={regions.length > 0 ? undefined : 0}>
+      <Section tint={regions.length > 0 ? "white" : "violet"} edge={regions.length > 0 ? undefined : 0}>
         <Split
           reverse
           visual={

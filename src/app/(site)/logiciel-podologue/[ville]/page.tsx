@@ -138,7 +138,7 @@ export default async function VillePage({
         </HeroGrid>
       </Section>
 
-      <Section tint="teal" edge={1}>
+      <Section tint="violet" edge={1}>
         <Split
           reverse
           visual={
@@ -174,7 +174,7 @@ export default async function VillePage({
       </Section>
 
       {city.faq.length > 0 && (
-        <Section tint="blue" edge={4} center>
+        <Section tint="blue" edge={5}>
           <FaqBlock title={`Cabinets ${city.nameLocative} : vos questions`} items={city.faq} />
         </Section>
       )}

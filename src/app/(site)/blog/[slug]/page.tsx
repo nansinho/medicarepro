@@ -139,7 +139,7 @@ export default async function BlogPostPage({
       </Section>
 
       {related.length > 0 && (
-        <Section tint="teal" edge={2}>
+        <Section tint="violet" edge={2}>
           <Head eyebrow="À lire aussi" title="Poursuivre la lecture" centered />
           <PostCards posts={related} />
         </Section>
