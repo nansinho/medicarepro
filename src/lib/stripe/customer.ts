@@ -153,6 +153,35 @@ export async function createSignupCustomer(input: {
  *
  * Best-effort : un échec ici ne remet en cause ni le paiement, ni le compte.
  */
+/**
+ * Même rattachement, sur l'abonnement.
+ *
+ * Il ne sert pas à la vitrine, qui retrouve ses contrats par identifiant
+ * d'abonnement : il sert au LOGICIEL, dont le webhook cherche le cabinet dans
+ * cette métadonnée (client, puis abonnement). La modification produit un
+ * `customer.subscription.updated` qu'il écoute, ce qui lui fait découvrir
+ * l'abonnement dès la création du compte au lieu d'attendre l'échéance.
+ *
+ * Stripe fusionne les métadonnées : notre référence et l'invitation déjà
+ * posées sont conservées. Best-effort, comme le rattachement du client.
+ */
+export async function linkStripeSubscriptionToCabinet(
+  subscriptionId: string,
+  appCabinetId: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    await stripe().subscriptions.update(subscriptionId, {
+      metadata: { app_cabinet_id: appCabinetId },
+    });
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: err instanceof Error ? err.message.slice(0, 200) : "erreur inconnue",
+    };
+  }
+}
+
 export async function linkStripeCustomerToCabinet(
   customerId: string,
   appCabinetId: string,

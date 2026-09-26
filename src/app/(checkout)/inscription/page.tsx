@@ -8,9 +8,18 @@ import {
   MAX_EXTRA_COLLABORATORS,
   type BillingPlan,
 } from "@/lib/checkout/pricing";
+import Link from "next/link";
 import CheckoutFlow, {
+  type GiftOffer,
   type PriceTable,
 } from "@/components/checkout/CheckoutFlow";
+import { serviceClient } from "@/lib/supabase/service";
+import {
+  addGiftMonths,
+  lookupGiftInvitation,
+  GIFT_LOOKUP_MESSAGES,
+} from "@/lib/billing/gift";
+import s from "@/components/checkout/Checkout.module.css";
 
 /* ============================================================
    /inscription — point d'entrée du tunnel d'inscription payante.
@@ -55,6 +64,51 @@ export default async function InscriptionPage({
   if (initialPlan === "MONTHLY" && !monthlyEnabled) initialPlan = "ANNUAL";
   if (initialPlan === "ANNUAL" && !annualEnabled) initialPlan = "MONTHLY";
 
+  /* ACCÈS OFFERT. L'invitation est lue ICI, côté serveur : le navigateur ne
+     reçoit que ce qu'il doit afficher, et un lien qui ne mène plus nulle part
+     affiche pourquoi, au lieu d'ouvrir le tunnel payant à quelqu'un qui
+     s'attendait à un cadeau. */
+  let gift: GiftOffer | undefined;
+  if (typeof sp.invitation === "string") {
+    const supabase = serviceClient();
+    const lookup = supabase
+      ? await lookupGiftInvitation(supabase, sp.invitation)
+      : ({ ok: false, reason: "unknown" } as const);
+    if (!lookup.ok) {
+      const message = GIFT_LOOKUP_MESSAGES[lookup.reason];
+      return (
+        <div className={s.shell}>
+          <div className={s.centerCard}>
+            <h1 className={s.centerTitle}>{message.title}</h1>
+            <p className={s.centerText}>{message.text}</p>
+            <p className={s.centerText}>
+              <a href="mailto:contact@medicarepro.fr">contact@medicarepro.fr</a>
+            </p>
+            <Link href="/" className={s.btnGhost}>
+              Retour à l&apos;accueil
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    const { invitation } = lookup;
+    gift = {
+      token: sp.invitation,
+      email: invitation.email,
+      months: invitation.months,
+      requireCard: invitation.require_card,
+      /* Indicatif : la date exacte est fixée à l'ouverture de la caisse, les
+         mois courant à partir de l'inscription. */
+      endsAtLabel: addGiftMonths(new Date(), invitation.months).toLocaleDateString(
+        "fr-FR",
+        { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" },
+      ),
+    };
+    /* Le mensuel d'abord : après une période offerte, c'est la formule qui
+       engage le moins. L'offre 12 mois reste proposée. */
+    if (monthlyEnabled && typeof sp.plan !== "string") initialPlan = "MONTHLY";
+  }
+
   /* Table de prix pré-calculée (source unique : lib/checkout/pricing) —
      le client n'embarque aucune logique tarifaire. */
   const prices: PriceTable = { MONTHLY: [], ANNUAL: [] };
@@ -84,6 +138,7 @@ export default async function InscriptionPage({
       annualRenews={parStripe}
       payBrand={parStripe ? "Stripe" : "Monetico — CIC"}
       selfServiceCancel={parStripe}
+      gift={parStripe ? gift : undefined}
     />
   );
 }

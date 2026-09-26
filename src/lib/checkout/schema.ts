@@ -116,6 +116,12 @@ export const CheckoutSchema = z.object({
   mandateAccepted: z.boolean().optional(),
   /** Jeton Cloudflare Turnstile (anti-bot). */
   turnstileToken: z.string().min(1, "Vérification anti-robot requise"),
+  /**
+   * Jeton du lien d'invitation, pour un accès offert. Rien de ce qu'il promet
+   * (durée, gratuité) ne vient du navigateur : le serveur relit l'invitation
+   * en base à partir de lui.
+   */
+  invitation: z.string().max(64).optional(),
   /** Honeypot : rempli uniquement par les bots (doit rester vide). */
   website: z.string().max(200).optional().default(""),
 });

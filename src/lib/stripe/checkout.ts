@@ -3,7 +3,12 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/env";
 import { siteUrl } from "@/lib/http/site-url";
-import { MAX_EXTRA_COLLABORATORS, type BillingPlan } from "@/lib/checkout/pricing";
+import {
+  MAX_EXTRA_COLLABORATORS,
+  checkoutAmountCents,
+  formatEuros,
+  type BillingPlan,
+} from "@/lib/checkout/pricing";
 
 /* ============================================================
    Ouverture d'une session de paiement Stripe.
@@ -52,7 +57,48 @@ export type CheckoutInput = {
    * Absent ou vide = paiement comptant. Réservé à l'offre 12 mois.
    */
   instalments?: number[];
+  /**
+   * Accès offert : rien n'est prélevé avant `endsAt`. Porté par une invitation
+   * du back-office, jamais par un choix du navigateur.
+   */
+  gift?: {
+    invitationId: string;
+    months: number;
+    /** Fin de la période offerte : la date du premier prélèvement éventuel. */
+    endsAt: Date;
+    /** Carte exigée dès l'inscription, et donc abonnement qui démarre seul. */
+    requireCard: boolean;
+  };
 };
+
+/** « 28 février 2027 », à l'heure de Paris. */
+function frDate(date: Date): string {
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Paris",
+  });
+}
+
+/**
+ * Ce que le praticien lit sous le bouton de la caisse, pour un accès offert.
+ *
+ * Exporté pour être testé : c'est la phrase qui engage, et elle ne dit pas la
+ * même chose selon qu'une carte est demandée ou non.
+ */
+export function giftCheckoutMessage(gift: {
+  months: number;
+  endsAt: Date;
+  requireCard: boolean;
+}, renewalLabel: string): string {
+  const fin = frDate(gift.endsAt);
+  const debut = `Rien n'est prélevé aujourd'hui : votre accès est offert pendant ${gift.months} mois, jusqu'au ${fin}.`;
+  const suite = gift.requireCard
+    ? ` Votre abonnement démarre ensuite sur cette carte, pour ${renewalLabel}, sauf si vous l'arrêtez avant depuis votre espace abonnement.`
+    : " Aucun moyen de paiement n'est demandé. À cette date, vous pourrez vous abonner pour continuer ; sans abonnement, vos dossiers resteront consultables et exportables.";
+  return `${debut}${suite} Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS.`;
+}
 
 /**
  * Construit les paramètres de la session, sans appeler Stripe.
@@ -130,9 +176,30 @@ export function buildCheckoutParams(
     }
   }
 
+  /* Contrôles de l'accès offert. Une période offerte n'a rien à étaler, et une
+     date trop proche serait refusée par Stripe (48 heures au minimum) après
+     que le praticien a rempli tout son dossier. */
+  const cadeau = input.gift;
+  if (cadeau) {
+    if (versements.length > 0) {
+      throw new Error("Un accès offert ne se règle pas en plusieurs fois.");
+    }
+    if (!Number.isInteger(cadeau.months) || cadeau.months < 1 || cadeau.months > 12) {
+      throw new Error("Durée d'accès offert invalide.");
+    }
+    const delai = cadeau.endsAt.getTime() - Date.now();
+    if (!(delai > 3 * 86_400_000) || delai > 700 * 86_400_000) {
+      throw new Error("Fin d'accès offert hors bornes.");
+    }
+  }
+
   const metadata = {
     ...input.metadata,
     reference: input.reference,
+    /* Le seul sésame d'une session non payée : le webhook refuse toute session
+       à 0 € qui ne le porte pas. Posé ici, côté serveur, et nulle part
+       ailleurs. */
+    ...(cadeau ? { gift_invitation: cadeau.invitationId } : {}),
     ...(versements.length > 0
       ? {
           instalments: String(versements.length),
@@ -279,10 +346,23 @@ export function buildCheckoutParams(
        logo) vient de la marque du compte, qui ne se règle pas ici. */
     custom_text: {
       submit: {
-        message:
-          "Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS. Vous pouvez arrêter la reconduction à tout moment depuis votre espace abonnement : votre accès reste ouvert jusqu'au terme de la période réglée.",
+        message: cadeau
+          ? giftCheckoutMessage(
+              cadeau,
+              `${formatEuros(checkoutAmountCents(input.plan, input.extraCollaborators))} TTC ${
+                annuel ? "par an" : "par mois"
+              }`,
+            )
+          : "Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS. Vous pouvez arrêter la reconduction à tout moment depuis votre espace abonnement : votre accès reste ouvert jusqu'au terme de la période réglée.",
       },
     },
+    /* ACCÈS OFFERT SANS CARTE : la caisse ne demande rien. Par défaut, Stripe
+       exige un moyen de paiement même quand rien n'est dû ; `if_required` le
+       dispense tant que la période offerte ne coûte rien. Avec carte, on garde
+       le défaut (`always`) : c'est elle qui fera démarrer l'abonnement. */
+    ...(cadeau && !cadeau.requireCard
+      ? { payment_method_collection: "if_required" as const }
+      : {}),
     subscription_data: {
       metadata,
       /* Stripe n'a pas de taux par défaut au niveau du compte : il doit être
@@ -291,13 +371,28 @@ export function buildCheckoutParams(
       /* Le libellé repris sur la facture et sur le relevé bancaire du
          praticien. Sans lui, il lit une ligne « MediCare Pro » sans savoir de
          quelle formule il s'agit. */
-      description: `Abonnement MediCare Pro : ${
+      description: `${cadeau ? `Accès offert ${cadeau.months} mois, puis abonnement` : "Abonnement"} MediCare Pro : ${
         input.plan === "ANNUAL" ? "offre 12 mois" : "mensuel sans engagement"
       }${
         input.extraCollaborators > 0
           ? ` + ${input.extraCollaborators} collaborateur${input.extraCollaborators > 1 ? "s" : ""}`
           : ""
       }`,
+      /* LA PÉRIODE OFFERTE EST UNE PÉRIODE D'ESSAI STRIPE. Stripe tient
+         l'horloge, et le logiciel la lit par son propre webhook (`trialing` =
+         accès complet). À l'échéance, sans moyen de paiement enregistré, Stripe
+         RÉSILIE : aucune facture impayée n'est créée, le logiciel passe en
+         lecture seule et l'espace abonnement propose de souscrire. `pause`
+         aurait laissé un abonnement suspendu que le portail client ne sait pas
+         relancer. */
+      ...(cadeau
+        ? {
+            trial_end: Math.floor(cadeau.endsAt.getTime() / 1000),
+            trial_settings: {
+              end_behavior: { missing_payment_method: "cancel" as const },
+            },
+          }
+        : {}),
     },
     /* Calculées par siteUrl(), JAMAIS depuis la requête : en production le
        serveur standalone dérive « https://0.0.0.0:3000 » de HOSTNAME et PORT,

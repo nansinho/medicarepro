@@ -287,3 +287,47 @@ export async function previewStripeChange(input: {
     nextInvoiceDate: typeof fin === "number" ? new Date(fin * 1000) : null,
   };
 }
+
+/**
+ * Où en est la période offerte d'un abonnement, lu chez Stripe à l'instant.
+ *
+ * Sert aux rappels de fin de période, qui ne doivent annoncer que le vrai :
+ * « premier prélèvement le… » seulement si un moyen de paiement est bien
+ * enregistré, et rien du tout si le praticien a déjà demandé l'arrêt depuis
+ * le portail Stripe (ce que notre base ne voit pas).
+ *
+ * Un moyen de paiement peut vivre sur l'abonnement OU sur le client : le
+ * portail client l'enregistre sur le client, et Stripe s'en sert à
+ * l'échéance. Les deux sont donc regardés.
+ *
+ * `null` = Stripe injoignable : l'appelant réessaie plus tard plutôt que
+ * d'écrire une chose peut-être fausse.
+ */
+export async function readGiftTrialState(subscriptionId: string): Promise<{
+  status: string;
+  hasPaymentMethod: boolean;
+  cancelAtPeriodEnd: boolean;
+} | null> {
+  try {
+    const sub = await stripe().subscriptions.retrieve(subscriptionId, {
+      expand: ["customer"],
+    });
+    const client =
+      sub.customer && typeof sub.customer !== "string" && !("deleted" in sub.customer && sub.customer.deleted)
+        ? (sub.customer as Stripe.Customer)
+        : null;
+    const hasPaymentMethod = Boolean(
+      sub.default_payment_method ||
+        sub.default_source ||
+        client?.invoice_settings?.default_payment_method ||
+        client?.default_source,
+    );
+    return {
+      status: sub.status,
+      hasPaymentMethod,
+      cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+    };
+  } catch {
+    return null;
+  }
+}

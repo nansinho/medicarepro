@@ -205,6 +205,8 @@ export async function factsFromCompletedSession(
         customerId: string | null;
         currentPeriodEnd: Date;
       };
+      /** Invitation d'une session offerte ; absent pour une session payée. */
+      giftInvitationId?: string;
     }
   | { ok: false; reason: string }
 > {
@@ -218,8 +220,20 @@ export async function factsFromCompletedSession(
 
   /* Une session peut aboutir sans que le paiement soit acquis : virement en
      attente, prélèvement SEPA en cours de traitement. On ne crée un contrat que
-     sur un paiement effectif. */
-  if (session.payment_status !== "paid") {
+     sur un paiement effectif.
+
+     UNE SEULE EXCEPTION, L'ACCÈS OFFERT : la session ne coûte rien
+     (`no_payment_required`) parce que l'abonnement s'ouvre en période d'essai.
+     Elle n'est acceptée que si elle porte l'invitation que NOTRE serveur a
+     posée en métadonnée (le navigateur n'a aucune prise sur la session), et
+     l'abonnement relu plus bas doit être en essai. Sans cette double garde,
+     n'importe quelle session gratuite ouvrirait un compte. */
+  const invitationCadeau = session.metadata?.gift_invitation ?? null;
+  const offert =
+    session.payment_status === "no_payment_required" &&
+    session.mode === "subscription" &&
+    Boolean(invitationCadeau);
+  if (session.payment_status !== "paid" && !offert) {
     return {
       ok: false,
       reason: `paiement non acquis (payment_status = ${session.payment_status})`,
@@ -302,6 +316,12 @@ export async function factsFromCompletedSession(
     if (typeof fin !== "number") {
       return { ok: false, reason: "abonnement Stripe sans échéance lisible" };
     }
+    if (offert && sub.status !== "trialing") {
+      return {
+        ok: false,
+        reason: `session offerte sur un abonnement qui n'est pas en essai (${sub.status})`,
+      };
+    }
     currentPeriodEnd = new Date(fin * 1000);
   } catch (err) {
     return {
@@ -322,6 +342,7 @@ export async function factsFromCompletedSession(
     currency: session.currency?.toUpperCase() ?? null,
     occurredAt: new Date(event.created * 1000),
     stripe: { subscriptionId, customerId, currentPeriodEnd },
+    ...(offert && invitationCadeau ? { giftInvitationId: invitationCadeau } : {}),
   };
 }
 

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from("pending_signups")
     .select(
-      "id, status, status_token, code_retour, login_url, next_retry_at, last_error",
+      "id, status, status_token, code_retour, login_url, next_retry_at, last_error, gift_invitation_id",
     )
     .eq("monetico_reference", ref)
     .maybeSingle();
@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     login_url: string | null;
     next_retry_at: string | null;
     last_error: string | null;
+    gift_invitation_id: string | null;
   };
 
   if (!timingSafeEqualString(cookieToken, row.status_token)) {
@@ -96,5 +97,7 @@ export async function GET(request: NextRequest) {
     // Jamais le détail technique de l'erreur : le client n'en ferait rien.
     needsReview: stalled,
     loginUrl: row.status === "provisioned" ? row.login_url : null,
+    /* Accès offert : l'écran de suivi ne parle ni de paiement ni de reçu. */
+    gift: Boolean(row.gift_invitation_id),
   });
 }

@@ -7,6 +7,9 @@ import { changeReminderEmail } from "@/lib/emails/portal-templates";
 import { formatEuros, planLabel, type BillingPlan } from "@/lib/checkout/pricing";
 import { notifyRenewal } from "@/lib/provisioning";
 import { lapseChange } from "@/lib/billing/changes";
+import { giftReminderEmail } from "@/lib/emails/gift-templates";
+import { readGiftTrialState } from "@/lib/stripe/subscription";
+import { loginUrl } from "@/lib/appLinks";
 
 /* ============================================================
    /api/cron/renewal-reminders — échéances des abonnements qui ne se
@@ -40,6 +43,8 @@ export const dynamic = "force-dynamic";
 
 /** Offre annuelle : anticipation seulement, le lien reste valable. */
 const ANNUAL_STAGES = [30, 15, 7, 3, 0] as const;
+/** Accès offert : deux semaines, une semaine, puis l'avant-veille. */
+const GIFT_STAGES = [14, 7, 2] as const;
 /** Validation à faire : on relance aussi APRÈS l'échéance. */
 const VALIDATION_STAGES = [7, 3, 0, -3, -7] as const;
 
@@ -87,6 +92,8 @@ type SubRow = {
   renewal_amount_cents: number;
   currency: string;
   recurrence_stopped_at: string | null;
+  gift_ends_at: string | null;
+  renewal_count: number;
 };
 
 type ChangeRow = {
@@ -131,7 +138,7 @@ async function handle(request: Request): Promise<Response> {
   const { data, error } = await supabase
     .from("subscriptions")
     .select(
-      "id, app_cabinet_id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, current_period_end, renewal_amount_cents, currency, recurrence_stopped_at",
+      "id, app_cabinet_id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, current_period_end, renewal_amount_cents, currency, recurrence_stopped_at, gift_ends_at, renewal_count",
     )
     .eq("status", "active")
     .gte("current_period_end", from)
@@ -171,6 +178,10 @@ async function handle(request: Request): Promise<Response> {
        qui a choisi de partir serait déplacé. La date de fin lui a été
        confirmée par écrit au moment de sa demande. */
     if (change?.kind === "cancel") continue;
+
+    /* Période offerte en cours : elle a ses propres rappels, plus bas. Ceux-ci
+       lui parleraient d'un « renouvellement » qu'il n'a jamais payé. */
+    if (sub.gift_ends_at && sub.renewal_count === 0) continue;
 
     const d = daysUntil(sub.current_period_end, todayDay);
     const stages: readonly number[] =
@@ -248,11 +259,114 @@ async function handle(request: Request): Promise<Response> {
     }
   }
 
+  /* --- Accès offerts qui arrivent à leur terme ------------------------- */
+
+  const giftSent = await remindGifts(supabase, todayDay);
+
   /* --- Constat des échéances manquées ---------------------------------- */
 
   const expired = await expireDue(supabase);
 
-  return Response.json({ sent, ...expired });
+  return Response.json({ sent, giftSent, ...expired });
+}
+
+/**
+ * Rappels de fin de période offerte, à J-14, J-7 et J-2.
+ *
+ * LE MESSAGE DÉPEND DE CE QUE STRIPE SAIT AUJOURD'HUI, pas de ce que
+ * l'invitation prévoyait : un bénéficiaire sans carte a pu en enregistrer une
+ * depuis le portail, et un autre a pu y demander l'arrêt. On relit donc
+ * l'abonnement au moment d'écrire. Stripe injoignable : on libère le palier et
+ * on réessaie demain, plutôt que d'annoncer un prélèvement qui n'aura pas lieu
+ * (ou l'inverse).
+ *
+ * Arrêt demandé : aucun rappel. Le bénéficiaire a choisi, la fin de période
+ * lui sera confirmée par l'email de clôture.
+ */
+async function remindGifts(
+  supabase: NonNullable<ReturnType<typeof serviceClient>>,
+  todayDay: string,
+): Promise<number> {
+  const from = new Date(Date.now() - 86_400_000).toISOString();
+  const to = new Date(Date.now() + 16 * 86_400_000).toISOString();
+
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select(
+      "id, cabinet_name, admin_email, admin_name, plan, extra_collaborators, renewal_amount_cents, gift_ends_at, stripe_subscription_id, recurrence_stopped_at",
+    )
+    .eq("status", "active")
+    .eq("renewal_count", 0)
+    .not("gift_ends_at", "is", null)
+    .gte("gift_ends_at", from)
+    .lte("gift_ends_at", to);
+  if (error) {
+    console.error("[renewal-reminders] accès offerts :", error.message);
+    return 0;
+  }
+
+  let sent = 0;
+  for (const sub of (data ?? []) as {
+    id: string;
+    cabinet_name: string;
+    admin_email: string;
+    admin_name: string;
+    plan: BillingPlan;
+    extra_collaborators: number;
+    renewal_amount_cents: number;
+    gift_ends_at: string;
+    stripe_subscription_id: string | null;
+    recurrence_stopped_at: string | null;
+  }[]) {
+    if (sub.recurrence_stopped_at || !sub.stripe_subscription_id) continue;
+
+    const d = daysUntil(sub.gift_ends_at, todayDay);
+    if (!(GIFT_STAGES as readonly number[]).includes(d)) continue;
+
+    const { error: claimErr } = await supabase
+      .from("subscription_reminders")
+      .insert({ subscription_id: sub.id, period_end: sub.gift_ends_at, days_before: d });
+    if (claimErr) continue;
+
+    const liberer = () =>
+      supabase
+        .from("subscription_reminders")
+        .delete()
+        .eq("subscription_id", sub.id)
+        .eq("period_end", sub.gift_ends_at)
+        .eq("days_before", d);
+
+    const etat = await readGiftTrialState(sub.stripe_subscription_id);
+    if (!etat) {
+      await liberer();
+      continue;
+    }
+    if (etat.status !== "trialing" || etat.cancelAtPeriodEnd) continue;
+
+    try {
+      await sendMail({
+        to: sub.admin_email,
+        ...giftReminderEmail({
+          adminFirstName: (sub.admin_name ?? "").trim().split(/\s+/)[0] ?? "",
+          cabinetName: sub.cabinet_name,
+          endsAtLabel: frDate(sub.gift_ends_at),
+          daysBefore: d,
+          hasPaymentMethod: etat.hasPaymentMethod,
+          planLabel: planLabel(sub.plan, sub.extra_collaborators),
+          amountLabel: `${formatEuros(sub.renewal_amount_cents)} TTC`,
+          loginUrl: loginUrl(),
+        }),
+      });
+      sent += 1;
+    } catch (err) {
+      await liberer();
+      console.error(
+        "[renewal-reminders] rappel d'accès offert :",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+  return sent;
 }
 
 /**

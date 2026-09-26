@@ -17,6 +17,12 @@ import {
 } from "@/lib/checkout/pricing";
 import { invoicePrefixCandidates } from "@/lib/checkout/invoice-prefix";
 import {
+  addGiftMonths,
+  lookupGiftInvitation,
+  GIFT_LOOKUP_MESSAGES,
+  type GiftInvitation,
+} from "@/lib/billing/gift";
+import {
   checkAvailability,
   ProvisioningUnavailableError,
 } from "@/lib/provisioning";
@@ -327,15 +333,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  /* ACCÈS OFFERT. L'invitation est RELUE en base à partir du jeton : sa durée,
+     sa gratuité et l'exigence d'une carte ne viennent jamais du navigateur. Et
+     l'adresse de connexion doit être celle à qui le lien a été envoyé : sans
+     cette règle, un lien transféré ouvrirait un compte à n'importe qui. */
+  let cadeau: GiftInvitation | null = null;
+  if (input.invitation) {
+    const lookup = await lookupGiftInvitation(supabase, input.invitation);
+    if (!lookup.ok) {
+      const message = GIFT_LOOKUP_MESSAGES[lookup.reason];
+      return Response.json(
+        { error: `${message.title}. ${message.text}` },
+        { status: 410 },
+      );
+    }
+    if (user.email.trim().toLowerCase() !== lookup.invitation.email) {
+      const message =
+        "Utilisez l'adresse email à laquelle l'invitation a été envoyée : c'est elle qui ouvre l'accès offert.";
+      return Response.json(
+        { error: message, issues: [{ path: ["user", "email"], message }] },
+        { status: 422 },
+      );
+    }
+    cadeau = lookup.invitation;
+  }
+
   /* LE PRIX COMPLET DE L'OFFRE — ce que le cabinet doit au total pour douze
      mois, quelle que soit la façon dont il le règle. */
   const totalCents = checkoutAmountCents(input.plan, input.extraCollaborators);
 
   /* LE DÉCOUPAGE, s'il a été demandé ET s'il est permis sur cette formule. On
      ne se fie pas au navigateur pour dire ce qui est éligible : le mensuel est
-     déjà un étalement, et l'accepter produirait des versements de dix euros. */
+     déjà un étalement, et l'accepter produirait des versements de dix euros.
+     Un accès offert n'a rien à étaler. */
   const versements =
-    input.instalments && instalmentsAvailable(input.plan)
+    !cadeau && input.instalments && instalmentsAvailable(input.plan)
       ? instalmentAmountsCents(totalCents)
       : [];
 
@@ -344,8 +376,15 @@ export async function POST(request: NextRequest) {
      Stripe au retour. Y laisser le prix annuel ferait crier l'écart de montant
      à chaque souscription échelonnée, et le premier paiement serait archivé à
      298,08 € alors que 99,36 € ont été débités. */
-  const amountCents = versements.length > 0 ? versements[0] : totalCents;
+  const amountCents = cadeau ? 0 : versements.length > 0 ? versements[0] : totalCents;
   const reference = newMoneticoReference();
+  /* Les mois offerts courent à partir de l'inscription, pas de l'envoi de
+     l'invitation. La date est figée sur le dossier : une reprise de la caisse
+     doit renvoyer exactement la même à Stripe. Arrondie à la seconde, comme
+     Stripe la stocke. */
+  const giftEndsAt = cadeau
+    ? new Date(Math.floor(addGiftMonths(new Date(), cadeau.months).getTime() / 1000) * 1000)
+    : null;
   const nowIso = new Date().toISOString();
 
   /* --- Mandat SEPA (seulement si l'étape est active) : RUM réservée +
@@ -447,6 +486,11 @@ export async function POST(request: NextRequest) {
          qu'après le paiement : sans lui, le calendrier des versements ne serait
          jamais ouvert et les deux tiers du prix ne seraient jamais réclamés. */
       instalment_count: versements.length,
+      /* Zéro euro n'est accepté par la base QUE sur un dossier qui porte son
+         invitation (contrainte de 0041). */
+      gift_invitation_id: cadeau?.id ?? null,
+      gift_months: cadeau?.months ?? null,
+      gift_ends_at: giftEndsAt?.toISOString() ?? null,
       currency: "EUR",
       cabinet: {
         name: cabinet.name,
@@ -528,6 +572,15 @@ export async function POST(request: NextRequest) {
     invoicePrefix,
     amountCents,
     instalments: versements,
+    gift:
+      cadeau && giftEndsAt
+        ? {
+            invitationId: cadeau.id,
+            months: cadeau.months,
+            endsAt: giftEndsAt,
+            requireCard: cadeau.require_card,
+          }
+        : undefined,
     statusToken,
     ip,
     userAgent,
@@ -565,6 +618,13 @@ async function openStripeCheckout(args: {
   user: { firstName: string; lastName: string; email: string };
   invoicePrefix: string;
   amountCents: number;
+  /** Accès offert : période d'essai Stripe jusqu'à `endsAt`. */
+  gift?: {
+    invitationId: string;
+    months: number;
+    endsAt: Date;
+    requireCard: boolean;
+  };
   statusToken: string;
   ip: string | null;
   userAgent: string;
@@ -593,6 +653,7 @@ async function openStripeCheckout(args: {
       plan: args.plan,
       extraCollaborators: args.extraCollaborators,
       instalments: args.instalments,
+      gift: args.gift,
       customerId,
       /* DEUX adresses distinctes, comme chez Monetico et pour la même raison :
          c'est le seul signal qui parvient au navigateur avant la notification
@@ -641,6 +702,14 @@ async function openStripeCheckout(args: {
       amountCents: args.amountCents,
       invoicePrefix: args.invoicePrefix,
       provider: "stripe",
+      ...(args.gift
+        ? {
+            giftInvitation: args.gift.invitationId,
+            giftMonths: args.gift.months,
+            giftEndsAt: args.gift.endsAt.toISOString(),
+            giftRequireCard: args.gift.requireCard,
+          }
+        : {}),
     },
     ip: args.ip ?? undefined,
     userAgent: args.userAgent,

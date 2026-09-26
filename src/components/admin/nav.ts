@@ -3,6 +3,7 @@ import {
   CircleCheck,
   CreditCard,
   FileSignature,
+  Gift,
   Images,
   Layers,
   LayoutDashboard,
@@ -136,6 +137,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Souscriptions",
         icon: CircleCheck,
         keywords: "lien paiement cabinet",
+      },
+      {
+        href: "/admin/billing/acces-offerts",
+        label: "Accès offerts",
+        icon: Gift,
+        keywords: "gratuit cadeau concours quiz invitation essai",
       },
       {
         href: "/admin/billing/incidents",

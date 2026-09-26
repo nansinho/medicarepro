@@ -48,6 +48,22 @@ import s from "./Checkout.module.css";
 export type PriceRow = { monthlyLabel: string; totalLabel: string };
 export type PriceTable = Record<BillingPlan, PriceRow[]>;
 
+/**
+ * Accès offert, lu par le serveur sur l'invitation. Le navigateur ne fait que
+ * l'afficher : la gratuité et la durée sont relues côté serveur au paiement.
+ */
+export type GiftOffer = {
+  /** Jeton du lien, renvoyé tel quel à la soumission. */
+  token: string;
+  /** Adresse invitée, imposée comme identifiant de connexion. */
+  email: string;
+  months: number;
+  /** Carte demandée à la caisse : l'abonnement démarre seul à la fin. */
+  requireCard: boolean;
+  /** Fin indicative de la période, « 26 mars 2027 ». */
+  endsAtLabel: string;
+};
+
 type Props = {
   initialPlan: BillingPlan;
   monthlyEnabled: boolean;
@@ -67,6 +83,8 @@ type Props = {
   payBrand: string;
   /** Peut-il résilier depuis son espace, ou doit-il nous écrire ? */
   selfServiceCancel: boolean;
+  /** Présent quand le tunnel est ouvert par une invitation d'accès offert. */
+  gift?: GiftOffer;
 };
 
 /* ---- Cloudflare Turnstile (rendu explicite) ---- */
@@ -205,6 +223,8 @@ type FieldProps = {
   maxLength?: number;
   className?: string;
   onBlur?: () => void;
+  /** Valeur imposée (adresse d'une invitation) : lisible, non modifiable. */
+  readOnly?: boolean;
 };
 
 function Field({
@@ -223,6 +243,7 @@ function Field({
   maxLength,
   className,
   onBlur,
+  readOnly,
 }: FieldProps) {
   return (
     <div className={`${s.field} ${className ?? ""}`}>
@@ -241,6 +262,8 @@ function Field({
         inputMode={inputMode}
         placeholder={placeholder}
         maxLength={maxLength}
+        readOnly={readOnly}
+        aria-readonly={readOnly || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
       />
@@ -274,6 +297,7 @@ export default function CheckoutFlow({
   annualRenews,
   payBrand,
   selfServiceCancel,
+  gift,
 }: Props) {
   /* Étapes réellement affichées (clés + libellés) et helpers d'index —
      tout est dérivé de sepaEnabled, aucun index en dur ailleurs. */
@@ -306,7 +330,8 @@ export default function CheckoutFlow({
   const [user, setUser] = useState({
     firstName: "",
     lastName: "",
-    email: "",
+    /* L'adresse d'une invitation est imposée : le serveur refuse toute autre. */
+    email: gift?.email ?? "",
     password: "",
   });
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -381,7 +406,8 @@ export default function CheckoutFlow({
      réellement facturés sont recalculés côté serveur — mais un écart d'un
      centime entre l'écran et le débit est exactement ce qui fait écrire un
      praticien. */
-  const echelonnable = instalmentsAvailable(plan);
+  /* Un accès offert n'a rien à étaler : le choix n'est même pas proposé. */
+  const echelonnable = !gift && instalmentsAvailable(plan);
   const versements =
     echelonnable && instalments
       ? instalmentAmountsCents(checkoutAmountCents(plan, extra))
@@ -894,6 +920,7 @@ export default function CheckoutFlow({
       termsAccepted,
       turnstileToken,
       website,
+      ...(gift ? { invitation: gift.token } : {}),
     });
     if (!parsed.success) {
       const localErrs: Record<string, string> = {};
@@ -958,6 +985,14 @@ export default function CheckoutFlow({
             ? data.error
             : "Certains champs sont invalides. Vérifiez votre saisie.",
         );
+      } else if (res.status === 410) {
+        /* Invitation devenue inutilisable pendant la saisie (retirée, déjà
+           utilisée dans un autre onglet, expirée) : le serveur dit laquelle. */
+        setBanner(
+          typeof data?.error === "string"
+            ? data.error
+            : "Cette invitation n'est plus valable. Écrivez-nous à contact@medicarepro.fr.",
+        );
       } else if (res.status === 409) {
         setBanner(
           typeof data?.error === "string"
@@ -1008,10 +1043,15 @@ export default function CheckoutFlow({
   }
 
   const cardTitles: Record<StepKey, { title: string; desc: string }> = {
-    formule: {
-      title: "Choisissez votre formule",
-      desc: "Sans frais d'installation. Résiliable selon les CGV.",
-    },
+    formule: gift
+      ? {
+          title: "Votre accès offert",
+          desc: `${gift.months} mois offerts, sans rien régler aujourd'hui. Choisissez la formule qui prendra le relais si vous continuez.`,
+        }
+      : {
+          title: "Choisissez votre formule",
+          desc: "Sans frais d'installation. Résiliable selon les CGV.",
+        },
     cabinet: {
       title: "Votre cabinet",
       desc: "Ces informations figureront sur vos factures.",
@@ -1030,7 +1070,9 @@ export default function CheckoutFlow({
     },
     recap: {
       title: "Récapitulatif",
-      desc: "Vérifiez votre dossier avant de procéder au paiement.",
+      desc: gift
+        ? "Vérifiez votre dossier avant d'activer votre accès offert."
+        : "Vérifiez votre dossier avant de procéder au paiement.",
     },
   };
   const currentCard = cardTitles[stepKeys[step]];
@@ -1053,8 +1095,9 @@ export default function CheckoutFlow({
       <div className={s.head}>
         <h1 className={s.title}>Créer votre espace MediCare Pro</h1>
         <p className={s.subtitle}>
-          5 minutes suffisent — votre cabinet est opérationnel dès le paiement
-          validé.
+          {gift
+            ? `5 minutes suffisent : votre cabinet est opérationnel dès l'inscription, et offert pendant ${gift.months} mois.`
+            : "5 minutes suffisent — votre cabinet est opérationnel dès le paiement validé."}
         </p>
       </div>
 
@@ -1113,6 +1156,21 @@ export default function CheckoutFlow({
           {/* ================= Étape 1 — Formule ================= */}
           {step === 0 && (
             <div className={s.sectionGap}>
+              {gift && (
+                <div className={s.gift}>
+                  <span className={s.giftBadge}>Accès offert</span>
+                  <p className={s.giftTitle}>
+                    {gift.months} mois de MediCare Pro, jusqu&apos;au{" "}
+                    {gift.endsAtLabel}
+                  </p>
+                  <p className={s.giftText}>
+                    Rien à régler aujourd&apos;hui.{" "}
+                    {gift.requireCard
+                      ? "Une carte vous sera demandée, sans aucun prélèvement pendant la période offerte. Ensuite, la formule choisie ci-dessous démarre, sans engagement, sauf si vous l'arrêtez avant."
+                      : "Aucun moyen de paiement n'est demandé. À la fin, vous choisirez de vous abonner à la formule ci-dessous pour continuer ; sinon, vos dossiers resteront consultables et exportables."}
+                  </p>
+                </div>
+              )}
               <div className={s.planGrid}>
                 <button
                   type="button"
@@ -1234,9 +1292,11 @@ export default function CheckoutFlow({
                   </span>
                   <span className={s.collabTotal}>
                     Facturé aujourd&apos;hui&nbsp;:{" "}
-                    {versements.length > 0
-                      ? `${formatEuros(versements[0])} TTC (1er versement)`
-                      : `${row.totalLabel} TTC ${plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}`}
+                    {gift
+                      ? `0,00 € (offert jusqu'au ${gift.endsAtLabel})`
+                      : versements.length > 0
+                        ? `${formatEuros(versements[0])} TTC (1er versement)`
+                        : `${row.totalLabel} TTC ${plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}`}
                   </span>
                 </div>
               </div>
@@ -1293,7 +1353,37 @@ export default function CheckoutFlow({
 
               <div className={s.alert}>
                 <IconAlert />
-                {sepaEnabled ? (
+                {gift ? (
+                  /* ACCÈS OFFERT : ce qui se passe à la fin, en clair, avant
+                     toute saisie. C'est la phrase qui engage. */
+                  gift.requireCard ? (
+                    <span>
+                      Rien n&apos;est prélevé avant le {gift.endsAtLabel}. À
+                      cette date, votre abonnement démarre sur la carte
+                      enregistrée, pour{" "}
+                      <b>
+                        {row.totalLabel} TTC par{" "}
+                        {plan === "ANNUAL" ? "an" : "mois"}
+                      </b>
+                      , puis se reconduit jusqu&apos;à ce que vous y mettiez fin.
+                      Vous pouvez l&apos;arrêter à tout moment avant depuis votre
+                      espace abonnement&nbsp;: votre accès reste ouvert jusqu&apos;à
+                      la fin de la période offerte.
+                    </span>
+                  ) : (
+                    <span>
+                      Aucun moyen de paiement n&apos;est demandé et rien ne sera
+                      prélevé. Pour continuer après le {gift.endsAtLabel}, vous
+                      pourrez vous abonner depuis votre logiciel, pour{" "}
+                      <b>
+                        {row.totalLabel} TTC par{" "}
+                        {plan === "ANNUAL" ? "an" : "mois"}
+                      </b>
+                      . Sans abonnement, votre compte passe en lecture
+                      seule&nbsp;: rien n&apos;est supprimé.
+                    </span>
+                  )
+                ) : sepaEnabled ? (
                   <span>
                     Le premier règlement s&apos;effectue par carte bancaire
                     (Monetico&nbsp;— CIC). Les renouvellements seront prélevés
@@ -1693,9 +1783,18 @@ export default function CheckoutFlow({
                 label="Email de connexion"
                 type="email"
                 value={user.email}
-                onChange={(v) => setUser((p) => ({ ...p, email: v }))}
+                onChange={(v) =>
+                  /* Adresse d'une invitation : imposée, c'est elle qui ouvre
+                     l'accès offert. */
+                  gift ? undefined : setUser((p) => ({ ...p, email: v }))
+                }
+                readOnly={Boolean(gift)}
                 error={errors["user.email"]}
-                hint="Servira d'identifiant pour vous connecter à MediCare Pro."
+                hint={
+                  gift
+                    ? "L'adresse de votre invitation : elle servira d'identifiant pour vous connecter à MediCare Pro."
+                    : "Servira d'identifiant pour vous connecter à MediCare Pro."
+                }
                 autoComplete="email"
                 inputMode="email"
                 placeholder="prenom.nom@exemple.fr"
@@ -2066,10 +2165,13 @@ export default function CheckoutFlow({
                       Mensualité&nbsp;: <b>{row.monthlyLabel} TTC/mois</b>
                     </span>
                     <span className={s.recapTotal}>
-                      Débité aujourd&apos;hui par carte&nbsp;:{" "}
-                      {versements.length > 0
-                        ? `${formatEuros(versements[0])} TTC (1er des ${versements.length} versements)`
-                        : `${row.totalLabel} TTC ${plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}`}
+                      {gift
+                        ? `Aujourd'hui : 0,00 € (accès offert ${gift.months} mois, jusqu'au ${gift.endsAtLabel})`
+                        : `Débité aujourd'hui par carte : ${
+                            versements.length > 0
+                              ? `${formatEuros(versements[0])} TTC (1er des ${versements.length} versements)`
+                              : `${row.totalLabel} TTC ${plan === "ANNUAL" ? "(12 mois)" : "(1er mois)"}`
+                          }`}
                     </span>
                     {/* Le calendrier RÉPÉTÉ ici, et pas seulement à l'étape 1 :
                         c'est le dernier écran avant le débit, et c'est celui
@@ -2082,7 +2184,13 @@ export default function CheckoutFlow({
                         carte. Total {row.totalLabel} TTC, sans supplément.
                       </span>
                     )}
-                    {!sepaEnabled &&
+                    {gift ? (
+                      <span>
+                        {gift.requireCard
+                          ? `Puis ${row.totalLabel} TTC chaque ${plan === "ANNUAL" ? "année" : "mois"} à partir du ${gift.endsAtLabel}, sur la carte enregistrée, sauf arrêt avant.`
+                          : `Aucun moyen de paiement demandé. Ensuite, abonnement à ${row.totalLabel} TTC par ${plan === "ANNUAL" ? "an" : "mois"} si vous continuez ; sinon, lecture seule.`}
+                      </span>
+                    ) : !sepaEnabled &&
                       (plan === "ANNUAL" && !annualRenews ? (
                         <span>
                           Paiement unique, accès 12 mois — sans reconduction
@@ -2285,7 +2393,11 @@ export default function CheckoutFlow({
                      Il affichait 838,08 € là où 279,36 € allaient partir : le
                      praticien croit qu'on lui prend l'année entière, et celui
                      qui valide quand même conteste en découvrant l'écart. */
-                  `Payer ${versements.length > 0 ? formatEuros(versements[0]) : row.totalLabel} par carte`
+                  gift
+                    ? gift.requireCard
+                      ? "Enregistrer ma carte et activer l'accès"
+                      : "Activer mon accès offert"
+                    : `Payer ${versements.length > 0 ? formatEuros(versements[0]) : row.totalLabel} par carte`
                 )}
               </button>
             )}

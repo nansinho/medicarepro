@@ -34,7 +34,14 @@ type SubscriptionRow = {
   renewal_amount_cents: number;
   currency: string;
   created_at: string;
+  /** Fin de la période offerte, pour un contrat ouvert par une invitation. */
+  gift_ends_at: string | null;
+  renewal_count: number;
 };
+
+/** Contrat encore dans sa période offerte : rien n'a jamais été encaissé. */
+const enPeriodeOfferte = (r: SubscriptionRow) =>
+  r.status === "active" && Boolean(r.gift_ends_at) && r.renewal_count === 0;
 
 const PLAN_LABEL: Record<string, string> = { MONTHLY: "Mensuel", ANNUAL: "Annuel" };
 
@@ -71,7 +78,7 @@ export default async function AbonnementsPage() {
   const { data, error } = await service
     .from("subscriptions")
     .select(
-      "id, cabinet_name, admin_email, plan, extra_collaborators, status, current_period_end, renewal_amount_cents, currency, created_at",
+      "id, cabinet_name, admin_email, plan, extra_collaborators, status, current_period_end, renewal_amount_cents, currency, created_at, gift_ends_at, renewal_count",
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -83,8 +90,10 @@ export default async function AbonnementsPage() {
   const attention = rows.filter(
     (r) => r.status === "past_due" || r.status === "pending_mandate",
   ).length;
+  /* Une période offerte ne promet aucun renouvellement : sans carte, elle
+     s'arrête. La compter gonflerait ce chiffre d'un revenu qui n'existe pas. */
   const mrr = rows
-    .filter((r) => r.status === "active")
+    .filter((r) => r.status === "active" && !enPeriodeOfferte(r))
     .reduce((sum, r) => sum + r.renewal_amount_cents, 0);
   const nextEnd = rows
     .filter((r) => r.status === "active" && r.current_period_end)
@@ -168,6 +177,9 @@ export default async function AbonnementsPage() {
               id: "status",
               header: "Statut",
               cell: (sub) => {
+                if (enPeriodeOfferte(sub)) {
+                  return <Badge variant="blue">Offert jusqu&apos;au {fmtDate(sub.gift_ends_at)}</Badge>;
+                }
                 const st = STATUS[sub.status] ?? {
                   label: sub.status,
                   variant: "gray" as const,

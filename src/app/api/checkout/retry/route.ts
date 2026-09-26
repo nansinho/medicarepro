@@ -8,6 +8,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { clientIpFrom } from "@/lib/http/client-ip";
 import { isSameOriginJsonPost } from "@/lib/http/origin-guard";
+import { addGiftMonths } from "@/lib/billing/gift";
 
 /* ============================================================
    POST /api/checkout/retry — rouvrir la page de paiement d'un dossier
@@ -55,6 +56,10 @@ type OldRow = {
     postalCode: string;
   };
   stripe_customer_id: string | null;
+  gift_invitation_id: string | null;
+  gift_months: number | null;
+  gift_ends_at: string | null;
+  created_at: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -102,7 +107,7 @@ export async function POST(request: NextRequest) {
   const { data, error: loadError } = await supabase
     .from("pending_signups")
     .select(
-      "id, monetico_reference, status, status_token, plan, extra_collaborators, password_enc, cabinet, stripe_customer_id",
+      "id, monetico_reference, status, status_token, plan, extra_collaborators, password_enc, cabinet, stripe_customer_id, gift_invitation_id, gift_months, gift_ends_at, created_at",
     )
     .eq("monetico_reference", reference)
     .maybeSingle();
@@ -149,6 +154,63 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  /* ACCÈS OFFERT : la caisse se rouvre en période offerte, jamais en caisse
+     payante. Sans cette branche, un bénéficiaire qui revient sur la caisse
+     aurait été débité du prix plein.
+
+     L'invitation doit être encore en attente (un autre onglet a pu s'en
+     servir). La date de fin est celle du dossier tant que la session d'origine
+     peut encore être rendue par Stripe (24 heures) : il exige des paramètres
+     identiques pour une même clé. Au-delà, les mois repartent d'aujourd'hui. */
+  let gift:
+    | { invitationId: string; months: number; endsAt: Date; requireCard: boolean }
+    | undefined;
+  if (dossier.gift_invitation_id) {
+    const { data: inv } = await supabase
+      .from("gift_invitations")
+      .select("id, status, expires_at, require_card, months")
+      .eq("id", dossier.gift_invitation_id)
+      .maybeSingle();
+    const invitation = inv as {
+      id: string;
+      status: string;
+      expires_at: string;
+      require_card: boolean;
+      months: number;
+    } | null;
+    if (
+      !invitation ||
+      invitation.status !== "pending" ||
+      Date.parse(invitation.expires_at) <= Date.now()
+    ) {
+      return Response.json(
+        {
+          error:
+            "Cette invitation n'est plus valable (déjà utilisée, retirée ou expirée). Écrivez-nous à contact@medicarepro.fr.",
+        },
+        { status: 410 },
+      );
+    }
+    const months = dossier.gift_months ?? invitation.months;
+    const recent = Date.now() - Date.parse(dossier.created_at) < 23 * 3600 * 1000;
+    const endsAt =
+      recent && dossier.gift_ends_at
+        ? new Date(dossier.gift_ends_at)
+        : new Date(Math.floor(addGiftMonths(new Date(), months).getTime() / 1000) * 1000);
+    if (!recent || !dossier.gift_ends_at) {
+      await supabase
+        .from("pending_signups")
+        .update({ gift_ends_at: endsAt.toISOString() })
+        .eq("id", dossier.id);
+    }
+    gift = {
+      invitationId: invitation.id,
+      months,
+      endsAt,
+      requireCard: invitation.require_card,
+    };
+  }
+
   try {
     const customerId =
       dossier.stripe_customer_id ??
@@ -169,6 +231,7 @@ export async function POST(request: NextRequest) {
       reference: dossier.monetico_reference,
       plan: dossier.plan,
       extraCollaborators: dossier.extra_collaborators,
+      gift,
       customerId,
       successPath: "/inscription/confirmation",
       errorPath: "/inscription/echec",

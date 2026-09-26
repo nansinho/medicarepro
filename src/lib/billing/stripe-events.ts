@@ -19,6 +19,9 @@ import { mirrorStripeInvoice } from "@/lib/stripe/invoices";
 import { formatEuros } from "@/lib/checkout/pricing";
 import { logAudit } from "@/lib/audit";
 import { factsFromCompletedSession } from "@/lib/stripe/webhook";
+import { sendMail } from "@/lib/email";
+import { giftEndedEmail } from "@/lib/emails/gift-templates";
+import { loginUrl } from "@/lib/appLinks";
 
 /* ============================================================
    LES EFFETS D'UNE NOTIFICATION STRIPE, séparés de la route qui la reçoit.
@@ -108,7 +111,22 @@ export async function applyStripeEvent(
       occurredAt: faits.occurredAt,
       sessionId: session.id ?? null,
       stripe: faits.stripe,
+      giftInvitationId: faits.giftInvitationId ?? null,
     });
+
+    /* Un accès offert n'existe QUE dans le tunnel d'inscription : une session
+       gratuite qui ne correspond à aucun dossier ne doit surtout pas finir en
+       « commande réglée » de l'espace abonnement. */
+    if (inscription.kind === "not_a_signup" && faits.giftInvitationId) {
+      await supabase
+        .from("stripe_events")
+        .update({
+          processed_at: new Date().toISOString(),
+          process_error: "ignoré : session offerte sans dossier d'inscription",
+        })
+        .eq("event_id", eventId);
+      return;
+    }
 
     if (inscription.kind === "not_a_signup") {
       await finalizeOrderPayment({
@@ -190,7 +208,9 @@ export async function applyStripeEvent(
     const abonnement = event.data.object as Stripe.Subscription;
     const { data: subRow } = await supabase
       .from("subscriptions")
-      .select("id, cabinet_name, recurrence_stopped_at")
+      .select(
+        "id, cabinet_name, recurrence_stopped_at, gift_invitation_id, gift_ends_at, renewal_count, app_cabinet_id, admin_email, admin_name, plan, status",
+      )
       .eq("stripe_subscription_id", abonnement.id)
       .maybeSingle();
 
@@ -209,7 +229,29 @@ export async function applyStripeEvent(
       id: string;
       cabinet_name: string;
       recurrence_stopped_at: string | null;
+      gift_invitation_id: string | null;
+      gift_ends_at: string | null;
+      renewal_count: number;
+      app_cabinet_id: string;
+      admin_email: string;
+      admin_name: string;
+      plan: "MONTHLY" | "ANNUAL";
+      status: string;
     };
+
+    /* UNE PÉRIODE OFFERTE QUI S'ACHÈVE SANS ABONNEMENT. C'est le cours normal
+       d'un accès offert sans carte : Stripe résilie à la fin de l'essai. Rien
+       d'anormal, donc pas d'alerte « supprimé chez Stripe ».
+
+       Et surtout pas le chemin ordinaire (terme, puis quatorze jours
+       d'impayé) : le logiciel afficherait « Votre dernier paiement a été
+       refusé » à quelqu'un qui n'a jamais rien dû. Le contrat est clos tout de
+       suite, et l'application le sait tout de suite. */
+    if (sub.gift_invitation_id && sub.renewal_count === 0) {
+      await closeEndedGift(supabase, sub, new Date(event.created * 1000));
+      await marquerTraite();
+      return;
+    }
 
     /* Déjà marqué : c'est la fin normale d'une résiliation demandée par le
        praticien, elle a déjà été traitée et annoncée. */
@@ -778,6 +820,79 @@ async function applyStripeInvoicePaid(
       "L'encaissement, le contrat et la facture sont faits ; seule la date affichée dans l'application reste à poser à la main.",
     ]);
   }
+}
+
+/**
+ * Clôt un accès offert arrivé à son terme sans abonnement.
+ *
+ * Chaque étape est isolée : le contrat clos d'abord (c'est lui qui fait
+ * proposer « Reprendre un abonnement » dans l'espace), puis l'application,
+ * puis les messages. Un échec d'envoi n'empêche jamais la clôture.
+ */
+async function closeEndedGift(
+  supabase: NonNullable<ReturnType<typeof serviceClient>>,
+  sub: {
+    id: string;
+    cabinet_name: string;
+    recurrence_stopped_at: string | null;
+    gift_ends_at: string | null;
+    app_cabinet_id: string;
+    admin_email: string;
+    admin_name: string;
+    plan: "MONTHLY" | "ANNUAL";
+  },
+  endedAt: Date,
+): Promise<void> {
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({
+      status: "expired",
+      recurrence_stopped_at: sub.recurrence_stopped_at ?? endedAt.toISOString(),
+      grace_until: null,
+    })
+    .eq("id", sub.id);
+  if (error) throw new Error(`clôture de l'accès offert : ${error.message}`);
+
+  /* L'application lit aussi Stripe, et y voit déjà l'abonnement résilié. Cette
+     remontée couvre le cabinet dont le rattachement Stripe aurait échoué :
+     sans elle, il resterait ouvert en écriture indéfiniment. */
+  const sync = await notifyRenewal({
+    idempotencyKey: `gift-end-${sub.id}`,
+    cabinetId: sub.app_cabinet_id,
+    plan: sub.plan,
+    status: "EXPIRED",
+    cancelAtPeriodEnd: false,
+  });
+  if (!sync.ok) {
+    console.error("[stripe-webhook] fin d'accès offert non remontée :", sync.reason);
+  }
+
+  const finLabel = frDate(sub.gift_ends_at ? new Date(sub.gift_ends_at) : endedAt);
+  try {
+    await sendMail({
+      to: sub.admin_email,
+      ...giftEndedEmail({
+        adminFirstName: (sub.admin_name ?? "").trim().split(/\s+/)[0] ?? "",
+        cabinetName: sub.cabinet_name,
+        endedAtLabel: finLabel,
+        loginUrl: loginUrl(),
+      }),
+    });
+  } catch (err) {
+    console.error(
+      "[stripe-webhook] email de fin d'accès offert :",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  /* Une information, pas une panne : c'est le moment où un appel commercial a
+     le plus de chances d'aboutir, et l'équipe doit le savoir le jour même. */
+  await alerteStripe("Accès offert terminé sans abonnement", [
+    `Cabinet : ${sub.cabinet_name}`,
+    `Titulaire : ${sub.admin_name} (${sub.admin_email})`,
+    `Fin de la période offerte : ${finLabel}`,
+    "Le logiciel est passé en lecture seule. Le praticien a reçu un email l'invitant à s'abonner depuis « Gérer mon abonnement ».",
+  ]);
 }
 
 /** La fin de période appliquée par Stripe, lue sur la ligne de facture. */

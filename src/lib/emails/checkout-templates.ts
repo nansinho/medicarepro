@@ -134,6 +134,27 @@ export function callout(html: string): string {
           </tr>`;
 }
 
+/**
+ * Bouton d'action (lien), suivi d'une note facultative. Même dessin que celui
+ * de l'email de contact, pour qu'un client ne voie qu'une seule marque.
+ */
+export function ctaButton(label: string, href: string, noteHtml?: string): string {
+  const note = noteHtml
+    ? `<p style="margin:13px 0 0;font-family:${SANS};font-size:12px;color:${MUTED};line-height:1.6;">${noteHtml}</p>`
+    : "";
+  return `
+          <tr>
+            <td style="padding:28px 40px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr><td style="border-radius:14px;background:${GRAD};background-color:${PRIMARY};box-shadow:0 8px 20px rgba(43,111,214,.28);">
+                  <a href="${escHtml(href)}" style="display:inline-block;padding:15px 30px;font-family:${SANS};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">${escHtml(label)}&nbsp;&nbsp;&rarr;</a>
+                </td></tr>
+              </table>
+              ${note}
+            </td>
+          </tr>`;
+}
+
 export type EmailShellOptions = {
   /** <title> du document. */
   title: string;

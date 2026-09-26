@@ -6,6 +6,8 @@ import { billingEnv, hasBilling } from "@/lib/env";
 import { formatEuros } from "@/lib/checkout/pricing";
 import { logAudit } from "@/lib/audit";
 import type { StripeFacts } from "@/lib/billing/attach";
+import { claimGiftInvitation } from "@/lib/billing/gift";
+import { stripe } from "@/lib/stripe/client";
 
 /* ============================================================
    Le paiement d'un dossier d'INSCRIPTION, chez Stripe.
@@ -54,7 +56,23 @@ type SignupRow = {
   currency: string;
   plan: string;
   cabinet: { name?: string } | null;
+  gift_invitation_id: string | null;
 };
+
+/**
+ * Résilie un abonnement d'essai né d'une invitation qu'on ne peut pas honorer.
+ * Best-effort : l'alerte qui accompagne l'appel dit quoi faire si ça échoue.
+ */
+async function resilierEssaiOrphelin(subscriptionId: string): Promise<string> {
+  try {
+    await stripe().subscriptions.cancel(subscriptionId);
+    return "Abonnement d'essai résilié automatiquement.";
+  } catch (err) {
+    return `Résiliation automatique IMPOSSIBLE (${
+      err instanceof Error ? err.message.slice(0, 120) : "?"
+    }) : résilier l'abonnement à la main dans Stripe.`;
+  }
+}
 
 /* Les états depuis lesquels un paiement fait avancer le dossier. `superseded`
    en fait partie : une reprise a pu remplacer le dossier pendant que le client
@@ -84,17 +102,69 @@ export async function applyStripeSignupPayment(
     occurredAt: Date;
     sessionId: string | null;
     stripe: StripeFacts;
+    /** Invitation portée par la session, quand elle était offerte. */
+    giftInvitationId?: string | null;
   },
 ): Promise<SignupPaymentOutcome> {
   const { data } = await supabase
     .from("pending_signups")
-    .select("id, status, amount_cents, currency, plan, cabinet")
+    .select("id, status, amount_cents, currency, plan, cabinet, gift_invitation_id")
     .eq("monetico_reference", input.reference)
     .maybeSingle();
   if (!data) return { kind: "not_a_signup" };
 
   const row = data as SignupRow;
   const cabinetName = row.cabinet?.name ?? "(cabinet inconnu)";
+
+  /* ACCÈS OFFERT : la session et le dossier doivent désigner la MÊME
+     invitation. Une session gratuite sur un dossier payant, ou l'inverse, ne
+     peut venir que d'une erreur de notre part : on n'ouvre rien, on résilie
+     l'essai et on prévient. */
+  const invitationSession = input.giftInvitationId ?? null;
+  if (invitationSession !== row.gift_invitation_id) {
+    const suite = invitationSession
+      ? await resilierEssaiOrphelin(input.stripe.subscriptionId)
+      : "Vérifier le dossier : il attendait une période offerte et a reçu un paiement.";
+    await alerte("Accès offert incohérent", [
+      `Cabinet : ${cabinetName}`,
+      `Référence : ${input.reference}`,
+      `Invitation de la session : ${invitationSession ?? "(aucune)"}`,
+      `Invitation du dossier : ${row.gift_invitation_id ?? "(aucune)"}`,
+      suite,
+    ]);
+    return { kind: "already", status: "gift_mismatch" };
+  }
+
+  /* L'invitation se réserve ICI, au moment où la période s'ouvre chez Stripe,
+     et une seule fois. Si elle l'est déjà pour CE dossier (reprise après une
+     panne), on poursuit ; pour un autre, c'est un second onglet qui est allé
+     jusqu'au bout : son essai est résilié. */
+  if (row.gift_invitation_id && PAYABLES.includes(row.status)) {
+    const obtenue = await claimGiftInvitation(supabase, row.gift_invitation_id, row.id);
+    if (!obtenue) {
+      const { data: inv } = await supabase
+        .from("gift_invitations")
+        .select("pending_signup_id, status")
+        .eq("id", row.gift_invitation_id)
+        .maybeSingle();
+      const invitation = inv as { pending_signup_id: string | null; status: string } | null;
+      if (invitation?.pending_signup_id !== row.id) {
+        const suite = await resilierEssaiOrphelin(input.stripe.subscriptionId);
+        await alerte("Invitation déjà utilisée", [
+          `Cabinet : ${cabinetName}`,
+          `Référence : ${input.reference}`,
+          `État de l'invitation : ${invitation?.status ?? "introuvable"}`,
+          "Le même lien a servi deux fois (deux onglets, ou un lien transmis). Aucun second compte n'est créé.",
+          suite,
+        ]);
+        await supabase
+          .from("pending_signups")
+          .update({ code_retour: "gift_already_claimed" })
+          .eq("id", row.id);
+        return { kind: "already", status: "gift_already_claimed" };
+      }
+    }
+  }
 
   if (!PAYABLES.includes(row.status)) {
     /* Déjà payé, déjà provisionné, ou clos. Une re-livraison de la même

@@ -23,6 +23,8 @@ type StatusResponse = {
   /** Dossier figé : encaissé, mais plus aucune tentative automatique prévue. */
   needsReview?: boolean;
   loginUrl: string | null;
+  /** Accès offert : rien n'a été payé, l'écran ne parle ni de paiement ni de reçu. */
+  gift?: boolean;
 };
 
 type Phase =
@@ -86,6 +88,7 @@ export default function ConfirmationPoller({
     action: string;
     fields: Record<string, string>;
   } | null>(null);
+  const [gift, setGift] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
@@ -115,6 +118,7 @@ export default function ConfirmationPoller({
           const data = (await res.json()) as StatusResponse;
           if (stopped) return;
           setStatus(data.status);
+          if (data.gift) setGift(true);
           if (data.loginUrl) setLoginUrl(data.loginUrl);
           if (data.status === "provisioned") {
             setPhase("provisioned");
@@ -238,7 +242,9 @@ export default function ConfirmationPoller({
               <div className={s.statusIconOk} aria-hidden="true">
                 <IconCheck />
               </div>
-              <p className={s.centerTitle}>Paiement confirmé ✓</p>
+              <p className={s.centerTitle}>
+                {gift ? "Accès offert confirmé ✓" : "Paiement confirmé ✓"}
+              </p>
               <p className={s.centerText}>
                 Création de votre espace MediCare Pro en cours… Cela ne prend
                 généralement que quelques secondes.
@@ -249,12 +255,14 @@ export default function ConfirmationPoller({
             <>
               <span className={s.spinnerLarge} aria-hidden="true" />
               <p className={s.centerTitle}>
-                Confirmation du paiement en cours…
+                {gift
+                  ? "Activation de votre accès offert…"
+                  : "Confirmation du paiement en cours…"}
               </p>
               <p className={s.centerText}>
-                Nous attendons la confirmation de la banque. Ne fermez pas
-                cette fenêtre — cela ne prend généralement que quelques
-                secondes.
+                {gift
+                  ? "Ne fermez pas cette fenêtre : cela ne prend généralement que quelques secondes."
+                  : "Nous attendons la confirmation de la banque. Ne fermez pas cette fenêtre — cela ne prend généralement que quelques secondes."}
               </p>
             </>
           )}
@@ -302,8 +310,9 @@ export default function ConfirmationPoller({
           </div>
           <p className={s.centerTitle}>Votre espace est prêt !</p>
           <p className={s.centerText}>
-            Paiement confirmé et cabinet créé. Votre reçu et votre facture vous
-            sont envoyés par email.
+            {gift
+              ? "Votre accès offert est ouvert et votre cabinet est créé. La date de fin et la suite vous sont confirmées par email."
+              : "Paiement confirmé et cabinet créé. Votre reçu et votre facture vous sont envoyés par email."}
           </p>
           {loginUrl ? (
             <a className={s.btnPrimary} href={loginUrl}>
@@ -324,7 +333,7 @@ export default function ConfirmationPoller({
           </div>
           <p className={s.centerTitle}>Vérification en cours</p>
           <p className={s.centerText}>
-            Votre paiement est enregistré. Une vérification est
+            {gift ? "Votre inscription est enregistrée." : "Votre paiement est enregistré."} Une vérification est
             nécessaire&nbsp;: notre équipe vous contacte sous 24&nbsp;h
             ouvrées. Aucune action n&apos;est requise de votre part.
           </p>

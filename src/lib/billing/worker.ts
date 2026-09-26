@@ -31,13 +31,18 @@ import {
   billingAlertEmail,
   sepaMandateCopyEmail,
 } from "@/lib/emails/checkout-templates";
+import { giftWelcomeEmail } from "@/lib/emails/gift-templates";
+import { loginUrl } from "@/lib/appLinks";
 import { mandateText } from "@/lib/sepa/mandate-text";
 import { parseMoneticoDate } from "@/lib/monetico";
 import { maskIban, ibanLast4 } from "@/lib/sepa/iban";
 import { buildMandatePdf } from "@/lib/sepa/mandate-pdf";
 import { issueInvoice } from "@/lib/billing/invoices";
 import { captureLedgerEntry, cancelAuthorization } from "@/lib/billing/capture";
-import { linkStripeCustomerToCabinet } from "@/lib/stripe/customer";
+import {
+  linkStripeCustomerToCabinet,
+  linkStripeSubscriptionToCabinet,
+} from "@/lib/stripe/customer";
 
 /* ============================================================
    Worker de provisioning — cœur du tunnel d'inscription payante.
@@ -124,6 +129,9 @@ type PendingSignupRow = {
    * choix fait à l'écran et le contrat, créé bien après le paiement.
    */
   instalment_count: number;
+  /** Accès offert : l'invitation qui a ouvert ce dossier (0041). */
+  gift_invitation_id: string | null;
+  gift_months: number | null;
 };
 
 /* ------------------------------------------------------------
@@ -171,6 +179,30 @@ function addMonthsClamped(date: Date, months: number): Date {
 
 function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+/**
+ * L'invitation d'un accès offert exigeait-elle une carte ? C'est ce qui
+ * décide de la phrase sur l'échéance dans l'email d'ouverture.
+ *
+ * DANS LE DOUTE, OUI. Si la lecture échoue, on annonce que l'abonnement
+ * démarrera sur la carte enregistrée : l'erreur inverse (« aucune carte,
+ * rien ne sera prélevé ») pourrait précéder un prélèvement réel, et c'est
+ * exactement ce qui finit en contestation. Les rappels de fin de période,
+ * eux, relisent Stripe et disent le vrai.
+ */
+async function invitationExigeCarte(
+  supabase: SupabaseClient,
+  invitationId: string | null,
+): Promise<boolean> {
+  if (!invitationId) return true;
+  const { data, error } = await supabase
+    .from("gift_invitations")
+    .select("require_card")
+    .eq("id", invitationId)
+    .maybeSingle();
+  if (error || !data) return true;
+  return (data as { require_card: boolean }).require_card;
 }
 
 /** Alerte billing interne — best-effort, ne jette jamais. */
@@ -436,6 +468,9 @@ async function finalizeSuccess(
      notre facture ou laisser Stripe le faire, et marquer ou non l'annuel comme
      non reconductible. */
   const parStripe = row.payment_provider === "stripe";
+  /* Accès offert : rien n'a été encaissé. Pas d'écriture comptable, pas de
+     reçu de paiement ; un email « accès ouvert » à la place. */
+  const cadeau = Boolean(row.gift_invitation_id);
 
   /* --- Section critique : registre local (subscriptions, mandat, ledger).
      Si elle échoue APRÈS un provisioning réussi, le compte app existe :
@@ -507,6 +542,11 @@ async function finalizeSuccess(
            ensuite : ni résilier, ni changer de formule, ni changer de carte. */
         stripe_subscription_id: row.stripe_subscription_id,
         stripe_customer_id: row.stripe_customer_id,
+        /* La fin de période d'un accès offert EST la fin de l'essai Stripe :
+           c'est elle que balaient les rappels, et elle qui distingue une
+           période offerte terminée sans suite d'une résiliation ordinaire. */
+        gift_invitation_id: row.gift_invitation_id,
+        gift_ends_at: cadeau ? periodEnd.toISOString() : null,
         /* Un annuel MONETICO est un paiement unique (TPE immédiat) : aucune
            reconduction carte, on le marque tout de suite pour que l'admin
            n'affiche pas une reconduction « active ».
@@ -596,27 +636,45 @@ async function finalizeSuccess(
     //    capturer une échéance déjà prise.
     //    STRIPE : même chose, pour toutes les formules — Stripe encaisse seul,
     //    il n'y a pas d'autorisation à capturer ensuite.
-    const paidAtIso = row.paid_at ?? new Date().toISOString();
-    const { data: ledger, error: e4 } = await supabase
-      .from("billing_ledger")
-      .insert({
-        event_type: "card_payment",
-        payment_environment: row.payment_environment ?? null,
-        payment_provider: row.payment_provider ?? null,
-        amount_cents: row.amount_cents,
-        currency: row.currency,
-        occurred_at: paidAtIso,
-        captured_at: parStripe || row.plan === "ANNUAL" ? paidAtIso : null,
-        reference: row.monetico_reference,
-        subscription_id: subscriptionId,
-        cabinet_name: cabinet.name,
-      })
-      .select("id")
-      .single();
-    if (e4 || !ledger) {
-      throw new Error(`insert billing_ledger : ${e4?.message ?? "aucune ligne"}`);
+    //    ACCÈS OFFERT : aucune pièce. Rien n'est entré, et une écriture à
+    //    0 € n'apprendrait rien au comptable ; la première vraie échéance, si
+    //    elle vient, sera inscrite comme toute reconduction.
+    if (!cadeau) {
+      const paidAtIso = row.paid_at ?? new Date().toISOString();
+      const { data: ledger, error: e4 } = await supabase
+        .from("billing_ledger")
+        .insert({
+          event_type: "card_payment",
+          payment_environment: row.payment_environment ?? null,
+          payment_provider: row.payment_provider ?? null,
+          amount_cents: row.amount_cents,
+          currency: row.currency,
+          occurred_at: paidAtIso,
+          captured_at: parStripe || row.plan === "ANNUAL" ? paidAtIso : null,
+          reference: row.monetico_reference,
+          subscription_id: subscriptionId,
+          cabinet_name: cabinet.name,
+        })
+        .select("id")
+        .single();
+      if (e4 || !ledger) {
+        throw new Error(`insert billing_ledger : ${e4?.message ?? "aucune ligne"}`);
+      }
+      ledgerId = ledger.id as number;
     }
-    ledgerId = ledger.id as number;
+
+    // 4 bis. L'invitation connaît désormais son cabinet et son contrat : c'est
+    //    ce que le back-office affiche pour suivre la période offerte.
+    if (row.gift_invitation_id) {
+      const { error: eGift } = await supabase
+        .from("gift_invitations")
+        .update({
+          app_cabinet_id: provision.cabinetId,
+          subscription_id: subscriptionId,
+        })
+        .eq("id", row.gift_invitation_id);
+      if (eGift) throw new Error(`lien gift_invitations : ${eGift.message}`);
+    }
 
     // 5. Rattache la preuve de consentement contractuel au contrat durable
     //    (consent_records est lié à la chaîne de checkout par root_id).
@@ -729,6 +787,34 @@ async function finalizeSuccess(
     }
   }
 
+  /* L'ABONNEMENT AUSSI, et c'est ce qui réveille le logiciel.
+
+     Le logiciel lit Stripe par son propre webhook, mais TOUS les événements
+     d'une inscription (session, création de l'abonnement, première facture)
+     lui parviennent AVANT que le cabinet n'existe : il les classe « cabinet
+     introuvable » et ne les retraite jamais. Rattacher le client ne produit
+     qu'un `customer.updated`, qu'il n'écoute pas. Il ne découvrait donc
+     l'abonnement qu'à l'échéance suivante : un mois plus tard pour un
+     mensuel, et six mois plus tard pour un accès offert de six mois, qu'il
+     n'aurait jamais su présenter comme tel.
+
+     Poser la même métadonnée sur l'abonnement produit un
+     `customer.subscription.updated`, qu'il écoute : il le rattache à la
+     seconde. Best-effort : sans lui, la remontée de la vitrine ci-dessus
+     garde le cabinet ouvert, seule l'information arrive plus tard. */
+  if (criticalOk && parStripe && row.stripe_subscription_id) {
+    const lienAbonnement = await linkStripeSubscriptionToCabinet(
+      row.stripe_subscription_id,
+      provision.cabinetId,
+    );
+    if (!lienAbonnement.ok) {
+      console.error(
+        "[billing-worker] abonnement Stripe non rattaché :",
+        lienAbonnement.reason,
+      );
+    }
+  }
+
   if (criticalOk && subscriptionId) {
     const label = planLabel(row.plan, row.extra_collaborators);
     let invoiceNumber: string | undefined;
@@ -758,73 +844,97 @@ async function finalizeSuccess(
       }
     }
 
+    /* ACCÈS OFFERT : pas de reçu, puisque rien n'a été payé. Le praticien
+       reçoit la date de fin et ce qui se passera alors, par écrit, dès
+       l'ouverture : c'est ce qu'il relira le jour où la question se posera. */
+    if (cadeau) {
+      try {
+        const welcome = giftWelcomeEmail({
+          adminFirstName: user.firstName,
+          cabinetName: cabinet.name,
+          months: row.gift_months ?? 0,
+          endsAtLabel: periodEndDate ? frDate(periodEndDate) : "(date à confirmer)",
+          requireCard: await invitationExigeCarte(supabase, row.gift_invitation_id),
+          afterLabel: `${label}, ${formatEuros(
+            renewalAmountCents(row.plan, row.extra_collaborators),
+          )} TTC ${row.plan === "ANNUAL" ? "par an" : "par mois"}`,
+          loginUrl: provision.loginUrl || loginUrl(),
+        });
+        await sendMail({ to: user.email, ...welcome });
+      } catch (err) {
+        console.error("[billing-worker] échec email accès offert :", errMessage(err));
+      }
+    }
+
     // Reçu de paiement au client.
     // TODO : sendMail ne gère pas les pièces jointes — le PDF de facture
     // n'est PAS joint ; le template mentionne que la facture est disponible
     // sur demande / sera envoyée. À brancher quand sendMail saura joindre.
-    try {
-      const isAnnual = row.plan === "ANNUAL";
+    if (!cadeau) {
+      try {
+        const isAnnual = row.plan === "ANNUAL";
 
-      /* CE QUE LE REÇU ANNONCE SUR LA RECONDUCTION DÉPEND DU PRESTATAIRE, et
-         c'est la phrase qui engage le plus le client.
+        /* CE QUE LE REÇU ANNONCE SUR LA RECONDUCTION DÉPEND DU PRESTATAIRE, et
+           c'est la phrase qui engage le plus le client.
 
-         Chez Monetico, l'annuel passait par le TPE immédiat : un paiement
-         unique, sans reconduction, d'où l'annonce d'une date d'accès garanti et
-         d'un rappel avant échéance.
+           Chez Monetico, l'annuel passait par le TPE immédiat : un paiement
+           unique, sans reconduction, d'où l'annonce d'une date d'accès garanti et
+           d'un rappel avant échéance.
 
-         Chez Stripe, TOUTES les formules se reconduisent, l'annuelle comme la
-         mensuelle. Écrire « sans reconduction automatique » à un client qui sera
-         prélevé dans douze mois serait un mensonge sur le point le plus
-         sensible du contrat. */
-      const reconduit = parStripe || !isAnnual;
-      const renewal =
-        !reconduit ||
-        (!parStripe && billingEnv().sepaEnabled) ||
-        !periodEndDate
-          ? undefined
-          : {
-              amountLabel: formatEuros(
+           Chez Stripe, TOUTES les formules se reconduisent, l'annuelle comme la
+           mensuelle. Écrire « sans reconduction automatique » à un client qui sera
+           prélevé dans douze mois serait un mensonge sur le point le plus
+           sensible du contrat. */
+        const reconduit = parStripe || !isAnnual;
+        const renewal =
+          !reconduit ||
+          (!parStripe && billingEnv().sepaEnabled) ||
+          !periodEndDate
+            ? undefined
+            : {
+                amountLabel: formatEuros(
+                  renewalAmountCents(row.plan, row.extra_collaborators),
+                ),
+                periodLabel: isAnnual ? "chaque année" : "chaque mois",
+                nextDateLabel: frDate(periodEndDate),
+              };
+        const accessUntilLabel =
+          !reconduit && isAnnual && periodEndDate ? frDate(periodEndDate) : undefined;
+
+        /* LE REÇU D'UN RÈGLEMENT ÉCHELONNÉ NE DIT PAS LA MÊME CHOSE.
+
+           Sans cette distinction, le praticien lit « Offre 12 mois : 99,36 € » —
+           c'est-à-dire le prix d'une offre à 298,08 €, présenté comme s'il avait
+           tout réglé. Il découvrirait le deuxième prélèvement un mois plus tard
+           sans y avoir été préparé, et c'est ce qui produit une contestation
+           bancaire. Le reçu est le document qu'il garde : il doit porter le
+           calendrier, pas un montant isolé. */
+        const echelonne = row.instalment_count > 1;
+        const receipt = paymentReceiptEmail({
+          adminFirstName: user.firstName,
+          cabinetName: cabinet.name,
+          planLabel: echelonne
+            ? `${label} — réglée en ${row.instalment_count} versements`
+            : label,
+          amountLabel: echelonne
+            ? `${formatEuros(row.amount_cents)} (1er des ${row.instalment_count} versements, total ${formatEuros(
                 renewalAmountCents(row.plan, row.extra_collaborators),
-              ),
-              periodLabel: isAnnual ? "chaque année" : "chaque mois",
-              nextDateLabel: frDate(periodEndDate),
-            };
-      const accessUntilLabel =
-        !reconduit && isAnnual && periodEndDate ? frDate(periodEndDate) : undefined;
-
-      /* LE REÇU D'UN RÈGLEMENT ÉCHELONNÉ NE DIT PAS LA MÊME CHOSE.
-
-         Sans cette distinction, le praticien lit « Offre 12 mois : 99,36 € » —
-         c'est-à-dire le prix d'une offre à 298,08 €, présenté comme s'il avait
-         tout réglé. Il découvrirait le deuxième prélèvement un mois plus tard
-         sans y avoir été préparé, et c'est ce qui produit une contestation
-         bancaire. Le reçu est le document qu'il garde : il doit porter le
-         calendrier, pas un montant isolé. */
-      const echelonne = row.instalment_count > 1;
-      const receipt = paymentReceiptEmail({
-        adminFirstName: user.firstName,
-        cabinetName: cabinet.name,
-        planLabel: echelonne
-          ? `${label} — réglée en ${row.instalment_count} versements`
-          : label,
-        amountLabel: echelonne
-          ? `${formatEuros(row.amount_cents)} (1er des ${row.instalment_count} versements, total ${formatEuros(
-              renewalAmountCents(row.plan, row.extra_collaborators),
-            )})`
-          : formatEuros(row.amount_cents),
-        reference: row.monetico_reference,
-        paidAtLabel: frDateTime(row.paid_at),
-        invoiceNumber,
-        renewal,
-        accessUntilLabel,
-        /* Chez Stripe la résiliation se fait d'un bouton dans l'espace
-           abonnement : renvoyer vers contact@medicarepro.fr ferait écrire un
-           client qui n'a rien à demander à personne. */
-        selfServiceCancel: parStripe,
-      });
-      await sendMail({ to: user.email, ...receipt });
-    } catch (err) {
-      console.error("[billing-worker] échec email reçu :", errMessage(err));
+              )})`
+            : formatEuros(row.amount_cents),
+          reference: row.monetico_reference,
+          paidAtLabel: frDateTime(row.paid_at),
+          invoiceNumber,
+          renewal,
+          accessUntilLabel,
+          /* Chez Stripe la résiliation se fait d'un bouton dans l'espace
+             abonnement : renvoyer vers contact@medicarepro.fr ferait écrire un
+             client qui n'a rien à demander à personne. */
+          selfServiceCancel: parStripe,
+        });
+        await sendMail({ to: user.email, ...receipt });
+      } catch (err) {
+        console.error("[billing-worker] échec email reçu :", errMessage(err));
+      }
     }
 
     // Pièces liées au mandat SEPA — uniquement si un mandat a été créé.
@@ -881,14 +991,29 @@ async function finalizeSuccess(
       }
     }
 
-    // Alerte interne : nouvelle souscription.
-    await sendBillingAlert("Nouvelle souscription MediCare Pro", [
-      `Cabinet : ${cabinet.name}`,
-      `Offre : ${label}`,
-      `1er paiement : ${formatEuros(row.amount_cents)} (référence ${row.monetico_reference})`,
-      `Renouvellement : ${formatEuros(renewalAmountCents(row.plan, row.extra_collaborators))}`,
-      rum ? `Mandat SEPA : ${rum}` : "Renouvellement : hors SEPA (empreinte carte)",
-    ]);
+    // Alerte interne : nouvelle souscription (ou accès offert ouvert).
+    await sendBillingAlert(
+      cadeau ? "Accès offert activé" : "Nouvelle souscription MediCare Pro",
+      cadeau
+        ? [
+            `Cabinet : ${cabinet.name}`,
+            `Titulaire : ${user.firstName} ${user.lastName} (${user.email})`,
+            `Accès offert : ${row.gift_months ?? "?"} mois, jusqu'au ${
+              periodEndDate ? frDate(periodEndDate) : "(date à confirmer)"
+            }`,
+            `Formule ensuite : ${label}, ${formatEuros(
+              renewalAmountCents(row.plan, row.extra_collaborators),
+            )}`,
+            `Référence : ${row.monetico_reference}`,
+          ]
+        : [
+            `Cabinet : ${cabinet.name}`,
+            `Offre : ${label}`,
+            `1er paiement : ${formatEuros(row.amount_cents)} (référence ${row.monetico_reference})`,
+            `Renouvellement : ${formatEuros(renewalAmountCents(row.plan, row.extra_collaborators))}`,
+            rum ? `Mandat SEPA : ${rum}` : "Renouvellement : hors SEPA (empreinte carte)",
+          ],
+    );
 
     await logAudit({
       action: "provisioning.succeeded",
