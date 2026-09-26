@@ -77,7 +77,7 @@ export default async function SecuritePage() {
         />
       </Section>
 
-      <Section tint="violet" edge={0} center>
+      <Section tint="amber" edge={0} center>
         <Head eyebrow={portal.kicker} title={portal.title} centered />
         <IconCards
           items={portal.cards.map((c) => ({

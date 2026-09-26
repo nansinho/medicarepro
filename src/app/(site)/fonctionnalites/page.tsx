@@ -14,13 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /* Fond d'une section de fonctionnalité : blanc, ou la teinte douce de son
    module (la tonalité du CMS dit « coloré ou non », le module dit la couleur).
-   Pas de fond vert d'eau : les modules turquoise et vert passent en violet. */
+   Pas de fond vert d'eau : les modules turquoise et vert passent en bleu
+   ciel (pas en ambre : la section chiffres qui suit les vitrines l'est déjà). */
 const TINT_BY_ACCENT: Record<Accent, Tint> = {
   blue: "blue",
-  teal: "violet",
+  teal: "sky",
   violet: "violet",
   amber: "amber",
-  green: "violet",
+  green: "sky",
   sky: "sky",
   indigo: "blue",
 };

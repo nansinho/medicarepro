@@ -212,7 +212,9 @@ a.card:hover .cardLink svg,
 
 /* ---------- FAQ ----------
    Titre et encart d'aide à gauche, questions en cartes blanches à droite,
-   sur toute la largeur du conteneur. Mobile : titre, questions, encart. */
+   sur toute la largeur du conteneur. Mobile : titre, questions, encart.
+   Les accents (ronds +/−, icônes) prennent la couleur du fond de section
+   (--sec-ink / --sec-tint, posées par le kit). */
 .faqGrid {
   display: grid;
   grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
@@ -245,7 +247,7 @@ a.card:hover .cardLink svg,
     box-shadow 0.25s;
 }
 .faq details[open] {
-  border-color: rgba(138, 43, 226, 0.22);
+  border-color: color-mix(in srgb, var(--sec-ink, var(--brand-blue)) 24%, transparent);
   box-shadow: 0 24px 44px -34px rgba(20, 27, 52, 0.42);
 }
 .faq summary {
@@ -265,10 +267,10 @@ a.card:hover .cardLink svg,
   display: none;
 }
 .faq summary:hover {
-  color: var(--brand-violet);
+  color: var(--sec-ink, var(--brand-blue));
 }
 .faq summary:focus-visible {
-  outline: 2px solid var(--brand-violet);
+  outline: 2px solid var(--sec-ink, var(--brand-blue));
   outline-offset: 2px;
 }
 /* Bouton rond « + » qui devient « − » une fois la réponse ouverte */
@@ -278,7 +280,7 @@ a.card:hover .cardLink svg,
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--tint-violet);
+  background: var(--sec-tint, var(--tint-blue));
   transition: background-color 0.25s;
 }
 .faq summary i::before,
@@ -291,7 +293,7 @@ a.card:hover .cardLink svg,
   height: 2px;
   margin: -1px 0 0 -6.5px;
   border-radius: 2px;
-  background: var(--brand-violet);
+  background: var(--sec-ink, var(--brand-blue));
   transition:
     transform 0.25s,
     background-color 0.25s;
@@ -300,10 +302,10 @@ a.card:hover .cardLink svg,
   transform: rotate(90deg);
 }
 .faq summary:hover i {
-  background: #e6d9f8;
+  background: color-mix(in srgb, var(--sec-ink, var(--brand-blue)) 16%, #fff);
 }
 .faq details[open] summary i {
-  background: var(--brand-violet);
+  background: var(--sec-ink, var(--brand-blue));
 }
 .faq details[open] summary i::before,
 .faq details[open] summary i::after {
@@ -344,8 +346,8 @@ a.card:hover .cardLink svg,
   height: 46px;
   margin-bottom: 18px;
   border-radius: 12px;
-  background: var(--tint-violet);
-  color: var(--brand-violet);
+  background: var(--sec-tint, var(--tint-blue));
+  color: var(--sec-ink, var(--brand-blue));
 }
 .faqHelpIco svg {
   width: 23px;
@@ -379,7 +381,7 @@ a.card:hover .cardLink svg,
   flex: none;
   width: 18px;
   height: 18px;
-  color: var(--brand-violet);
+  color: var(--sec-ink, var(--brand-blue));
 }
 .faqHelp li a {
   overflow-wrap: anywhere;
@@ -388,7 +390,7 @@ a.card:hover .cardLink svg,
   transition: color 0.2s;
 }
 .faqHelp li a:hover {
-  color: var(--brand-violet);
+  color: var(--sec-ink, var(--brand-blue));
 }
 .faqHelpBtn {
   margin-top: 22px;

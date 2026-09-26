@@ -78,7 +78,7 @@ export default async function AvantagesPage() {
         <StatsBlock stats={stats.stats} onWhite />
       </Section>
 
-      <Section tint="violet" edge={0} center>
+      <Section tint="sky" edge={0} center>
         <Head eyebrow={portal.kicker} title={portal.title} centered />
         <IconCards
           items={portal.cards.map((c) => ({

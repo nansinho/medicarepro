@@ -46,7 +46,7 @@ export default async function AProposPage() {
       />
 
       {/* Notre histoire : le récit à gauche, la frise à droite */}
-      <Section tint="violet" edge={0}>
+      <Section tint="amber" edge={0}>
         <div className={`${k.two}`} style={{ alignItems: "start" }}>
           <div data-rv-kit="">
             <Eyebrow>{story.kicker}</Eyebrow>
@@ -56,7 +56,7 @@ export default async function AProposPage() {
             </div>
             {story.signature && <Signature>{story.signature}</Signature>}
           </div>
-          <TimelineList steps={timeline.steps} ring="var(--tint-violet)" />
+          <TimelineList steps={timeline.steps} ring="var(--tint-amber)" />
         </div>
       </Section>
 

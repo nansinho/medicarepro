@@ -262,7 +262,7 @@ export default function ChartePage() {
         </div>
       </Section>
 
-      <Section tint="violet" edge={0}>
+      <Section tint="sky" edge={0}>
         <Head eyebrow="03 · Déclinaisons" title="Quatre formes, un seul logo" />
         <div className={c.variants}>
           {FORMS.map((v) => (

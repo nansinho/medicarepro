@@ -48,7 +48,7 @@ export default async function TarifsPage() {
         <SavingsBlock content={savings} />
       </Section>
 
-      <Section tint="violet" edge={5} id="faq">
+      <Section tint="amber" edge={5} id="faq">
         <FaqBlock kicker={faq.kicker} title={faq.title} items={faqItems} />
       </Section>
 

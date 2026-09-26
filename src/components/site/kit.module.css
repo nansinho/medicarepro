@@ -33,20 +33,30 @@
   text-align: center;
 }
 
+/* Chaque fond expose sa couleur (--sec-ink, lisible sur blanc) et sa teinte
+   (--sec-tint) : les blocs posés dessus (FAQ…) s'accordent au fond. */
 .t_white {
   background: #fff;
 }
 .t_blue {
   background: var(--tint-blue);
+  --sec-ink: var(--brand-blue);
+  --sec-tint: var(--tint-blue);
 }
 .t_violet {
   background: var(--tint-violet);
+  --sec-ink: var(--brand-violet);
+  --sec-tint: var(--tint-violet);
 }
 .t_amber {
   background: var(--tint-amber);
+  --sec-ink: var(--brand-amber-ink);
+  --sec-tint: var(--tint-amber);
 }
 .t_sky {
   background: var(--tint-sky);
+  --sec-ink: #1b7f9c;
+  --sec-tint: var(--tint-sky);
 }
 
 /* ---------- Typographie ---------- */

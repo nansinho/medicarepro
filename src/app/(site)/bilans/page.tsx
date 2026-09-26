@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Head, Section, Title } from "@/components/site/Kit";
+import { Head, Section, Title, type Tint } from "@/components/site/Kit";
 import PageHead from "@/components/site/PageHead";
 import {
   CtaBlock,
@@ -17,6 +17,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("/bilans");
 }
 
+/* Couleurs des bilans mis en avant sur fond coloré, dans l'ordre de la
+   page (la section « groupes » plus bas est déjà violette). */
+const TINTS: Tint[] = ["sky", "amber"];
+
 export default async function BilansPage() {
   const [sections, bilans] = await Promise.all([
     getPageSections("/bilans"),
@@ -32,6 +36,12 @@ export default async function BilansPage() {
   const crossLinks = pick(sections, "cross_links", "cross_links");
 
   const items = showcase.limit ? bilans.slice(0, showcase.limit) : bilans;
+  const tints = items.reduce<Tint[]>((acc, _, i) => {
+    const tone = showcase.tones?.[i];
+    const n = acc.filter((t) => t !== "white").length;
+    acc.push(!tone || tone === "white" ? "white" : TINTS[n % TINTS.length]);
+    return acc;
+  }, []);
 
   return (
     <>
@@ -48,7 +58,7 @@ export default async function BilansPage() {
       {items.map((item, i) => (
         <Section
           key={item.title}
-          tint={showcase.tones?.[i] && showcase.tones[i] !== "white" ? "violet" : "white"}
+          tint={tints[i]}
           edge={i === 0 ? 3 : i === 2 ? 1 : undefined}
         >
           <ShowcaseSplit
