@@ -206,7 +206,8 @@ export const SEO_DEFAULTS = {
     sitemapChangefreq: "monthly",
   },
   "/avantages": {
-    title: "Les avantages du logiciel tout-en-un",
+    /* Pas « logiciel tout-en-un » : c'est la cible de l'accueil (cannibalisation). */
+    title: "Avantages pour votre cabinet de podologie",
     description:
       "Tout-en-un, simple, rapide : pourquoi les podologues choisissent MediCare Pro. Jusqu'à 260 €/mois économisés vs des outils séparés, dès 24,84 €/mois.",
     canonical: "/avantages",
@@ -315,6 +316,12 @@ export const JSONLD_ORG = {
   email: "contact@medicarepro.fr",
   description:
     "Éditeur du logiciel MediCare Pro, solution tout-en-un de gestion de cabinet pour pédicures-podologues.",
+  /* Profils officiels : relient l'entité « MediCare Pro » (moteurs de recherche et IA). */
+  sameAs: [
+    "https://www.facebook.com/people/MedicarePro/61594602694325/",
+    "https://www.instagram.com/medicarepro.fr/",
+    "https://www.youtube.com/@medicarepro-fr",
+  ],
 };
 
 export const JSONLD_SOFTWARE = {
