@@ -519,6 +519,15 @@
   .bar {
     height: 72px;
   }
+  /* Menu replié : la place libérée rend son icône à la connexion, pour se
+     connecter sans ouvrir le menu (mobile, application installée). */
+  .login {
+    display: inline-flex;
+  }
+  .login svg {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 /* Petits téléphones : logo et boutons resserrés pour que le bouton du menu
@@ -534,12 +543,17 @@
   .right {
     gap: 4px;
   }
-  .iconBtn {
+  .iconBtn,
+  .login {
     width: 42px;
     height: 42px;
   }
 }
+/* Trois boutons à droite : l'écart se resserre pour tenir à 320px. */
 @media (max-width: 360px) {
+  .bar {
+    column-gap: 8px;
+  }
   .logo > span {
     --brand-size: 30px !important;
   }
