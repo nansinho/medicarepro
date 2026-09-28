@@ -206,7 +206,7 @@ export default function VillesManager({
                           Revoir
                         </Button>
                         <Button variant="ghost" size="icon-sm" asChild aria-label="Aperçu de la page">
-                          <a href={`/logiciel-podologue/${row.slug}`} target="_blank" rel="noreferrer">
+                          <a href={`/api/draft/enable?path=/logiciel-podologue/${row.slug}`} target="_blank" rel="noreferrer">
                             <ExternalLink className="size-4" />
                           </a>
                         </Button>
@@ -252,7 +252,7 @@ export default function VillesManager({
                 )}
 
                 <Button variant="outline" size="sm" asChild className="w-full">
-                  <a href={`/logiciel-podologue/${reviewing.slug}`} target="_blank" rel="noreferrer">
+                  <a href={`/api/draft/enable?path=/logiciel-podologue/${reviewing.slug}`} target="_blank" rel="noreferrer">
                     <ExternalLink />
                     Ouvrir la page rendue
                   </a>

@@ -3,7 +3,7 @@ import { serviceClient } from "@/lib/supabase/service";
 import { timingSafeEqualString } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { hasAi } from "@/lib/ai/anthropic";
-import { processCityGeneration } from "@/lib/ai/city-generator";
+import { loadOtherPages, processCityGeneration, type OtherPage } from "@/lib/ai/city-generator";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,6 +44,8 @@ async function handle(request: NextRequest): Promise<NextResponse> {
 
   const started = Date.now();
   const processed: { id: string; ok: boolean; message: string }[] = [];
+  /* Pages déjà générées (unicité, similarité) : chargées une fois par passage. */
+  let others: OtherPage[] | null = null;
 
   while (Date.now() - started < TIME_BUDGET_MS && processed.length < MAX_PER_RUN) {
     /* Réclame la plus ancienne génération queued (ou une running bloquée). */
@@ -64,7 +66,8 @@ async function handle(request: NextRequest): Promise<NextResponse> {
       continue;
     }
 
-    const result = await processCityGeneration(service, generation);
+    others ??= await loadOtherPages(service);
+    const result = await processCityGeneration(service, generation, others);
     processed.push({ id: generation.id, ...result });
   }
 

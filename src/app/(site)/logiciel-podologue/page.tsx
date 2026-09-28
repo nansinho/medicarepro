@@ -5,11 +5,14 @@ import { OfferBlock } from "@/components/site/Blocks";
 import { PhotoFrame } from "@/components/site/Visuals";
 import CitySearch from "@/components/site/CitySearch";
 import { getPublishedCities, type CityListItem } from "@/lib/cms/cities";
+import { regionAnchor } from "@/lib/cms/city-data";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import s from "@/components/site/city.module.css";
 
 export const metadata: Metadata = {
-  title: "Logiciel podologue partout en France",
+  /* Pas « logiciel podologue » en tête : c'est la cible de l'accueil. Le hub
+     vise la recherche par ville, chaque ville visant « logiciel podologue + ville ». */
+  title: { absolute: "Partout en France : MediCare Pro ville par ville" },
   description:
     "MediCare Pro, le logiciel de gestion de cabinet des pédicures-podologues, partout en France et en outre-mer. Trouvez la page de votre ville.",
   alternates: { canonical: "/logiciel-podologue" },
@@ -67,7 +70,7 @@ export default async function LogicielPodologueHub() {
             {regions.map((region) => {
               const list = byRegion.get(region) ?? [];
               return (
-                <section key={region} className={s.region}>
+                <section key={region} id={regionAnchor(region)} className={s.region}>
                   <h3>
                     {region}
                     <small>

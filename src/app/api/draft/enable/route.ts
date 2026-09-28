@@ -15,8 +15,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const path = request.nextUrl.searchParams.get("path") ?? "/";
-  /* Seules les pages gérées sont prévisualisables. */
-  const target = FALLBACK_PAGES[path] ? path : "/";
+  /* Seules les pages gérées et les pages villes sont prévisualisables. */
+  const isCityPage = /^\/logiciel-podologue\/[a-z0-9-]+$/.test(path);
+  const target = FALLBACK_PAGES[path] || isCityPage ? path : "/";
 
   const draft = await draftMode();
   draft.enable();

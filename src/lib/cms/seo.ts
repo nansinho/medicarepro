@@ -134,20 +134,22 @@ export async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {
     };
   });
 
-  /* Pages villes SEO local publiées + le hub. */
+  /* Pages villes SEO local publiées + le hub. lastmod réel (dernière
+     modification de la ville ; le hub suit la plus récente). */
   const cities = await getPublishedCities();
+  const latest = cities.reduce((max, c) => (c.updatedAt > max ? c.updatedAt : max), "");
   const cityEntries: MetadataRoute.Sitemap =
     cities.length > 0
       ? [
           {
             url: `${SITE_URL}/logiciel-podologue`,
-            lastModified: buildDate,
+            lastModified: latest ? new Date(latest) : buildDate,
             changeFrequency: "weekly" as const,
             priority: 0.6,
           },
           ...cities.map((city) => ({
             url: `${SITE_URL}/logiciel-podologue/${city.slug}`,
-            lastModified: buildDate,
+            lastModified: new Date(city.updatedAt),
             changeFrequency: "monthly" as const,
             priority: 0.5,
           })),

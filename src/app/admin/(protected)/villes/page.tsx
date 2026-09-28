@@ -40,10 +40,16 @@ export default async function AdminVillesPage() {
     );
   }
 
-  const { data: all } = await service.from("cities").select("status, wave");
+  /* Par tranches : la base plafonne une réponse à 1 000 lignes (5 000+ villes). */
+  const all: { status: string; wave: number }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data } = await service.from("cities").select("status, wave").order("id").range(from, from + 999);
+    all.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
   const byStatus: Record<string, number> = {};
   const byWave: Record<number, { total: number; published: number }> = {};
-  for (const row of all ?? []) {
+  for (const row of all) {
     byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
     const w = (byWave[row.wave] ??= { total: 0, published: 0 });
     w.total += 1;

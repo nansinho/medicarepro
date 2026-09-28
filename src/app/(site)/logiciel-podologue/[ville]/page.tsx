@@ -16,7 +16,11 @@ import {
 } from "@/components/site/Kit";
 import { CtaBlock, FaqBlock } from "@/components/site/Blocks";
 import { PhotoFrame } from "@/components/site/Visuals";
+import CityFigures from "@/components/site/CityFigures";
 import { getPublishedCity, getPublishedCities, getNearbyCities } from "@/lib/cms/cities";
+import { cityLabel, regionAnchor, RPPS_DATASET_URL } from "@/lib/cms/city-data";
+import { fold } from "@/lib/ai/city-quality";
+import { JSONLD_ORG } from "@/data/content/site";
 import { getPageSections, pick } from "@/lib/cms/pages";
 import { isPermanent, resolveRedirect } from "@/lib/cms/redirects";
 import { recordRedirectHit } from "@/lib/cms/seo-log";
@@ -74,29 +78,65 @@ export default async function VillePage({
   const cta = pick(aProposSections, "cta_band", "cta_band");
   const sameRegion = all.filter((c) => c.region === city.region && c.slug !== city.slug).slice(0, 6);
 
+  const url = `${SITE_URL}/logiciel-podologue/${city.slug}`;
+  const label = cityLabel(city.name, city.deptCode, city.localData?.homonyme);
   const crumbs = [
     { label: "Accueil", href: "/" },
     { label: "Partout en France", href: "/logiciel-podologue" },
-    { label: city.name, href: `/logiciel-podologue/${city.slug}` },
+    { label: city.region, href: `/logiciel-podologue#${regionAnchor(city.region)}` },
+    { label, href: `/logiciel-podologue/${city.slug}` },
   ];
 
-  /* JSON-LD : Service (areaServed = la ville) + FAQPage. Pas de
+  /* Questions balisées : seulement celles qui citent la ville. Les questions
+     génériques (hébergement, mise en route…) reviennent d'une page à l'autre,
+     et Google demande de ne baliser qu'une fois une FAQ répétée sur un site. */
+  const localFaq = city.faq.filter((item) => fold(item.q).includes(fold(city.name)));
+
+  /* JSON-LD : page (date, source des chiffres) + Service rattaché à
+     l'entreprise (même @id que le JSON-LD global) + FAQPage locale. Pas de
      LocalBusiness (MediCare Pro n'a pas d'établissement dans la ville). */
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Service",
-        name: `Logiciel de gestion de cabinet ${city.nameLocative}`,
-        serviceType: "Logiciel de gestion pour pédicures-podologues",
-        provider: { "@type": "Organization", name: "MediCare Pro" },
-        areaServed: { "@type": "City", name: city.name },
-        url: `${SITE_URL}/logiciel-podologue/${city.slug}`,
+        "@type": "WebPage",
+        "@id": `${url}#page`,
+        url,
+        name: city.seoTitle,
+        description: city.seoDescription,
+        inLanguage: "fr-FR",
+        dateModified: city.updatedAt,
+        publisher: { "@id": JSONLD_ORG["@id"] },
+        about: { "@id": `${url}#service` },
+        ...(city.localData
+          ? {
+              citation: {
+                "@type": "Dataset",
+                name: "Annuaire Santé : extractions des données en libre accès (RPPS)",
+                url: RPPS_DATASET_URL,
+                creator: { "@type": "Organization", name: "Agence du Numérique en Santé" },
+              },
+            }
+          : {}),
       },
-      city.faq.length > 0
+      {
+        "@type": "Service",
+        "@id": `${url}#service`,
+        name: `Logiciel de gestion de cabinet pour podologues ${city.nameLocative}`,
+        serviceType: "Logiciel de gestion pour pédicures-podologues",
+        provider: { "@id": JSONLD_ORG["@id"] },
+        areaServed: {
+          "@type": "City",
+          name: label,
+          containedInPlace: { "@type": "AdministrativeArea", name: city.deptName },
+        },
+        url,
+      },
+      localFaq.length > 0
         ? {
             "@type": "FAQPage",
-            mainEntity: city.faq.map((item) => ({
+            "@id": `${url}#faq`,
+            mainEntity: localFaq.map((item) => ({
               "@type": "Question",
               name: item.q,
               acceptedAnswer: { "@type": "Answer", text: item.a },
@@ -142,11 +182,15 @@ export default async function VillePage({
         <Split
           reverse
           visual={
-            <PhotoFrame
-              src="/images/fonctionnalites/podologue-medicarepro-section-3.jpg"
-              alt="Soin du pied en cabinet de podologie"
-              variant={0}
-            />
+            city.localData ? (
+              <CityFigures data={city.localData} nameLocative={city.nameLocative} />
+            ) : (
+              <PhotoFrame
+                src="/images/fonctionnalites/podologue-medicarepro-section-3.jpg"
+                alt="Soin du pied en cabinet de podologie"
+                variant={0}
+              />
+            )
           }
           title={`Un logiciel pensé pour les podologues ${city.nameLocative}`}
           text={city.content.contexte_local}
@@ -162,7 +206,7 @@ export default async function VillePage({
               variant={3}
             />
           }
-          title="Ce que MediCare Pro change au quotidien"
+          title={`Ce que MediCare Pro change pour un cabinet ${city.nameLocative}`}
           text={city.content.benefices}
           items={[
             "**Dossiers patients et 13 bilans podologiques normés**, scores calculés automatiquement.",
