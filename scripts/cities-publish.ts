@@ -45,7 +45,9 @@ async function deploy() {
     return;
   }
   const headers = { Authorization: `Bearer ${token}` };
-  const res = await fetch(`${api}/api/v1/deploy?uuid=${uuid}&force=false`, { method: "POST", headers });
+  /* force=true : même commit que le déploiement précédent → sans cela, Docker
+     réutilise l'ancien build (pages pré-rendues sans les villes publiées). */
+  const res = await fetch(`${api}/api/v1/deploy?uuid=${uuid}&force=true`, { method: "POST", headers });
   const body = (await res.json()) as { deployments?: { deployment_uuid: string }[] };
   const id = body.deployments?.[0]?.deployment_uuid;
   if (!id) throw new Error(`Déploiement refusé : ${JSON.stringify(body)}`);
