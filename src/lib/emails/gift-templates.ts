@@ -15,10 +15,15 @@ import {
 
    Quatre moments : l'invitation, l'ouverture de l'accès, les rappels avant la
    fin, la fin sans abonnement. Chacun dit la même chose sur le point qui
-   engage : ce qui se passe à l'échéance. Avec carte, l'abonnement démarre
-   seul ; sans carte, rien n'est prélevé et le compte passe en lecture seule
-   s'il ne s'abonne pas. Jamais d'ambiguïté là-dessus : c'est ce qui évite la
-   contestation bancaire comme le sentiment d'avoir été piégé.
+   engage : ce qui se passe à l'échéance. Aucune carte n'est demandée, rien
+   n'est prélevé, et le compte passe en lecture seule si le bénéficiaire ne
+   s'abonne pas. Jamais d'ambiguïté là-dessus : c'est ce qui évite le
+   sentiment d'avoir été piégé.
+
+   Seul le rappel distingue encore deux cas : un bénéficiaire a pu enregistrer
+   lui-même un moyen de paiement pendant la période, et son abonnement démarre
+   alors à l'échéance. Ce n'est plus jamais demandé à l'inscription (décision
+   du 01/10/2026 : une carte demandée faisait renoncer les invités).
 
    Le motif de l'invitation (« Quiz de l'été ») n'apparaît jamais ici : c'est
    une note interne, pas un texte écrit pour le bénéficiaire.
@@ -27,14 +32,7 @@ import {
 const STRONG = "color:#274760;";
 
 /** Ce qui se passe à la fin, dit de la même façon dans tous les emails. */
-function finDePeriode(requireCard: boolean, months: number): { html: string; text: string } {
-  if (requireCard) {
-    const text = `À la fin des ${months} mois, votre abonnement démarre sur la carte enregistrée, sans engagement. Vous pouvez l'arrêter à tout moment avant, et nous vous prévenons par email quelques jours avant la fin.`;
-    return {
-      html: `<strong style="${STRONG}">À la fin des ${months} mois</strong>, votre abonnement démarre sur la carte enregistrée, sans engagement. Vous pouvez l'arrêter à tout moment avant, et nous vous prévenons par email quelques jours avant la fin.`,
-      text,
-    };
-  }
+function finDePeriode(months: number): { html: string; text: string } {
   const text = `Aucune carte bancaire n'est demandée. À la fin des ${months} mois, vous choisirez de vous abonner pour continuer. Sinon, vos dossiers restent consultables et exportables : rien n'est supprimé. Nous vous prévenons par email avant la fin.`;
   return {
     html: `<strong style="${STRONG}">Aucune carte bancaire n'est demandée.</strong> À la fin des ${months} mois, vous choisirez de vous abonner pour continuer. Sinon, vos dossiers restent consultables et exportables&nbsp;: rien n'est supprimé. Nous vous prévenons par email avant la fin.`,
@@ -50,10 +48,9 @@ export function giftInvitationEmail(d: {
   months: number;
   link: string;
   expiresAtLabel: string;
-  requireCard: boolean;
 }): EmailContent {
   const subject = `MediCare Pro vous offre ${d.months} mois d'accès`;
-  const fin = finDePeriode(d.requireCard, d.months);
+  const fin = finDePeriode(d.months);
 
   const bodyHtml =
     heading(
@@ -63,10 +60,7 @@ export function giftInvitationEmail(d: {
     kvCard([
       { label: "Accès offert", valueHtml: `${d.months} mois` },
       { label: "À régler aujourd'hui", valueHtml: "0,00&nbsp;€" },
-      {
-        label: "Carte bancaire",
-        valueHtml: d.requireCard ? "Demandée, sans prélèvement" : "Non demandée",
-      },
+      { label: "Carte bancaire", valueHtml: "Non demandée" },
     ]) +
     ctaButton(
       "Activer mon accès offert",
@@ -87,7 +81,7 @@ export function giftInvitationEmail(d: {
     "",
     `Accès offert : ${d.months} mois`,
     "À régler aujourd'hui : 0,00 €",
-    `Carte bancaire : ${d.requireCard ? "demandée, sans prélèvement" : "non demandée"}`,
+    "Carte bancaire : non demandée",
     "",
     "Activer mon accès offert :",
     d.link,
@@ -120,13 +114,10 @@ export function giftWelcomeEmail(d: {
   cabinetName: string;
   months: number;
   endsAtLabel: string;
-  requireCard: boolean;
-  /** « Mensuel sans engagement, 29,88 € TTC par mois ». */
-  afterLabel: string;
   loginUrl: string;
 }): EmailContent {
   const subject = "Votre accès offert à MediCare Pro est ouvert";
-  const fin = finDePeriode(d.requireCard, d.months);
+  const fin = finDePeriode(d.months);
 
   const bodyHtml =
     heading(
@@ -137,12 +128,7 @@ export function giftWelcomeEmail(d: {
       { label: "Accès offert", valueHtml: `${d.months} mois` },
       { label: "Jusqu'au", valueHtml: escHtml(d.endsAtLabel) },
       { label: "Réglé aujourd'hui", valueHtml: "0,00&nbsp;€" },
-      {
-        label: "Ensuite",
-        valueHtml: d.requireCard
-          ? escHtml(d.afterLabel)
-          : "Abonnement à choisir, si vous continuez",
-      },
+      { label: "Ensuite", valueHtml: "Abonnement à choisir, si vous continuez" },
     ]) +
     ctaButton(
       "Se connecter à MediCare Pro",
@@ -164,7 +150,7 @@ export function giftWelcomeEmail(d: {
     `Accès offert : ${d.months} mois`,
     `Jusqu'au : ${d.endsAtLabel}`,
     "Réglé aujourd'hui : 0,00 €",
-    `Ensuite : ${d.requireCard ? d.afterLabel : "abonnement à choisir, si vous continuez"}`,
+    "Ensuite : abonnement à choisir, si vous continuez",
     "",
     `Se connecter : ${d.loginUrl}`,
     "",

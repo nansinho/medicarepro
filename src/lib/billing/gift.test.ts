@@ -57,7 +57,7 @@ describe("addGiftMonths — le jour du mois borné", () => {
 });
 
 describe("parseGiftDraft — la saisie du back-office", () => {
-  const ok = { email: " Guilhaume.Lejeune@Gmail.com ", months: "6", reason: "Quiz de l'été 2026", requireCard: "no" };
+  const ok = { email: " Guilhaume.Lejeune@Gmail.com ", months: "6", reason: "Quiz de l'été 2026" };
 
   it("normalise l'adresse, qui deviendra un identifiant", () => {
     const r = parseGiftDraft(ok);
@@ -67,15 +67,8 @@ describe("parseGiftDraft — la saisie du back-office", () => {
         email: "guilhaume.lejeune@gmail.com",
         months: 6,
         reason: "Quiz de l'été 2026",
-        requireCard: false,
       },
     });
-  });
-
-  it("n'a AUCUNE valeur par défaut pour la fin de période", () => {
-    const r = parseGiftDraft({ ...ok, requireCard: null });
-    expect(r).toMatchObject({ ok: false, field: "requireCard" });
-    expect(parseGiftDraft({ ...ok, requireCard: "on" })).toMatchObject({ ok: false });
   });
 
   it("borne la durée entre 1 et 12 mois", () => {

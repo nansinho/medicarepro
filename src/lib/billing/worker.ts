@@ -181,30 +181,6 @@ function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-/**
- * L'invitation d'un accès offert exigeait-elle une carte ? C'est ce qui
- * décide de la phrase sur l'échéance dans l'email d'ouverture.
- *
- * DANS LE DOUTE, OUI. Si la lecture échoue, on annonce que l'abonnement
- * démarrera sur la carte enregistrée : l'erreur inverse (« aucune carte,
- * rien ne sera prélevé ») pourrait précéder un prélèvement réel, et c'est
- * exactement ce qui finit en contestation. Les rappels de fin de période,
- * eux, relisent Stripe et disent le vrai.
- */
-async function invitationExigeCarte(
-  supabase: SupabaseClient,
-  invitationId: string | null,
-): Promise<boolean> {
-  if (!invitationId) return true;
-  const { data, error } = await supabase
-    .from("gift_invitations")
-    .select("require_card")
-    .eq("id", invitationId)
-    .maybeSingle();
-  if (error || !data) return true;
-  return (data as { require_card: boolean }).require_card;
-}
-
 /** Alerte billing interne — best-effort, ne jette jamais. */
 async function sendBillingAlert(title: string, lines: string[]): Promise<void> {
   try {
@@ -854,10 +830,6 @@ async function finalizeSuccess(
           cabinetName: cabinet.name,
           months: row.gift_months ?? 0,
           endsAtLabel: periodEndDate ? frDate(periodEndDate) : "(date à confirmer)",
-          requireCard: await invitationExigeCarte(supabase, row.gift_invitation_id),
-          afterLabel: `${label}, ${formatEuros(
-            renewalAmountCents(row.plan, row.extra_collaborators),
-          )} TTC ${row.plan === "ANNUAL" ? "par an" : "par mois"}`,
           loginUrl: provision.loginUrl || loginUrl(),
         });
         await sendMail({ to: user.email, ...welcome });

@@ -9,31 +9,42 @@ import {
 /* ============================================================
    Les emails de l'accès offert.
 
-   Ce qu'on vérifie, c'est la phrase qui engage : un bénéficiaire sans carte
-   ne doit JAMAIS lire qu'un prélèvement aura lieu, et un bénéficiaire avec
-   carte doit TOUJOURS lire le montant et la date avant qu'il ait lieu.
+   Ce qu'on vérifie, c'est la phrase qui engage : un bénéficiaire ne doit
+   JAMAIS lire qu'une carte lui sera demandée ou qu'un prélèvement aura lieu
+   sans qu'il l'ait choisi. Seul celui qui a enregistré lui-même un moyen de
+   paiement lit, avant l'échéance, le montant et la date du prélèvement.
    ============================================================ */
 
 const LIEN = "https://medicarepro.fr/inscription?invitation=abc";
 const APP = "https://app.medicarepro.fr/login";
 
 describe("emails d'accès offert", () => {
-  it("invitation sans carte : aucun prélèvement annoncé, le lien est présent", () => {
-    const m = giftInvitationEmail({ months: 6, link: LIEN, expiresAtLabel: "25 novembre 2026", requireCard: false });
+  it("invitation : aucune carte, aucun prélèvement annoncé, le lien est présent", () => {
+    const m = giftInvitationEmail({ months: 6, link: LIEN, expiresAtLabel: "25 novembre 2026" });
     expect(m.subject).toContain("6 mois");
     expect(m.html).toContain(LIEN);
     expect(m.text).toContain(LIEN);
     expect(m.text).toContain("Aucune carte bancaire n'est demandée");
-    expect(m.text).not.toMatch(/démarre sur la carte/);
+    expect(m.text).toContain("Carte bancaire : non demandée");
+    expect(m.text).not.toMatch(/démarre sur la carte|prélèvement/i);
   });
 
-  it("invitation avec carte : l'abonnement qui démarre est annoncé", () => {
-    const m = giftInvitationEmail({ months: 3, link: LIEN, expiresAtLabel: "25 novembre 2026", requireCard: true });
-    expect(m.text).toContain("démarre sur la carte enregistrée");
+  it("ouverture de l'accès : aucune carte, aucun prélèvement annoncé", () => {
+    const m = giftWelcomeEmail({
+      adminFirstName: "Nathan",
+      cabinetName: "Cabinet Varon",
+      months: 1,
+      endsAtLabel: "30 octobre 2026",
+      loginUrl: APP,
+    });
+    expect(m.text).toContain("Aucune carte bancaire n'est demandée");
+    expect(m.text).toContain("abonnement à choisir");
+    expect(m.text).toContain(APP);
+    expect(m.text).not.toMatch(/démarre sur la carte|prélèvement/i);
   });
 
   it("n'écrit jamais le motif interne de l'invitation", () => {
-    const m = giftInvitationEmail({ months: 6, link: LIEN, expiresAtLabel: "25 novembre 2026", requireCard: false });
+    const m = giftInvitationEmail({ months: 6, link: LIEN, expiresAtLabel: "25 novembre 2026" });
     expect(m.html.toLowerCase()).not.toContain("quiz");
   });
 
@@ -43,15 +54,13 @@ describe("emails d'accès offert", () => {
       cabinetName: "Cabinet \"Dupont\" & fils",
       months: 6,
       endsAtLabel: "26 mars 2027",
-      requireCard: false,
-      afterLabel: "Mensuel sans engagement, 29,88 € TTC par mois",
       loginUrl: APP,
     });
     expect(m.html).not.toContain("<script>");
     expect(m.html).toContain("&lt;script&gt;");
   });
 
-  it("rappel avec carte : montant et date du premier prélèvement", () => {
+  it("rappel, carte ajoutée par le bénéficiaire : montant et date du premier prélèvement", () => {
     const m = giftReminderEmail({
       adminFirstName: "Guilhaume",
       cabinetName: "Cabinet Lejeune",
@@ -90,9 +99,9 @@ describe("emails d'accès offert", () => {
 
   it("aucun tiret cadratin dans le texte écrit pour le bénéficiaire", () => {
     const tous = [
-      giftInvitationEmail({ months: 6, link: LIEN, expiresAtLabel: "x", requireCard: true }),
-      giftInvitationEmail({ months: 6, link: LIEN, expiresAtLabel: "x", requireCard: false }),
-      giftWelcomeEmail({ adminFirstName: "a", cabinetName: "b", months: 6, endsAtLabel: "x", requireCard: true, afterLabel: "y", loginUrl: APP }),
+      giftInvitationEmail({ months: 6, link: LIEN, expiresAtLabel: "x" }),
+      giftWelcomeEmail({ adminFirstName: "a", cabinetName: "b", months: 6, endsAtLabel: "x", loginUrl: APP }),
+      giftReminderEmail({ adminFirstName: "a", cabinetName: "b", endsAtLabel: "x", daysBefore: 7, hasPaymentMethod: true, planLabel: "p", amountLabel: "m", loginUrl: APP }),
       giftReminderEmail({ adminFirstName: "a", cabinetName: "b", endsAtLabel: "x", daysBefore: 7, hasPaymentMethod: false, planLabel: "p", amountLabel: "m", loginUrl: APP }),
       giftEndedEmail({ adminFirstName: "a", cabinetName: "b", endedAtLabel: "x", loginUrl: APP }),
     ];

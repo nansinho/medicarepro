@@ -80,18 +80,17 @@ export default function GiftAccessView({ lignes }: { lignes: GiftLigne[] }) {
                   créer à la main dans l&apos;application.
                 </p>
                 <p>
-                  <b className="text-foreground">Rien n&apos;est prélevé</b>{" "}
-                  pendant la période offerte, qui court à partir de
-                  l&apos;inscription.
+                  <b className="text-foreground">Aucune carte demandée.</b>{" "}
+                  Rien n&apos;est prélevé pendant la période offerte, qui court
+                  à partir de l&apos;inscription.
                 </p>
                 <p>
                   <b className="text-foreground">Rappels automatiques</b>{" "}
                   14, 7
-                  et 2 jours avant la fin. Ensuite, selon le choix fait à
-                  l&apos;envoi : l&apos;abonnement démarre, ou le compte passe en
-                  lecture seule (rien n&apos;est supprimé) et le bénéficiaire est
-                  invité à s&apos;abonner. L&apos;équipe est prévenue par email
-                  dans ce second cas.
+                  et 2 jours avant la fin. Ensuite, le bénéficiaire s&apos;abonne
+                  s&apos;il veut continuer ; sinon son compte passe en lecture
+                  seule (rien n&apos;est supprimé) et l&apos;équipe est prévenue
+                  par email.
                 </p>
               </div>
             </Card>
@@ -162,12 +161,6 @@ export default function GiftAccessView({ lignes }: { lignes: GiftLigne[] }) {
                 id: "months",
                 header: "Durée",
                 cell: (l) => `${l.invitation.months} mois`,
-              },
-              {
-                id: "end",
-                header: "Ensuite",
-                cell: (l) =>
-                  l.invitation.require_card ? "Abonnement" : "Lecture seule",
               },
               {
                 id: "until",

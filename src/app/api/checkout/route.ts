@@ -578,7 +578,6 @@ export async function POST(request: NextRequest) {
             invitationId: cadeau.id,
             months: cadeau.months,
             endsAt: giftEndsAt,
-            requireCard: cadeau.require_card,
           }
         : undefined,
     statusToken,
@@ -618,12 +617,11 @@ async function openStripeCheckout(args: {
   user: { firstName: string; lastName: string; email: string };
   invoicePrefix: string;
   amountCents: number;
-  /** Accès offert : période d'essai Stripe jusqu'à `endsAt`. */
+  /** Accès offert : période d'essai Stripe jusqu'à `endsAt`, sans carte. */
   gift?: {
     invitationId: string;
     months: number;
     endsAt: Date;
-    requireCard: boolean;
   };
   statusToken: string;
   ip: string | null;
@@ -707,7 +705,6 @@ async function openStripeCheckout(args: {
             giftInvitation: args.gift.invitationId,
             giftMonths: args.gift.months,
             giftEndsAt: args.gift.endsAt.toISOString(),
-            giftRequireCard: args.gift.requireCard,
           }
         : {}),
     },

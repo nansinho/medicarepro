@@ -58,8 +58,6 @@ export type GiftOffer = {
   /** Adresse invitée, imposée comme identifiant de connexion. */
   email: string;
   months: number;
-  /** Carte demandée à la caisse : l'abonnement démarre seul à la fin. */
-  requireCard: boolean;
   /** Fin indicative de la période, « 26 mars 2027 ». */
   endsAtLabel: string;
 };
@@ -1164,10 +1162,10 @@ export default function CheckoutFlow({
                     {gift.endsAtLabel}
                   </p>
                   <p className={s.giftText}>
-                    Rien à régler aujourd&apos;hui.{" "}
-                    {gift.requireCard
-                      ? "Une carte vous sera demandée, sans aucun prélèvement pendant la période offerte. Ensuite, la formule choisie ci-dessous démarre, sans engagement, sauf si vous l'arrêtez avant."
-                      : "Aucun moyen de paiement n'est demandé. À la fin, vous choisirez de vous abonner à la formule ci-dessous pour continuer ; sinon, vos dossiers resteront consultables et exportables."}
+                    Rien à régler aujourd&apos;hui. Aucun moyen de paiement
+                    n&apos;est demandé. À la fin, vous choisirez de vous abonner
+                    à la formule ci-dessous pour continuer ; sinon, vos dossiers
+                    resteront consultables et exportables.
                   </p>
                 </div>
               )}
@@ -1356,33 +1354,17 @@ export default function CheckoutFlow({
                 {gift ? (
                   /* ACCÈS OFFERT : ce qui se passe à la fin, en clair, avant
                      toute saisie. C'est la phrase qui engage. */
-                  gift.requireCard ? (
-                    <span>
-                      Rien n&apos;est prélevé avant le {gift.endsAtLabel}. À
-                      cette date, votre abonnement démarre sur la carte
-                      enregistrée, pour{" "}
-                      <b>
-                        {row.totalLabel} TTC par{" "}
-                        {plan === "ANNUAL" ? "an" : "mois"}
-                      </b>
-                      , puis se reconduit jusqu&apos;à ce que vous y mettiez fin.
-                      Vous pouvez l&apos;arrêter à tout moment avant depuis votre
-                      espace abonnement&nbsp;: votre accès reste ouvert jusqu&apos;à
-                      la fin de la période offerte.
-                    </span>
-                  ) : (
-                    <span>
-                      Aucun moyen de paiement n&apos;est demandé et rien ne sera
-                      prélevé. Pour continuer après le {gift.endsAtLabel}, vous
-                      pourrez vous abonner depuis votre logiciel, pour{" "}
-                      <b>
-                        {row.totalLabel} TTC par{" "}
-                        {plan === "ANNUAL" ? "an" : "mois"}
-                      </b>
-                      . Sans abonnement, votre compte passe en lecture
-                      seule&nbsp;: rien n&apos;est supprimé.
-                    </span>
-                  )
+                  <span>
+                    Aucun moyen de paiement n&apos;est demandé et rien ne sera
+                    prélevé. Pour continuer après le {gift.endsAtLabel}, vous
+                    pourrez vous abonner depuis votre logiciel, pour{" "}
+                    <b>
+                      {row.totalLabel} TTC par{" "}
+                      {plan === "ANNUAL" ? "an" : "mois"}
+                    </b>
+                    . Sans abonnement, votre compte passe en lecture
+                    seule&nbsp;: rien n&apos;est supprimé.
+                  </span>
                 ) : sepaEnabled ? (
                   <span>
                     Le premier règlement s&apos;effectue par carte bancaire
@@ -2186,9 +2168,7 @@ export default function CheckoutFlow({
                     )}
                     {gift ? (
                       <span>
-                        {gift.requireCard
-                          ? `Puis ${row.totalLabel} TTC chaque ${plan === "ANNUAL" ? "année" : "mois"} à partir du ${gift.endsAtLabel}, sur la carte enregistrée, sauf arrêt avant.`
-                          : `Aucun moyen de paiement demandé. Ensuite, abonnement à ${row.totalLabel} TTC par ${plan === "ANNUAL" ? "an" : "mois"} si vous continuez ; sinon, lecture seule.`}
+                        {`Aucun moyen de paiement demandé. Ensuite, abonnement à ${row.totalLabel} TTC par ${plan === "ANNUAL" ? "an" : "mois"} si vous continuez ; sinon, lecture seule.`}
                       </span>
                     ) : !sepaEnabled &&
                       (plan === "ANNUAL" && !annualRenews ? (
@@ -2394,9 +2374,7 @@ export default function CheckoutFlow({
                      praticien croit qu'on lui prend l'année entière, et celui
                      qui valide quand même conteste en découvrant l'écart. */
                   gift
-                    ? gift.requireCard
-                      ? "Enregistrer ma carte et activer l'accès"
-                      : "Activer mon accès offert"
+                    ? "Activer mon accès offert"
                     : `Payer ${versements.length > 0 ? formatEuros(versements[0]) : row.totalLabel} par carte`
                 )}
               </button>

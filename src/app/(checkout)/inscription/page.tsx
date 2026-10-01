@@ -96,7 +96,6 @@ export default async function InscriptionPage({
       token: sp.invitation,
       email: invitation.email,
       months: invitation.months,
-      requireCard: invitation.require_card,
       /* Indicatif : la date exacte est fixée à l'ouverture de la caisse, les
          mois courant à partir de l'inscription. */
       endsAtLabel: addGiftMonths(new Date(), invitation.months).toLocaleDateString(

@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select";
 import { Notice } from "@/components/admin/shared";
 import { Field, FieldGrid, FormActions } from "@/components/admin/kit/Field";
-import { cn } from "@/lib/utils";
 import {
   creerInvitation,
   type GiftFormState,
@@ -22,31 +21,14 @@ import {
 /* ============================================================
    Nouvelle invitation d'accès offert.
 
-   Le seul choix qui engage vraiment est « ce qui se passe à la fin ». Il n'a
-   pas de valeur par défaut : un bénéficiaire prélevé sans l'avoir compris, ou
-   un gagnant à qui l'on demande sa carte alors qu'on voulait lui faire un
-   cadeau, sont deux erreurs qui coûtent cher. Il se fait donc en conscience,
-   à chaque invitation.
+   AUCUNE CARTE N'EST JAMAIS DEMANDÉE. Le choix « carte demandée ou non »
+   existait jusqu'au 01/10/2026 ; il a été retiré à la demande du dirigeant :
+   un cadeau qui réclame une carte n'est plus perçu comme un cadeau, et les
+   invités renonçaient. À la fin de la période, le bénéficiaire s'abonne s'il
+   veut continuer, sinon son compte passe en lecture seule.
    ============================================================ */
 
 const MONTHS = [1, 2, 3, 6, 9, 12];
-
-const FIN: {
-  value: "yes" | "no";
-  title: string;
-  text: string;
-}[] = [
-  {
-    value: "no",
-    title: "Cadeau, sans carte",
-    text: "Aucun moyen de paiement demandé. À la fin, le bénéficiaire choisit de s'abonner ; sinon son compte passe en lecture seule (dossiers consultables et exportables).",
-  },
-  {
-    value: "yes",
-    title: "Période offerte, puis abonnement",
-    text: "Carte demandée à l'inscription, sans aucun prélèvement pendant la période. À la fin, l'abonnement démarre seul, sans engagement, sauf arrêt avant.",
-  },
-];
 
 export default function GiftInviteForm() {
   const [state, action, pending] = useActionState<GiftFormState, FormData>(
@@ -54,7 +36,6 @@ export default function GiftInviteForm() {
     null,
   );
   const [copied, setCopied] = useState(false);
-  const [fin, setFin] = useState<"yes" | "no" | "">("");
 
   const erreurChamp = (champ: string) =>
     state && !state.ok && state.field === champ ? state.error : undefined;
@@ -122,46 +103,12 @@ export default function GiftInviteForm() {
           </Field>
         </FieldGrid>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1.5 text-cell font-medium text-foreground">
-            À la fin de la période offerte
-            <span className="text-destructive"> *</span>
-          </legend>
-          <div className="grid gap-3 @narrow/page:grid-cols-2">
-            {FIN.map((option) => (
-              <label
-                key={option.value}
-                className={cn(
-                  "flex cursor-pointer gap-3 rounded-xl border p-3.5 transition-colors",
-                  fin === option.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:bg-secondary/50",
-                )}
-              >
-                <input
-                  type="radio"
-                  name="requireCard"
-                  value={option.value}
-                  checked={fin === option.value}
-                  onChange={() => setFin(option.value)}
-                  className="mt-1 accent-[color:var(--primary)]"
-                  required
-                />
-                <span className="min-w-0">
-                  <span className="block text-cell font-medium text-foreground">
-                    {option.title}
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-                    {option.text}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {erreurChamp("requireCard") && (
-            <p className="text-xs text-destructive">{erreurChamp("requireCard")}</p>
-          )}
-        </fieldset>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Aucune carte bancaire n&apos;est demandée au bénéficiaire et rien
+          n&apos;est prélevé. À la fin de la période, il s&apos;abonne s&apos;il
+          veut continuer ; sinon son compte passe en lecture seule (dossiers
+          consultables et exportables).
+        </p>
 
         {state && !state.ok && !state.field && (
           <Notice tone="bad" title="L'invitation n'a pas été envoyée">

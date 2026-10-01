@@ -51,7 +51,7 @@ function frDate(date: Date): string {
   });
 }
 
-async function envoyer(email: string, months: number, requireCard: boolean, link: string, expiresAt: Date): Promise<boolean> {
+async function envoyer(email: string, months: number, link: string, expiresAt: Date): Promise<boolean> {
   try {
     await sendMail({
       to: email,
@@ -59,7 +59,6 @@ async function envoyer(email: string, months: number, requireCard: boolean, link
         months,
         link,
         expiresAtLabel: frDate(expiresAt),
-        requireCard,
       }),
     });
     return true;
@@ -91,7 +90,6 @@ export async function creerInvitation(
       email: formData.get("email"),
       months: formData.get("months"),
       reason: formData.get("reason"),
-      requireCard: formData.get("requireCard"),
     });
     if (!parsed.ok) return { ok: false, field: parsed.field, error: parsed.error };
     const draft = parsed.draft;
@@ -142,7 +140,9 @@ export async function creerInvitation(
         email: draft.email,
         months: draft.months,
         reason: draft.reason,
-        require_card: draft.requireCard,
+        /* Jamais de carte demandée : la colonne, obligatoire en base, ne garde
+           plus que cette valeur. */
+        require_card: false,
         token_hash: hash,
         expires_at: expiresAt.toISOString(),
         created_by: staff.id,
@@ -158,7 +158,7 @@ export async function creerInvitation(
     }
 
     const link = inscriptionLink(token);
-    const emailSent = await envoyer(draft.email, draft.months, draft.requireCard, link, expiresAt);
+    const emailSent = await envoyer(draft.email, draft.months, link, expiresAt);
 
     await logAudit({
       action: "billing.gift_invitation_created",
@@ -168,7 +168,6 @@ export async function creerInvitation(
         email: draft.email,
         months: draft.months,
         reason: draft.reason,
-        requireCard: draft.requireCard,
         emailSent,
       },
       actorId: staff.id,
@@ -199,14 +198,13 @@ export async function renvoyerInvitation(id: string): Promise<GiftRowState> {
 
     const { data } = await service
       .from("gift_invitations")
-      .select("id, email, months, require_card, status, sent_count")
+      .select("id, email, months, status, sent_count")
       .eq("id", id)
       .maybeSingle();
     const inv = data as {
       id: string;
       email: string;
       months: number;
-      require_card: boolean;
       status: string;
       sent_count: number;
     } | null;
@@ -242,7 +240,7 @@ export async function renvoyerInvitation(id: string): Promise<GiftRowState> {
     }
 
     const link = inscriptionLink(token);
-    const emailSent = await envoyer(inv.email, inv.months, inv.require_card, link, expiresAt);
+    const emailSent = await envoyer(inv.email, inv.months, link, expiresAt);
 
     await logAudit({
       action: "billing.gift_invitation_resent",

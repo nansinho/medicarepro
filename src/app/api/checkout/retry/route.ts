@@ -162,20 +162,17 @@ export async function POST(request: NextRequest) {
      servir). La date de fin est celle du dossier tant que la session d'origine
      peut encore être rendue par Stripe (24 heures) : il exige des paramètres
      identiques pour une même clé. Au-delà, les mois repartent d'aujourd'hui. */
-  let gift:
-    | { invitationId: string; months: number; endsAt: Date; requireCard: boolean }
-    | undefined;
+  let gift: { invitationId: string; months: number; endsAt: Date } | undefined;
   if (dossier.gift_invitation_id) {
     const { data: inv } = await supabase
       .from("gift_invitations")
-      .select("id, status, expires_at, require_card, months")
+      .select("id, status, expires_at, months")
       .eq("id", dossier.gift_invitation_id)
       .maybeSingle();
     const invitation = inv as {
       id: string;
       status: string;
       expires_at: string;
-      require_card: boolean;
       months: number;
     } | null;
     if (
@@ -203,12 +200,7 @@ export async function POST(request: NextRequest) {
         .update({ gift_ends_at: endsAt.toISOString() })
         .eq("id", dossier.id);
     }
-    gift = {
-      invitationId: invitation.id,
-      months,
-      endsAt,
-      requireCard: invitation.require_card,
-    };
+    gift = { invitationId: invitation.id, months, endsAt };
   }
 
   try {

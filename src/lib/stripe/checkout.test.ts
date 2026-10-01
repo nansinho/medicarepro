@@ -368,16 +368,15 @@ describe("buildCheckoutParams — règlement en trois fois", () => {
 
 describe("buildCheckoutParams — accès offert", () => {
   const dansSixMois = () => new Date(Date.now() + 182 * 86_400_000);
-  const cadeau = (requireCard: boolean) => ({
+  const cadeau = () => ({
     invitationId: "7b0c2d7e-0000-4000-8000-000000000001",
     months: 6,
     endsAt: dansSixMois(),
-    requireCard,
   });
 
   it("ouvre une période d'essai jusqu'au terme offert, résiliée faute de carte", async () => {
     const { buildCheckoutParams } = await charger();
-    const gift = cadeau(false);
+    const gift = cadeau();
     const p = buildCheckoutParams({ ...BASE, gift });
     expect(p.mode).toBe("subscription");
     expect(p.subscription_data?.trial_end).toBe(Math.floor(gift.endsAt.getTime() / 1000));
@@ -390,22 +389,19 @@ describe("buildCheckoutParams — accès offert", () => {
     expect(p.line_items).toEqual([{ price: "price_mensuel", quantity: 1 }]);
   });
 
-  it("sans carte demandée, la caisse ne réclame aucun moyen de paiement", async () => {
+  it("la caisse d'un accès offert ne réclame jamais de moyen de paiement", async () => {
     const { buildCheckoutParams } = await charger();
-    expect(buildCheckoutParams({ ...BASE, gift: cadeau(false) }).payment_method_collection).toBe(
+    expect(buildCheckoutParams({ ...BASE, gift: cadeau() }).payment_method_collection).toBe(
       "if_required",
     );
-  });
-
-  it("avec carte demandée, la caisse garde le comportement par défaut (carte exigée)", async () => {
-    const { buildCheckoutParams } = await charger();
-    const p = buildCheckoutParams({ ...BASE, gift: cadeau(true) });
-    expect(p.payment_method_collection).toBeUndefined();
+    expect(
+      buildCheckoutParams({ ...BASE, plan: "ANNUAL", gift: cadeau() }).payment_method_collection,
+    ).toBe("if_required");
   });
 
   it("porte l'invitation en métadonnée, seul sésame d'une session gratuite", async () => {
     const { buildCheckoutParams } = await charger();
-    const gift = cadeau(false);
+    const gift = cadeau();
     const p = buildCheckoutParams({ ...BASE, gift });
     expect(p.metadata?.gift_invitation).toBe(gift.invitationId);
     expect(p.subscription_data?.metadata?.gift_invitation).toBe(gift.invitationId);
@@ -422,30 +418,29 @@ describe("buildCheckoutParams — accès offert", () => {
   it("refuse un accès offert réglé en plusieurs fois", async () => {
     const { buildCheckoutParams } = await charger();
     expect(() =>
-      buildCheckoutParams({ ...BASE, plan: "ANNUAL", instalments: [9936, 9936, 9936], gift: cadeau(false) }),
+      buildCheckoutParams({ ...BASE, plan: "ANNUAL", instalments: [9936, 9936, 9936], gift: cadeau() }),
     ).toThrow(/plusieurs fois/);
   });
 
   it("refuse une fin trop proche ou absurde (Stripe exige 48 h, une faute de frappe offrirait des années)", async () => {
     const { buildCheckoutParams } = await charger();
     expect(() =>
-      buildCheckoutParams({ ...BASE, gift: { ...cadeau(false), endsAt: new Date(Date.now() + 86_400_000) } }),
+      buildCheckoutParams({ ...BASE, gift: { ...cadeau(), endsAt: new Date(Date.now() + 86_400_000) } }),
     ).toThrow(/hors bornes/);
     expect(() =>
-      buildCheckoutParams({ ...BASE, gift: { ...cadeau(false), endsAt: new Date(Date.now() + 900 * 86_400_000) } }),
+      buildCheckoutParams({ ...BASE, gift: { ...cadeau(), endsAt: new Date(Date.now() + 900 * 86_400_000) } }),
     ).toThrow(/hors bornes/);
   });
 
-  it("dit sous le bouton ce qui se passe à la fin, selon le cas", async () => {
+  it("dit sous le bouton que rien n'est prélevé et qu'aucune carte n'est demandée", async () => {
     const { giftCheckoutMessage } = await charger();
-    const endsAt = new Date("2027-03-26T10:00:00Z");
-    const sans = giftCheckoutMessage({ months: 6, endsAt, requireCard: false }, "29,88 € TTC par mois");
-    const avec = giftCheckoutMessage({ months: 6, endsAt, requireCard: true }, "29,88 € TTC par mois");
-    expect(sans).toContain("26 mars 2027");
-    expect(sans).toContain("Aucun moyen de paiement");
-    expect(sans).not.toContain("29,88");
-    expect(avec).toContain("29,88 € TTC par mois");
+    const m = giftCheckoutMessage({ months: 6, endsAt: new Date("2027-03-26T10:00:00Z") });
+    expect(m).toContain("26 mars 2027");
+    expect(m).toContain("Rien n'est prélevé");
+    expect(m).toContain("aucun moyen de paiement n'est demandé");
+    expect(m).not.toMatch(/carte|29,88/);
+    expect(m).not.toContain("—");
     // La caisse Stripe plafonne ce texte à 1 200 caractères.
-    expect(avec.length).toBeLessThan(1200);
+    expect(m.length).toBeLessThan(1200);
   });
 });

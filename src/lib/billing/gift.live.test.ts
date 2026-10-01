@@ -9,8 +9,8 @@ import type Stripe from "stripe";
    que Stripe en FAIT. Tout le montage repose sur trois comportements que rien
    dans notre code ne garantit :
 
-     1. la caisse accepte nos paramètres (essai jusqu'à une date, carte
-        facultative, résiliation faute de carte, taux de TVA) ;
+     1. la caisse accepte nos paramètres (essai jusqu'à une date, aucune carte
+        demandée, résiliation faute de carte, taux de TVA) ;
      2. SANS carte, rien n'est jamais prélevé, et l'abonnement est RÉSILIÉ à la
         fin de l'essai (c'est ce qui fait passer le logiciel en lecture seule) ;
      3. AVEC une carte enregistrée pendant l'essai, comme le fait le portail
@@ -62,7 +62,7 @@ async function avancer(s: Stripe, horloge: string, jusqua: number): Promise<void
 
 describe.skipIf(!live)("accès offert — Stripe d'essai", () => {
   it(
-    "la caisse accepte les paramètres d'un accès offert, avec et sans carte",
+    "la caisse accepte les paramètres d'un accès offert, sans carte demandée",
     { timeout: 60_000 },
     async () => {
       process.env.STRIPE_MODE = "test";
@@ -77,10 +77,10 @@ describe.skipIf(!live)("accès offert — Stripe d'essai", () => {
         address: { line1: "1 rue du Test", postal_code: "75001", city: "Paris", country: "FR" },
       });
       try {
-        for (const requireCard of [false, true]) {
+        for (const plan of ["MONTHLY", "ANNUAL"] as const) {
           const params = buildCheckoutParams({
             reference: `MPGIFT${Date.now().toString(36).toUpperCase().slice(-6)}`,
-            plan: "MONTHLY",
+            plan,
             extraCollaborators: 1,
             customerId: client.id,
             successPath: "/inscription/confirmation",
@@ -90,12 +90,11 @@ describe.skipIf(!live)("accès offert — Stripe d'essai", () => {
               invitationId: "00000000-0000-4000-8000-000000000000",
               months: 6,
               endsAt: addGiftMonths(new Date(), 6),
-              requireCard,
             },
           });
           const session = await s.checkout.sessions.create(params);
           expect(session.url).toBeTruthy();
-          expect(session.payment_method_collection).toBe(requireCard ? "always" : "if_required");
+          expect(session.payment_method_collection).toBe("if_required");
           /* Rien à payer aujourd'hui, collaborateur compris. */
           expect(session.amount_total).toBe(0);
           await s.checkout.sessions.expire(session.id);

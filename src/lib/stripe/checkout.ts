@@ -3,12 +3,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/env";
 import { siteUrl } from "@/lib/http/site-url";
-import {
-  MAX_EXTRA_COLLABORATORS,
-  checkoutAmountCents,
-  formatEuros,
-  type BillingPlan,
-} from "@/lib/checkout/pricing";
+import { MAX_EXTRA_COLLABORATORS, type BillingPlan } from "@/lib/checkout/pricing";
 
 /* ============================================================
    Ouverture d'une session de paiement Stripe.
@@ -58,16 +53,14 @@ export type CheckoutInput = {
    */
   instalments?: number[];
   /**
-   * Accès offert : rien n'est prélevé avant `endsAt`. Porté par une invitation
-   * du back-office, jamais par un choix du navigateur.
+   * Accès offert : aucune carte demandée, rien n'est prélevé avant `endsAt`.
+   * Porté par une invitation du back-office, jamais par un choix du navigateur.
    */
   gift?: {
     invitationId: string;
     months: number;
     /** Fin de la période offerte : la date du premier prélèvement éventuel. */
     endsAt: Date;
-    /** Carte exigée dès l'inscription, et donc abonnement qui démarre seul. */
-    requireCard: boolean;
   };
 };
 
@@ -84,20 +77,14 @@ function frDate(date: Date): string {
 /**
  * Ce que le praticien lit sous le bouton de la caisse, pour un accès offert.
  *
- * Exporté pour être testé : c'est la phrase qui engage, et elle ne dit pas la
- * même chose selon qu'une carte est demandée ou non.
+ * Exporté pour être testé : c'est la phrase qui engage. Stripe affiche juste
+ * au-dessus « Puis 29,88 € par mois à partir du… », ligne qu'on ne peut pas
+ * retirer d'une page d'essai : sans cette phrase, l'invité croirait qu'on va
+ * le prélever.
  */
-export function giftCheckoutMessage(gift: {
-  months: number;
-  endsAt: Date;
-  requireCard: boolean;
-}, renewalLabel: string): string {
+export function giftCheckoutMessage(gift: { months: number; endsAt: Date }): string {
   const fin = frDate(gift.endsAt);
-  const debut = `Rien n'est prélevé aujourd'hui : votre accès est offert pendant ${gift.months} mois, jusqu'au ${fin}.`;
-  const suite = gift.requireCard
-    ? ` Votre abonnement démarre ensuite sur cette carte, pour ${renewalLabel}, sauf si vous l'arrêtez avant depuis votre espace abonnement.`
-    : " Aucun moyen de paiement n'est demandé. À cette date, vous pourrez vous abonner pour continuer ; sans abonnement, vos dossiers resteront consultables et exportables.";
-  return `${debut}${suite} Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS.`;
+  return `Rien n'est prélevé : votre accès est offert pendant ${gift.months} mois, jusqu'au ${fin}, et aucun moyen de paiement n'est demandé. À cette date, vous pourrez vous abonner pour continuer ; sans abonnement, vos dossiers resteront consultables et exportables. Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS.`;
 }
 
 /**
@@ -347,22 +334,16 @@ export function buildCheckoutParams(
     custom_text: {
       submit: {
         message: cadeau
-          ? giftCheckoutMessage(
-              cadeau,
-              `${formatEuros(checkoutAmountCents(input.plan, input.extraCollaborators))} TTC ${
-                annuel ? "par an" : "par mois"
-              }`,
-            )
+          ? giftCheckoutMessage(cadeau)
           : "Vos données de santé sont hébergées en France, chez un hébergeur agréé HDS. Vous pouvez arrêter la reconduction à tout moment depuis votre espace abonnement : votre accès reste ouvert jusqu'au terme de la période réglée.",
       },
     },
-    /* ACCÈS OFFERT SANS CARTE : la caisse ne demande rien. Par défaut, Stripe
-       exige un moyen de paiement même quand rien n'est dû ; `if_required` le
-       dispense tant que la période offerte ne coûte rien. Avec carte, on garde
-       le défaut (`always`) : c'est elle qui fera démarrer l'abonnement. */
-    ...(cadeau && !cadeau.requireCard
-      ? { payment_method_collection: "if_required" as const }
-      : {}),
+    /* ACCÈS OFFERT : la caisse ne demande aucune carte. Par défaut, Stripe
+       exige un moyen de paiement même quand rien n'est dû ; `if_required` l'en
+       dispense tant que la période offerte ne coûte rien. Vérifié en capture
+       le 01/10/2026 : la page n'affiche que l'adresse et « Démarrer la période
+       d'essai ». */
+    ...(cadeau ? { payment_method_collection: "if_required" as const } : {}),
     subscription_data: {
       metadata,
       /* Stripe n'a pas de taux par défaut au niveau du compte : il doit être

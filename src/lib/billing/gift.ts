@@ -31,7 +31,6 @@ export type GiftInvitation = {
   email: string;
   months: number;
   reason: string;
-  require_card: boolean;
   expires_at: string;
   status: GiftInvitationStatus;
   pending_signup_id: string | null;
@@ -45,8 +44,11 @@ export type GiftInvitation = {
   created_at: string;
 };
 
+/* `require_card` n'est plus lu : l'accès offert ne demande jamais de carte
+   (décision du 01/10/2026). La colonne reste en base, toujours à `false` pour
+   les nouvelles invitations, comme trace des premières. */
 export const GIFT_INVITATION_COLUMNS =
-  "id, email, months, reason, require_card, expires_at, status, pending_signup_id, subscription_id, app_cabinet_id, claimed_at, revoked_at, sent_count, last_sent_at, created_by_email, created_at";
+  "id, email, months, reason, expires_at, status, pending_signup_id, subscription_id, app_cabinet_id, claimed_at, revoked_at, sent_count, last_sent_at, created_by_email, created_at";
 
 /* ------------------------------------------------------------
    Jeton et dates.
@@ -105,14 +107,12 @@ export type GiftDraft = {
   email: string;
   months: number;
   reason: string;
-  requireCard: boolean;
 };
 
 export function parseGiftDraft(input: {
   email: unknown;
   months: unknown;
   reason: unknown;
-  requireCard: unknown;
 }): { ok: true; draft: GiftDraft } | { ok: false; field: string; error: string } {
   const email = String(input.email ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 180) {
@@ -134,19 +134,7 @@ export function parseGiftDraft(input: {
       error: "Indiquez le motif en quelques mots (200 caractères au plus).",
     };
   }
-  /* Pas de valeur par défaut, volontairement : c'est ce choix qui décide si le
-     bénéficiaire sera prélevé à l'échéance. Il doit être fait en conscience. */
-  if (input.requireCard !== "yes" && input.requireCard !== "no") {
-    return {
-      ok: false,
-      field: "requireCard",
-      error: "Indiquez ce qui se passe à la fin de la période offerte.",
-    };
-  }
-  return {
-    ok: true,
-    draft: { email, months, reason, requireCard: input.requireCard === "yes" },
-  };
+  return { ok: true, draft: { email, months, reason } };
 }
 
 /* ------------------------------------------------------------
