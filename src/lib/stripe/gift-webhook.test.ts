@@ -83,6 +83,55 @@ describe("factsFromCompletedSession — accès offert", () => {
     });
   });
 
+  /* Le cas réel : en production, Stripe déclare « paid » la caisse d'un essai à
+     0 €. Lue comme payée, la session perdait son invitation et le dossier était
+     écarté : trois accès offerts sans compte le 30/09/2026. */
+  it("accepte une session offerte que Stripe déclare « paid » à 0 €", async () => {
+    const { factsFromCompletedSession } = await import("@/lib/stripe/webhook");
+    const r = await factsFromCompletedSession(
+      evenement({
+        payment_status: "paid",
+        amount_total: 0,
+        metadata: { gift_invitation: "inv_1", reference: "MPABCDEFGH12" },
+      }),
+    );
+    expect(r).toMatchObject({
+      ok: true,
+      amountCents: 0,
+      giftInvitationId: "inv_1",
+      stripe: { subscriptionId: "sub_test", customerId: "cus_test" },
+    });
+  });
+
+  it("refuse une session « paid » à 0 € portant une invitation, abonnement hors essai", async () => {
+    statutAbonnement.value = "active";
+    const { factsFromCompletedSession } = await import("@/lib/stripe/webhook");
+    const r = await factsFromCompletedSession(
+      evenement({
+        payment_status: "paid",
+        amount_total: 0,
+        metadata: { gift_invitation: "inv_1" },
+      }),
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("une invitation sur une session réellement payée n'en fait pas un accès offert", async () => {
+    statutAbonnement.value = "active";
+    const { factsFromCompletedSession } = await import("@/lib/stripe/webhook");
+    const r = await factsFromCompletedSession(
+      evenement({
+        payment_status: "paid",
+        amount_total: 2988,
+        metadata: { gift_invitation: "inv_1" },
+      }),
+    );
+    /* Acceptée comme un paiement, SANS invitation : c'est le dossier qui
+       constate alors l'incohérence et alerte, au lieu d'ouvrir un essai. */
+    expect(r).toMatchObject({ ok: true, amountCents: 2988 });
+    expect(r.ok && "giftInvitationId" in r ? r.giftInvitationId : undefined).toBeUndefined();
+  });
+
   it("refuse une session « offerte » dont l'abonnement n'est PAS en essai", async () => {
     statutAbonnement.value = "active";
     const { factsFromCompletedSession } = await import("@/lib/stripe/webhook");

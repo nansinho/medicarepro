@@ -222,17 +222,27 @@ export async function factsFromCompletedSession(
      attente, prélèvement SEPA en cours de traitement. On ne crée un contrat que
      sur un paiement effectif.
 
-     UNE SEULE EXCEPTION, L'ACCÈS OFFERT : la session ne coûte rien
-     (`no_payment_required`) parce que l'abonnement s'ouvre en période d'essai.
-     Elle n'est acceptée que si elle porte l'invitation que NOTRE serveur a
-     posée en métadonnée (le navigateur n'a aucune prise sur la session), et
-     l'abonnement relu plus bas doit être en essai. Sans cette double garde,
-     n'importe quelle session gratuite ouvrirait un compte. */
+     UNE SEULE EXCEPTION, L'ACCÈS OFFERT : la session ne coûte rien parce que
+     l'abonnement s'ouvre en période d'essai. Elle n'est acceptée que si elle
+     porte l'invitation que NOTRE serveur a posée en métadonnée (le navigateur
+     n'a aucune prise sur la session), et l'abonnement relu plus bas doit être
+     en essai. Sans cette double garde, n'importe quelle session gratuite
+     ouvrirait un compte.
+
+     STRIPE NE DIT PAS `no_payment_required` POUR UN ESSAI. La documentation le
+     laisse attendre, mais en réel la caisse d'un essai à 0 € revient « paid » :
+     la première facture, nulle, est réputée réglée. Le 30/09/2026, les trois
+     premiers accès offerts réels sont passés ainsi : la session était lue comme
+     PAYÉE, donc sans invitation, et le dossier, qui en attendait une, était
+     écarté comme incohérent. Aucun compte créé, le praticien ne pouvait pas se
+     connecter. On reconnaît donc l'accès offert à ce qui le définit vraiment :
+     notre invitation, et rien à régler. */
   const invitationCadeau = session.metadata?.gift_invitation ?? null;
+  const rienARegler =
+    session.payment_status === "no_payment_required" ||
+    (session.payment_status === "paid" && session.amount_total === 0);
   const offert =
-    session.payment_status === "no_payment_required" &&
-    session.mode === "subscription" &&
-    Boolean(invitationCadeau);
+    rienARegler && session.mode === "subscription" && Boolean(invitationCadeau);
   if (session.payment_status !== "paid" && !offert) {
     return {
       ok: false,
