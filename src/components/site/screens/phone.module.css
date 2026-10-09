@@ -5,10 +5,38 @@
 }
 .phone {
   --p: calc(100cqw / 180);
+  --hair: 1px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   border-radius: calc(26 * var(--p));
   background: #1b2233;
   padding: calc(6 * var(--p));
   box-shadow: 0 24px 40px -20px rgba(20, 27, 52, 0.5);
+}
+/* Même réduction que l'écran de l'ordinateur (voir screens.module.css) :
+   le téléphone est mis en page à 180 × 210px puis réduit d'un bloc, pour
+   que les WebView Android ne remontent pas ses petites polices à 8px.
+   .box prend la hauteur réduite via ses proportions. */
+@supports (width: calc(1px * tan(atan2(1px, 1px)))) {
+  .box {
+    position: relative;
+    aspect-ratio: 180 / 210;
+  }
+  .phone {
+    --s: tan(atan2(100cqw, 180px));
+    --p: 1px;
+    --hair: max(1px, calc(1px / var(--s)));
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 180px;
+    height: 210px;
+    transform: scale(var(--s));
+    transform-origin: 0 0;
+  }
+  .screen {
+    height: 100%;
+  }
 }
 .screen {
   border-radius: calc(21 * var(--p));
@@ -44,7 +72,7 @@
   background: #fff;
   border-radius: calc(9 * var(--p));
   padding: calc(6 * var(--p)) calc(8 * var(--p));
-  border: 1px solid #e8eef6;
+  border: var(--hair) solid #e8eef6;
 }
 .card small {
   display: block;
