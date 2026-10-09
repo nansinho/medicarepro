@@ -480,9 +480,12 @@ h1.sec-title {
     transition: opacity 0.8s var(--ease), transform 0.85s var(--ease);
     will-change: opacity, transform;
   }
+  /* Apparu : on rend le calque, sinon chaque bloc déjà vu reste promu
+     et alourdit le défilement des pages longues. */
   [data-rv].in {
     opacity: 1;
     transform: none;
+    will-change: auto;
   }
   [data-rv="scale"] {
     transform: translateY(30px) scale(0.93);

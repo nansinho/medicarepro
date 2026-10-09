@@ -96,16 +96,15 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.97);
-  -webkit-backdrop-filter: saturate(180%) blur(14px);
-  backdrop-filter: saturate(180%) blur(14px);
+  /* Fond plein, sans backdrop-filter : à 92-97 % d'opacité le flou ne se
+     voyait pas, mais il était recalculé à chaque image du défilement. */
+  background: #fff;
   box-shadow: 0 1px 0 var(--site-line);
   transition:
     box-shadow 0.3s,
     background-color 0.3s;
 }
 .hdr.scrolled {
-  background: rgba(255, 255, 255, 0.92);
   box-shadow:
     0 1px 0 var(--site-line),
     0 14px 32px -22px rgba(20, 27, 52, 0.38);
