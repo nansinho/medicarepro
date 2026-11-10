@@ -37,7 +37,9 @@ export type GiftRowState =
   | { ok: false; error: string }
   | null;
 
-export const EMISSION_FERMEE =
+/* Pas d'export : un fichier « use server » n'exporte que des fonctions
+   asynchrones, tout autre export fait échouer le build. */
+const EMISSION_FERMEE =
   "Les accès offerts se créent désormais dans le logiciel, depuis sa console d'administration (Facturation › Accès offerts). Cet écran ne sert plus qu'à suivre les invitations déjà envoyées.";
 
 /* Domaine public même quand l'invitation part d'un poste de développement :
