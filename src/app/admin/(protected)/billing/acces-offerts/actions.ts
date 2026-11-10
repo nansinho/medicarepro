@@ -5,6 +5,7 @@ import { ActionError, requireAdminService } from "@/lib/admin/guards";
 import { logAudit } from "@/lib/audit";
 import { sendMail } from "@/lib/email";
 import { emailLinkUrl } from "@/lib/http/site-url";
+import { inscriptionDansApp } from "@/lib/inscription-dans-app";
 import { checkAvailability } from "@/lib/provisioning";
 import {
   giftLinkExpiry,
@@ -35,6 +36,9 @@ export type GiftRowState =
   | { ok: true; message: string; link?: string }
   | { ok: false; error: string }
   | null;
+
+export const EMISSION_FERMEE =
+  "Les accès offerts se créent désormais dans le logiciel, depuis sa console d'administration (Facturation › Accès offerts). Cet écran ne sert plus qu'à suivre les invitations déjà envoyées.";
 
 /* Domaine public même quand l'invitation part d'un poste de développement :
    le bénéficiaire ouvre le lien chez lui (voir lib/http/site-url). */
@@ -85,6 +89,13 @@ export async function creerInvitation(
 ): Promise<GiftFormState> {
   try {
     const { staff, service } = await requireAdminService();
+
+    /* Les accès offerts se créent dans le logiciel depuis la bascule
+       (INSCRIPTION_DANS_APP) : l'écran n'affiche plus le formulaire, mais une
+       action serveur s'appelle aussi sans lui. */
+    if (inscriptionDansApp()) {
+      return { ok: false, error: EMISSION_FERMEE };
+    }
 
     const parsed = parseGiftDraft({
       email: formData.get("email"),

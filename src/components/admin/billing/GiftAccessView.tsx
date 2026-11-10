@@ -1,4 +1,4 @@
-import { Gift } from "lucide-react";
+import { ArrowUpRight, Gift } from "lucide-react";
 import {
   GIFT_STATE_LABELS,
   type GiftDisplayState,
@@ -46,7 +46,18 @@ const dateFmt = new Intl.DateTimeFormat("fr-FR", {
 });
 const fmt = (v: string | null) => (v ? dateFmt.format(new Date(v)) : "—");
 
-export default function GiftAccessView({ lignes }: { lignes: GiftLigne[] }) {
+export default function GiftAccessView({
+  lignes,
+  emissionFermee = false,
+  consoleAppUrl,
+}: {
+  lignes: GiftLigne[];
+  /** Depuis la bascule (INSCRIPTION_DANS_APP), les accès offerts se créent
+      dans le logiciel : plus de formulaire ici, seulement le suivi. */
+  emissionFermee?: boolean;
+  /** Console du logiciel où l'on crée désormais un accès offert. */
+  consoleAppUrl?: string;
+}) {
   const compte = (etat: GiftDisplayState) => lignes.filter((l) => l.etat === etat).length;
   const enAttente = compte("pending");
   const enCours = compte("active") + compte("opening");
@@ -118,12 +129,40 @@ export default function GiftAccessView({ lignes }: { lignes: GiftLigne[] }) {
           </>
         }
       >
-        <Card>
-          <CardHeader>
-            <CardTitle>Nouvelle invitation</CardTitle>
-          </CardHeader>
-          <GiftInviteForm />
-        </Card>
+        {emissionFermee ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Les accès offerts se créent dans le logiciel</CardTitle>
+            </CardHeader>
+            <div className="flex flex-col gap-4 p-5 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                Depuis la bascule, un accès offert se crée directement dans la
+                console du logiciel (Facturation › Accès offerts) : le compte y
+                naît tout de suite, sans passer par le tunnel de la vitrine. Cet
+                écran ne sert plus qu&apos;à suivre les invitations envoyées avant,
+                qui restent valables jusqu&apos;à leur terme.
+              </p>
+              {consoleAppUrl && (
+                <a
+                  href={consoleAppUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                >
+                  Ouvrir la console du logiciel
+                  <ArrowUpRight className="size-4" aria-hidden="true" />
+                </a>
+              )}
+            </div>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Nouvelle invitation</CardTitle>
+            </CardHeader>
+            <GiftInviteForm />
+          </Card>
+        )}
 
         <Card className="overflow-clip">
           <CardHeader>
@@ -197,7 +236,11 @@ export default function GiftAccessView({ lignes }: { lignes: GiftLigne[] }) {
               <EmptyState
                 icon={Gift}
                 title="Aucune invitation"
-                description="La première invitation envoyée ci-dessus apparaîtra ici, avec son suivi jusqu'à l'abonnement."
+                description={
+                  emissionFermee
+                    ? "Aucune invitation envoyée depuis la vitrine n'est en cours. Les nouveaux accès offerts se suivent dans la console du logiciel."
+                    : "La première invitation envoyée ci-dessus apparaîtra ici, avec son suivi jusqu'à l'abonnement."
+                }
               />
             }
             footer={

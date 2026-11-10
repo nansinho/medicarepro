@@ -28,6 +28,9 @@ Voir [`.env.example`](.env.example). Principales :
 
 - `NEXT_PUBLIC_APP_URL` — URL du logiciel SaaS (`https://app.medicarepro.fr`) vers lequel la vitrine
   redirige l'inscription / la connexion.
+- `INSCRIPTION_DANS_APP` — `true` quand le logiciel gère lui-même inscription, paiement et accès
+  offerts : la vitrine ne fait plus que renvoyer vers lui (voir
+  [`docs/inscription-dans-l-app.md`](docs/inscription-dans-l-app.md)).
 - *(à venir)* `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Scripts

@@ -9,6 +9,8 @@ import {
 import { PageHeader, PageStack } from "@/components/admin/kit/layout";
 import { NotConfigured } from "@/components/admin/kit/states";
 import GiftAccessView from "@/components/admin/billing/GiftAccessView";
+import { inscriptionDansApp } from "@/lib/inscription-dans-app";
+import { env } from "@/lib/env";
 
 /* ============================================================
    Accès offerts.
@@ -85,5 +87,13 @@ export default async function AccesOffertsPage() {
     return { invitation, contrat, etat: giftDisplayState(invitation, faits, now) };
   });
 
-  return <GiftAccessView lignes={lignes} />;
+  /* Depuis la bascule, l'émission se fait dans la console du logiciel : on le
+     dit ici, avec le lien, et on garde le suivi des invitations déjà parties. */
+  return (
+    <GiftAccessView
+      lignes={lignes}
+      emissionFermee={inscriptionDansApp()}
+      consoleAppUrl={`${env().NEXT_PUBLIC_APP_URL}/admin/acces-offerts`}
+    />
+  );
 }

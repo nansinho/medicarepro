@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { canCollectPayment, paymentProvider, billingEnv } from "@/lib/env";
+import { inscriptionDansApp } from "@/lib/inscription-dans-app";
+import { appRegisterUrl } from "@/lib/appLinks";
 import {
   planFromPlanKey,
   monthlyPriceCents,
@@ -39,6 +42,18 @@ export default async function InscriptionPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const sp = await searchParams;
+
+  /* L'INSCRIPTION SE FAIT DANS LE LOGICIEL (interrupteur INSCRIPTION_DANS_APP).
+     Un visiteur arrivé ici par un vieux lien, un favori ou un moteur de
+     recherche est renvoyé au bon tunnel, formule comprise. Seules les
+     invitations d'accès offert déjà émises continuent d'ouvrir cette page :
+     leur lien a été envoyé par email et reste valable 60 jours. */
+  if (inscriptionDansApp() && typeof sp.invitation !== "string") {
+    const plan = sp.plan === "monthly" || sp.plan === "annual" ? sp.plan : undefined;
+    redirect(appRegisterUrl(plan));
+  }
+
   // Tunnel fermé : le layout affiche déjà l'écran d'indisponibilité.
   if (!canCollectPayment()) return null;
 
@@ -54,7 +69,6 @@ export default async function InscriptionPage({
   const annualEnabled =
     parStripe || checkoutPlans === "all" || checkoutPlans === "annual";
 
-  const sp = await searchParams;
   /* Sans plan explicite, on ouvre sur la formule vendable — les CTA du site
      pointent majoritairement vers ?plan=annual, qui doit rester atterrissable
      même quand l'annuel est fermé. */

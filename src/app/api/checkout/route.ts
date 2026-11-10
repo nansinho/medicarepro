@@ -2,6 +2,8 @@ import { type NextRequest } from "next/server";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { billingEnv, canCollectPayment } from "@/lib/env";
+import { inscriptionDansApp } from "@/lib/inscription-dans-app";
+import { appRegisterUrl } from "@/lib/appLinks";
 import { serviceClient } from "@/lib/supabase/service";
 import { encryptSecret } from "@/lib/crypto";
 import { createSubscriptionCheckout } from "@/lib/stripe/checkout";
@@ -185,6 +187,23 @@ export async function POST(request: NextRequest) {
     );
   }
   const input = parsed.data;
+
+  /* L'INSCRIPTION SE FAIT DANS LE LOGICIEL (interrupteur INSCRIPTION_DANS_APP).
+     La page /inscription redirige déjà, mais un onglet ouvert avant la bascule
+     peut encore poster ici : on refuse le nouveau dossier payant et on dit où
+     aller. Les invitations d'accès offert déjà émises passent, leur bénéficiaire
+     tient un lien valable 60 jours qu'on ne va pas lui reprendre. */
+  if (inscriptionDansApp() && !input.invitation) {
+    return Response.json(
+      {
+        error: `L'inscription se fait désormais directement dans le logiciel : ${appRegisterUrl(
+          input.plan === "MONTHLY" ? "monthly" : "annual",
+        )}`,
+      },
+      { status: 410 },
+    );
+  }
+
   const billing = billingEnv();
 
   // Anti-bot : jeton Turnstile vérifié côté Cloudflare (fail-closed).
