@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
    Un seul niveau, volontairement. L'app praticien pose un rail navy
    pleine hauteur devant son panneau parce qu'elle compte une dizaine
-   de sections ; ici il y en a quatre, et seulement deux pour un rôle
+   de sections ; ici il y en a trois, et seulement deux pour un rôle
    éditeur. Un rail pleine hauteur portant deux icônes recréerait
    exactement le vide que le back office devait perdre. Les icônes de
    section existent malgré tout dans nav.ts : basculer sur deux niveaux

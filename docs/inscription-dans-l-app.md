@@ -17,10 +17,9 @@ D'où un interrupteur plutôt qu'une suppression : `INSCRIPTION_DANS_APP`.
 | Boutons « S'inscrire » du site, CTA du contenu CMS (`app:register*`), page tarifs | `/inscription?plan=…` | `NEXT_PUBLIC_APP_URL/register?plan=monthly|annual` |
 | Page `/inscription` sans `?invitation=` | tunnel de la vitrine | redirection vers l'application, formule conservée |
 | `POST /api/checkout` sans invitation | ouvre un dossier payant | `410` avec l'adresse du nouveau tunnel |
-| Back-office › Facturation › Accès offerts | formulaire « Nouvelle invitation » | encart « se crée dans le logiciel » + lien vers sa console ; l'action serveur refuse aussi |
 
 Code : `src/lib/inscription-dans-app.ts` (lecture de la variable), `src/lib/appLinks.ts`
-(`registerUrl`, `appRegisterUrl`, `vitrineRegisterUrl`), et les quatre points ci-dessus.
+(`registerUrl`, `appRegisterUrl`, `vitrineRegisterUrl`), et les trois points ci-dessus.
 
 ## Ce qui continue, volontairement
 
@@ -28,7 +27,7 @@ Des praticiens sont au milieu du chemin. Ces parcours restent ouverts et s'étei
 d'eux-mêmes :
 
 - les invitations d'accès offert déjà envoyées (lien valable 60 jours) : `/inscription?invitation=…`
-  et `POST /api/checkout` avec jeton passent, « Renvoyer » et « Retirer » restent possibles ;
+  et `POST /api/checkout` avec jeton passent (plus d'écran pour les renvoyer ou les retirer) ;
 - la reprise de paiement d'un dossier existant (`POST /api/checkout/retry`) ;
 - la souscription depuis l'espace client d'un cabinet encore suivi par la vitrine
   (`POST /api/portal/subscribe`), typiquement à la fin d'une période offerte ;
@@ -39,6 +38,19 @@ Le retrait de tout le code de facturation de la vitrine (tables, crons, webhook,
 est un chantier séparé, à ouvrir quand ces parcours sont éteints et que le report des
 contrats dans l'application a été vérifié.
 
+## Le back-office ne porte plus la facturation
+
+Depuis le 11 novembre 2026, la section « Facturation » du back-office de la vitrine
+(tableau de bord, abonnements, souscriptions, accès offerts, incidents, mandats, factures,
+synchro) est retirée. Le back-office se limite au site : contenu, pages, actualités,
+collections, médias, demandes de contact, référencement, villes, utilisateurs, réglages,
+journal d'audit. `/admin` mène au cockpit de contenu. Abonnements et accès offerts se suivent
+dans la console du logiciel.
+
+Seuls les écrans sont partis. Le code serveur de facturation (routes, crons, webhook Stripe,
+tables) tourne toujours pour les parcours engagés, sans écran pour les suivre côté vitrine :
+les alertes continuent d'arriver par email (`BILLING_ALERTS_TO`).
+
 ## Le jour de la bascule
 
 1. Vérifier que l'application est en ligne avec le nouveau tunnel :
@@ -48,8 +60,7 @@ contrats dans l'application a été vérifié.
 2. Poser `INSCRIPTION_DANS_APP=true` dans Coolify et déployer la vitrine
    (`bash .claude/deploy-coolify.sh`).
 3. Contrôler : un bouton « S'inscrire » du site mène à `app.medicarepro.fr/register?plan=…` ;
-   `https://medicarepro.fr/inscription` redirige ; le back-office n'affiche plus le formulaire
-   d'accès offert mais liste toujours les invitations.
+   `https://medicarepro.fr/inscription` redirige.
 4. Prévenir l'équipe : les accès offerts se créent désormais dans la console de l'application.
 
 Retour arrière : `INSCRIPTION_DANS_APP=false` et redéploiement. Rien n'est détruit par la

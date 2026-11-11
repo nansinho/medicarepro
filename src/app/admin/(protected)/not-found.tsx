@@ -14,7 +14,7 @@ export default function AdminNotFound() {
         description="Elle a peut-être été supprimée, ou le lien qui vous a amené ici est périmé."
         action={
           <Button asChild size="sm">
-            <Link href="/admin">Retour au tableau de bord</Link>
+            <Link href="/admin/contenu">Retour au contenu du site</Link>
           </Button>
         }
       />
